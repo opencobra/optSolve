@@ -1,9 +1,9 @@
 # Human Loop State
 
 ## Current State
-- Status: slice 2: T055–T057 done; T058 waits for a commit authorisation; awaiting Gate 3
+- Status: closed (Gate 3 accept and close, 2026-11-14); integrated into devel
 - Active feature directory: specs/001-core-gurobi-lp
-- Last completed bundle: Bundle 3 (approved implementation)
+- Last completed bundle: Bundle 4 (verification and closeout)
 - Source code modified by this workflow: yes (implementation cycle 1)
 
 ## Core Command Ledger
@@ -102,3 +102,9 @@ Knowledge promotion (Governance, "Project Knowledge Lives In The Repository"): c
 recorded for the maintainer — (1) the fact that only iDopaNeuroC_problem_1 is a flux-balance LP
 (currently research R18, feature-level; promote to docs/ if other features use the corpus);
 (2) no new rule for the constitution. Decision pending.
+
+T058 (2026-11-14): fixture re-extracted after commit b2e7732; provenance now names that commit
+with a clean worktree; MPS SHA-256 unchanged; licensed tier passed (27, 44, 37, 2, 3).
+
+Integration: devel fast-forwarded to the feature branch tip; working branch switched to devel;
+feature branch 001-core-gurobi-lp kept. No remotes exist, so nothing was published.

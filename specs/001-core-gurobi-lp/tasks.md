@@ -175,7 +175,7 @@ call, so SC-005 can be judged directly (benchmark-results.md: currently not esta
 - [X] T055 [US4] In `src/gurobi/load.rs`, time the vendor calls (`GRBXloadmodel`, `GRBXaddvars`, `GRBupdatemodel`) separately from optSolver's own work (index conversion, sense and infinity mapping, auxiliary columns), and expose both durations through the doc-hidden `LoadReport` (no change to the public `Timings`)
 - [X] T056 [US4] In `benches/load_solve.rs`, time `Problem::new` validation in the timing child, add the load split from T055 to each record (refusing records without it, T047 rule), and judge SC-005 as (validation + optSolver's load work + extraction + verification) ÷ solve, reporting Gurobi's load time separately
 - [X] T057 [US4] Re-run the benchmark (N = 5, both index types) and update `specs/001-core-gurobi-lp/benchmark-results.md` with SC-005 established or not, stating N and scope
-- [ ] T058 After the maintainer authorises a commit, re-run the fixture extraction so each provenance record names a clean optSolver commit; confirm the MPS SHA-256 values are unchanged and the full test suite still passes
+- [X] T058 After the maintainer authorises a commit, re-run the fixture extraction so each provenance record names a clean optSolver commit; confirm the MPS SHA-256 values are unchanged and the full test suite still passes
 
 ---
 
