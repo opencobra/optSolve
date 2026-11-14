@@ -1,0 +1,18 @@
+# Summary
+
+- [Introduction](./introduction.md)
+- [Glossary](./glossary.md)
+- [Data layout](./layout.md)
+  - [Structs and tuples](./layout/structs-and-tuples.md)
+  - [Scalars](./layout/scalars.md)
+  - [Enums](./layout/enums.md)
+  - [Unions](./layout/unions.md)
+  - [Pointers](./layout/pointers.md)
+  - [Function pointers](./layout/function-pointers.md)
+  - [Arrays and Slices](./layout/arrays-and-slices.md)
+  - [Packed SIMD vectors](./layout/packed-simd-vectors.md)
+- [Validity](./validity.md)
+  - [Unions](./validity/unions.md)
+  - [Function Pointers](./validity/function-pointers.md)
+- [Optimizations](./optimizations.md)
+  - [Return value optimization](./optimizations/return_value_optimization.md)

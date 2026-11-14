@@ -1,0 +1,16 @@
+# Design boundaries (constitution XIII-A). Tier 1; each entry cites the principle it
+# enforces rather than restating it.
+schema: 1
+forbidden_dependencies:
+  - from: any optSolver crate
+    to: runmat
+    principle: VIII
+  - from: any optSolver crate
+    to: a specific sparse-matrix crate, except as an optional borrow-only adapter feature
+    principle: VIII
+  - from: solver-neutral core
+    to: any solver backend or vendor binding crate
+    principle: VIII
+  - from: any module other than a backend's single parameter-applying function
+    to: vendor parameter-setting functions
+    principle: VII-G

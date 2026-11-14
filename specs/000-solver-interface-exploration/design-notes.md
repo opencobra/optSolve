@@ -196,3 +196,26 @@ copies dominate in every case.
 (`highs` crate), SCIP (`russcip`), Clarabel (pure Rust), CPLEX (`cplex-rs`,
 named by `good_lp`). Each needs the same check: does it have a bulk CSC (or
 CSR) load call, and which input forms does it take natively?
+
+## 9. Facts checked against the installed headers (2026-11-14)
+
+Checked by reading Gurobi 13.0.3 `gurobi_c.h` and MOSEK 11.2 `mosek.h` on the reference
+machine. Signatures are summarised, not copied.
+
+| Fact | Gurobi | MOSEK | Consequence |
+|---|---|---|---|
+| Bulk column load | `GRBXloadmodel`: `size_t *vbeg`, `int *vlen`, `int *vind`, `double *vval`; `int numvars, numconstrs` | `MSK_putacolslice64`: `MSKint32t first, last`, `const MSKint64t *ptrb, *ptre`, `const MSKint32t *asub`, `const MSKrealt *aval` | Column starts pass through as `usize`/`i64`; row indices need `i32`; dimensions ≤ `i32::MAX` |
+| Incremental column load | `GRBXaddvars(model, int numvars, size_t numnz, size_t *vbeg, int *vind, double *vval, ...)` | `MSK_appendvars`, `MSK_appendcons`, then `MSK_putacolslice64` per block; `MSK_putmaxnumanz`, `MSK_putmaxnumvar`, `MSK_putmaxnumcon` preallocate | Column-block chunking is possible on both |
+| Const-ness of inputs | Input arrays declared non-`const` (`double *obj`, `size_t *vbeg`, …) | Inputs declared `const` | Passing pointers from shared slices to Gurobi needs vendor documentation that they are input-only (constitution VII-A) |
+| Environment creation | `GRBloadenv` and `GRBemptyenv` are **macros** expanding to `GRBloadenvinternal` / `GRBemptyenvinternal` with `GRB_VERSION_MAJOR/MINOR/TECHNICAL`; `GRBstartenv`, `GRBfreeenv` are functions | — | Bindings call the `…internal` functions with version numbers from the header or library (VII-E) |
+| Custom allocators | `GRBemptyenvadv` (macro) takes malloc, calloc, realloc, free and thread callbacks | — | A possible way to measure or cap the solver's own memory; not investigated |
+| Infinity | `GRB_INFINITY` = `1e100` | `MSK_INFINITY` = `1.0e30`; infinite sides expressed by bound keys | Infinite bounds need backend-specific mapping |
+| Solution extraction | `GRBgetdblattrarray(model, attrname, int first, int len, double *values)` | `MSK_getxx(task, whichsol, MSKrealt *xx)`, `MSK_getxxslice` | Results written directly into caller buffers |
+| Objective and bounds slices | `GRBsetdblattrarray` | `MSK_putcslice`, `MSK_putvarboundslice(task, first, last, const MSKboundkeye *bkx, const MSKrealt *blx, *bux)` | Model modification without reload |
+| Termination | `GRBterminate(model)` | Callback return value | Cancellation from a callback |
+| Integer types | `int`, `size_t` | `MSKint32t` = `int32_t`, `MSKint64t` = `int64_t`, `MSKrealt` = `double` | 64-bit targets only |
+| Calling convention | Functions declared `__stdcall` | `MSKAPI` | `extern "C"` on the supported 64-bit targets |
+
+Not yet verified (vendor documentation, not headers): whether Gurobi writes through any input
+pointer of `GRBXloadmodel`; thread-safety rules for `GRBenv`, `MSKenv_t` and `MSKtask_t`;
+whether Gurobi accepts `inf` directly in bounds.

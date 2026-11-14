@@ -1,0 +1,73 @@
+# Git Branching Workflow Extension Configuration
+# Copied to .specify/extensions/git/git-config.yml on install
+
+# Branch numbering strategy: "sequential" (001, 002, ...) or "timestamp" (YYYYMMDD-HHMMSS)
+branch_numbering: sequential
+
+# Commit message used by `git commit` during repository initialization
+init_commit_message: "[Spec Kit] Initial commit"
+
+# Auto-commit before/after core commands.
+# Set "default" to enable for all commands, then override per-command.
+# Each key can be true/false. Message is customizable per-command.
+#
+# WARNING — keep these false until auto-commit.sh is fixed.
+# The constitution's "Commits Carry In-Flight Manual Work" requires
+# every commit to enumerate the manual in-flight edits it carries and to state
+# their verification status. auto-commit.sh runs a bare `git add .` with the
+# fixed message below: it satisfies the SWEEP but not the NOTE, applies none of
+# the untracked/secret guards, and would silently commit unexamined manual work
+# to source. Fixing the script is a SCRIPT change and therefore
+# goes through the Principle VI implementation gate, not a config or docs edit.
+# Until that feature lands, commit through an agent that applies the section by
+# hand. Enabling any key below is a known constitutional breach.
+auto_commit:
+  default: false
+  before_clarify:
+    enabled: false
+    message: "[Spec Kit] Save progress before clarification"
+  before_plan:
+    enabled: false
+    message: "[Spec Kit] Save progress before planning"
+  before_tasks:
+    enabled: false
+    message: "[Spec Kit] Save progress before task generation"
+  before_implement:
+    enabled: false
+    message: "[Spec Kit] Save progress before implementation"
+  before_checklist:
+    enabled: false
+    message: "[Spec Kit] Save progress before checklist"
+  before_analyze:
+    enabled: false
+    message: "[Spec Kit] Save progress before analysis"
+  before_taskstoissues:
+    enabled: false
+    message: "[Spec Kit] Save progress before issue sync"
+  after_constitution:
+    enabled: false
+    message: "[Spec Kit] Add project constitution"
+  after_specify:
+    enabled: false
+    message: "[Spec Kit] Add specification"
+  after_clarify:
+    enabled: false
+    message: "[Spec Kit] Clarify specification"
+  after_plan:
+    enabled: false
+    message: "[Spec Kit] Add implementation plan"
+  after_tasks:
+    enabled: false
+    message: "[Spec Kit] Add tasks"
+  after_implement:
+    enabled: false
+    message: "[Spec Kit] Implementation progress"
+  after_checklist:
+    enabled: false
+    message: "[Spec Kit] Add checklist"
+  after_analyze:
+    enabled: false
+    message: "[Spec Kit] Add analysis report"
+  after_taskstoissues:
+    enabled: false
+    message: "[Spec Kit] Sync tasks to issues"

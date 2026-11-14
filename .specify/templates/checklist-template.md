@@ -34,7 +34,25 @@
 
 ## Notes
 
-- Check items off as completed: `[x]`
+- Items are numbered sequentially for easy reference
 - Add comments or findings inline
 - Link to relevant resources or documentation
-- Items are numbered sequentially for easy reference
+
+### Resolution discipline (Principle VI-B — binding)
+
+At the moment this checklist is presented at a gate, **every** item must be in
+exactly one of two states:
+
+- **Resolved** — `[x]`, and the artifact that closes it identifiable. Ticking an
+  item ASSERTS it was verified against the artifacts. Ticking without verifying
+  is a false record.
+- **Explicitly routed** — left `[ ]` deliberately, with its destination named in
+  the feature's `human-loop.md`: a later gate, a specific task ID, or a recorded
+  human decision to accept it open with rationale.
+
+An item that is merely unmarked is in neither state. **A checklist carrying
+unmarked items has not passed, and a gate MUST NOT be recorded as passed on it.**
+
+Accepting an item open is a human decision recorded with rationale. An agent MUST
+NOT close an item by declaring it unimportant, and MUST NOT infer that unmarked
+items were considered.

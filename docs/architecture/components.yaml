@@ -1,0 +1,7 @@
+# Component model (constitution XIII-A, XIII-B). Tier 1; originates no rule.
+#
+# No source exists yet. Components are introduced by approved feature architecture deltas
+# (XIII-C), starting with feature 001. A component listed before its code exists MUST carry
+# status: specified-not-created.
+schema: 1
+components: []
