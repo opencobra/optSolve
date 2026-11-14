@@ -80,7 +80,10 @@ write N/A only where stated.*
   header and date); crate hygiene (lints, `links`, build-script environment variables)]
 - **Independence and additive features**: [Principle VIII — confirm no RunMat or sparse-crate
   dependency; feature additivity; the core still builds and tests with no vendor software]
-- **Testing and behavioural evidence**: [Principle II — name the narrowest tests in each tier
+- **Testing and behavioural evidence**: [Principle II — confirm each new test is written once
+  against the solver-independent contract and runs on every backend supporting its problem
+  class, using the shared test module (name any backend-specific test and why); name the corpus
+  fixtures used and their provenance records; name the narrowest tests in each tier
   (unlicensed, licensed), the failing-input tests for each validated invariant, cross-solver
   agreement tests, and how a real caller is shown to reach the intended path]
 - **Diagnostics and statuses**: [Principle III — confirm no direct printing, solver logs off by

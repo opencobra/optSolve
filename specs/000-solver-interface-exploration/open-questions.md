@@ -158,3 +158,21 @@ amendments they required are in constitution 2.2.0.
 
 Still open: index-conversion chunk size (earlier question 6, to be set by benchmark); which
 vendor documentation confirms the thread rules in decision 21.
+
+### Test corpus decisions (maintainer, 2026-11-14)
+
+| Question | Decision |
+|---|---|
+| Test reuse | Tests written once against the solver-independent contract and run against every backend, built from one shared library of test helpers (constitution II, 2.3.0) |
+| Test instances | The variational kinetics repository's frozen iDopaNeuroC instances (problems 1 to 5 and the two full-rank variants), recycled as LP test problems |
+| Objectives | Seeded random objective vectors (the stored objectives are all zero, so as stored the problems are feasibility LPs) |
+| Storage | Small fixtures committed under the test fixtures directory with provenance records, once the data licence is verified |
+| Format | MPS |
+
+Observed on 2026-11-14 (MATLAB, read-only): each instance stores a COBRA model whose LP part is
+S, b, csense, lb, ub, c and osenseStr. Problems 2 and 3: S 1240 × 1907, 7,027 nonzeros; their
+full-rank variants 1239 × 1907, 7,025 nonzeros; problem 1: 1344 × 2942, 13,748 nonzeros;
+problems 4 and 5: 1344 × 2942, 12,214 nonzeros. All rows equalities, c all zero, objective
+sense max, no infinite upper bounds. The model's PleaseCite field reads "Brunk et al, Nat
+Biotech, 2018; doi:10.1038/nbt.4072". The variational kinetics repository is GPL-3.0; the
+licence of the model data itself is not yet verified.

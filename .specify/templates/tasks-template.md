@@ -77,6 +77,10 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] T009 Setup environment configuration management
 - [ ] T010 Define project-specific reproducibility command, fixture, or
   diagnostic check from the Constitution Check
+- [ ] T010a Shared test harness (Principle II) — tests for this feature are written once
+  against the solver-independent contract, parametrised over every backend supporting the
+  problem class, and use the shared test module for fixtures, seeded objectives, verification
+  and assertions; any new helper is added to that module, not to a test file
 - [ ] T010b [P] Verify Rust and FFI standards for this feature (Principle VII): `unsafe`
   confined with SAFETY comments; handles owned with lifetimes; no panic across FFI;
   validation before the first FFI call; vendor declarations checked against the installed

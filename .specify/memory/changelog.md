@@ -6,6 +6,21 @@ entry first, sections ordered alphabetically by path.
 
 ## .specify/memory/constitution.md
 
+### 2.3.0 — 2026-11-14
+
+Sync Impact Report.
+
+- Version change: 2.2.0 → 2.3.0 (MINOR: materially expanded guidance in II).
+- Modified: II Testing, Benchmarks, And Behavioural Evidence — added "Tests are written once and
+  reused" (one solver-independent test run against every backend, one shared test module) and
+  "A frozen test corpus" (fixtures with provenance, seeded synthesised data, corpus declared in
+  project.yml). Adopted from the variational kinetics practice at the maintainer's direction.
+- Companions: ✅ project.yml (test_corpus: iDopaNeuroC instances, MPS fixtures, seeded random
+  objectives); ✅ plan-template.md (testing bullet); ✅ tasks-template.md (T010a shared harness).
+- Deferred: licence of the iDopaNeuroC / Recon3D-derived data to be verified before fixtures are
+  committed (X); fixture extraction is code development under VI (feature 001 or a dedicated
+  test-corpus feature).
+
 ### 2.2.0 — 2026-11-14
 
 Sync Impact Report.

@@ -61,6 +61,23 @@ domain:
     gurobi: "13.0.3"
     mosek: "11.2"
 
+# Frozen test corpus (constitution II). Fixtures are extracted from the variational
+# kinetics repository's frozen problem corpus (its data/interim directory, located at run
+# time, never stored here) into MPS files with provenance records.
+test_corpus:
+  fixtures: tests/fixtures
+  format: mps
+  objective: seeded-random
+  source_repository: variationalKinetics
+  instances:
+    - iDopaNeuroC_problem_1
+    - iDopaNeuroC_problem_2
+    - iDopaNeuroC_problem_2_fullRankFR
+    - iDopaNeuroC_problem_3
+    - iDopaNeuroC_problem_3_fullRankFR
+    - iDopaNeuroC_problem_4
+    - iDopaNeuroC_problem_5
+
 # Machine-specific values are DELIBERATELY ABSENT: resolved at run time and recorded in each
 # run's provenance, never configured here.
 environment:

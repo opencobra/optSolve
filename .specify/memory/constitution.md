@@ -52,6 +52,17 @@ for the data it is given.
   optimal values, duals and reduced costs, infeasible, unbounded and empty problems, columns
   with no nonzeros, infinite bounds) MUST be gated so they are skipped, visibly, where the
   solver is absent.
+* **Tests are written once and reused.** Every test of solver behaviour MUST be written against
+  the solver-independent contract (XVI) and run unchanged against every backend that supports
+  its problem class, so adding a backend reuses every existing test. Shared test code (fixture
+  loading, objective generation, verification checks, comparison and assertion helpers) MUST
+  live in one shared test module that every test reuses; no test re-implements it. A
+  backend-specific test exists only for behaviour outside the contract (for example status-code
+  translation) and states why.
+* **A frozen test corpus.** Test problems are frozen fixtures, each with a provenance record
+  (source file and its hash, generating code and commit, seed, citation and licence, X). Any
+  data synthesised for a test, such as an objective vector, comes from a recorded seed. The
+  corpus is declared in `project.yml`.
 * Every invariant checked before an FFI call MUST have a failing-input test, and invalid input
   MUST be shown to fail before any C function is called.
 * Where the same problem class is supported by more than one backend, cross-solver agreement
@@ -901,4 +912,4 @@ entry first. `/speckit-constitution` writes its Sync Impact Report there; prepen
 constitution is prohibited. Freshness stamps on observed facts, and rationales citing an incident
 to explain a rule, are not records of change and stay where they are.
 
-**Version**: 2.2.0 | **Ratified**: 2026-11-14 | **Last Amended**: 2026-11-14
+**Version**: 2.3.0 | **Ratified**: 2026-11-14 | **Last Amended**: 2026-11-14
