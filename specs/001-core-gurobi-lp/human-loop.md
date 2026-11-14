@@ -1,9 +1,9 @@
 # Human Loop State
 
 ## Current State
-- Status: Gate 2A passed (APPROVE_WITH_ADR); Bundle 2 steps 3-5 in progress
+- Status: Gate 2 passed (approve all tasks); awaiting the implementation invocation (/speckit-implement)
 - Active feature directory: specs/001-core-gurobi-lp
-- Last completed bundle: Bundle 1 (requirements preparation)
+- Last completed bundle: Bundle 2 (implementation preparation)
 - Source code modified by this workflow: no
 
 ## Core Command Ledger
@@ -12,24 +12,25 @@
 - clarify:        invoked 2026-11-14 (3 questions: performance targets, verification factor, fixture layout)
 - checklist:      invoked 2026-11-14 (checklists/contract.md, 33 items: 16 resolved, 17 routed)
 - plan:           invoked 2026-11-14 (plan.md, research.md, data-model.md, contracts/public-api.md, quickstart.md, architecture-delta.yaml)
-- tasks:
-- analyze:
+- tasks:          invoked 2026-11-14 (57 tasks)
+- analyze:        invoked 2026-11-14 (0 critical; should-fix C1 C2 C3 C4 U1; low U2 I1 I2 F1)
 - implement:
 
 ## Human Decisions
 | Date (UTC) | Gate | Option chosen | Consequence |
 |---|---|---|---|
+| 2026-11-14 | Gate 2 | Approve all tasks; commit authorised | Scope T001–T054; should-fix findings handled during implementation as recorded deviations; implementation awaits /speckit-implement |
 | 2026-11-14 | Gate 2A | APPROVE_WITH_ADR; accept all names; approve both amendments; commit authorised | ADR-0001 written; constitution 2.4.0 (notation); placement role "Maintenance tooling"; tasks may be generated |
 | 2026-11-14 | Gate 1 | "Speckit human loop" (free text; read as: continue the human loop to Bundle 2); commit authorised | Bundle 1 committed on 001-core-gurobi-lp; speckit-plan next |
 | 2026-11-14 | (before Bundle 1) | Start the human loop for feature 001; ignore the licence of the iDopaNeuro data | Feature 001 started on branch 001-core-gurobi-lp from devel; data licence not verified and not blocking (constitution X check waived by the maintainer for this data) |
 
 ## Approved Implementation Scope
-- Approved: no
-- Scope:
-- Tasks approved:
-- Tasks deferred:
-- Files allowed:
-- Files not allowed:
+- Approved: yes (Gate 2, 2026-11-14); edits only after the implementation invocation
+- Scope: all
+- Tasks approved: T001–T054
+- Tasks deferred: none
+- Files allowed: as listed in implementation-review.md, "Files likely to change"
+- Files not allowed: .specify/, literature/, specs/000-*, the variational kinetics repository
 
 ## Pointers
 - Exploration: specs/000-solver-interface-exploration/ (founding exploration; design-notes.md, open-questions.md)
