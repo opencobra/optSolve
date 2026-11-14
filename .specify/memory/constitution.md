@@ -736,6 +736,11 @@ scalars Greek letters where practical. In code, a symbol is written as its lette
 | l | Variable lower bound vector, length n |
 | u | Variable upper bound vector, length n |
 | x | Primal variable vector, length n |
+| b_l, b_u | Lower and upper row bounds, length m, when rows are given as ranges |
+| y | Row dual vector, length m |
+| z | Reduced cost vector, length n |
+| γ (`gamma`) | Objective constant |
+| σ (`sigma`) | Objective sense: +1 minimise, −1 maximise |
 | m | Number of rows of A |
 | n | Number of columns of A |
 
@@ -912,4 +917,4 @@ entry first. `/speckit-constitution` writes its Sync Impact Report there; prepen
 constitution is prohibited. Freshness stamps on observed facts, and rationales citing an incident
 to explain a rule, are not records of change and stay where they are.
 
-**Version**: 2.3.0 | **Ratified**: 2026-11-14 | **Last Amended**: 2026-11-14
+**Version**: 2.4.0 | **Ratified**: 2026-11-14 | **Last Amended**: 2026-11-14

@@ -1,7 +1,7 @@
 # Human Loop State
 
 ## Current State
-- Status: Gate 1 passed; Bundle 2 (implementation preparation) in progress
+- Status: Gate 2A passed (APPROVE_WITH_ADR); Bundle 2 steps 3-5 in progress
 - Active feature directory: specs/001-core-gurobi-lp
 - Last completed bundle: Bundle 1 (requirements preparation)
 - Source code modified by this workflow: no
@@ -11,7 +11,7 @@
 - specify:        invoked 2026-11-14
 - clarify:        invoked 2026-11-14 (3 questions: performance targets, verification factor, fixture layout)
 - checklist:      invoked 2026-11-14 (checklists/contract.md, 33 items: 16 resolved, 17 routed)
-- plan:
+- plan:           invoked 2026-11-14 (plan.md, research.md, data-model.md, contracts/public-api.md, quickstart.md, architecture-delta.yaml)
 - tasks:
 - analyze:
 - implement:
@@ -19,6 +19,7 @@
 ## Human Decisions
 | Date (UTC) | Gate | Option chosen | Consequence |
 |---|---|---|---|
+| 2026-11-14 | Gate 2A | APPROVE_WITH_ADR; accept all names; approve both amendments; commit authorised | ADR-0001 written; constitution 2.4.0 (notation); placement role "Maintenance tooling"; tasks may be generated |
 | 2026-11-14 | Gate 1 | "Speckit human loop" (free text; read as: continue the human loop to Bundle 2); commit authorised | Bundle 1 committed on 001-core-gurobi-lp; speckit-plan next |
 | 2026-11-14 | (before Bundle 1) | Start the human loop for feature 001; ignore the licence of the iDopaNeuro data | Feature 001 started on branch 001-core-gurobi-lp from devel; data licence not verified and not blocking (constitution X check waived by the maintainer for this data) |
 
@@ -33,6 +34,8 @@
 ## Pointers
 - Exploration: specs/000-solver-interface-exploration/ (founding exploration; design-notes.md, open-questions.md)
 - Implementation receipt(s):
+- Plan: specs/001-core-gurobi-lp/plan.md
+- Architecture delta: specs/001-core-gurobi-lp/architecture-delta.yaml
 - Implementation review: specs/001-core-gurobi-lp/implementation-review.md
 
 ## Open Risks and Ambiguities
@@ -40,8 +43,9 @@
 
 ## Checklist Routing (constitution VI-B)
 
-checklists/requirements.md: 16/16 resolved. checklists/contract.md: open items, each routed to
-the plan (Bundle 2, step 1), to be closed in research.md or data-model.md before Gate 2A:
+checklists/requirements.md: 16/16 resolved. checklists/contract.md: the 17 items below were routed
+to the plan at Gate 1; all 17 resolved in Bundle 2 (33/33), with the closing artifact named on
+each item in the checklist:
 
 | Item | Question | Destination |
 |---|---|---|

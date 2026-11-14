@@ -1,0 +1,117 @@
+# Architecture delta for feature 001 (constitution XIII-C). Authoritative for this feature;
+# plan.md "Architecture Impact" summarises it. Model before: docs/architecture/components.yaml
+# is empty (no source exists).
+schema: 1
+feature: 001-core-gurobi-lp
+verdict: APPROVE_WITH_ADR  # Gate 2A, 2026-11-14, maintainer; ADR-0001
+
+adr_required:
+  reason: introduces the crate and its first layers, a shared data representation, and couples to a solver (Gurobi)
+  proposed: docs/architecture/decisions/ADR-0001-crate-layering-and-solver-independent-contract.md
+
+components_added:
+  - id: core.problem
+    location: src/problem.rs
+    responsibility: solver-independent problem (borrowed CSC A, c, gamma, sense, row bounds, l, u, reserved fields) and its single validation pass
+  - id: core.options
+    location: src/options.rs
+    responsibility: options structure and every default optSolver imposes (constitution VII-G declaration point)
+  - id: core.result
+    location: src/result.rs
+    responsibility: solution, status vocabulary, limit reasons, basis, certificates, effective parameters
+  - id: core.verify
+    location: src/verify.rs
+    responsibility: solver-independent verification of feasibility and optimality (constitution XVI-D)
+  - id: core.backend
+    location: src/backend.rs
+    responsibility: provisional Backend trait and Capabilities (Complexity Tracking in plan.md)
+  - id: core.error
+    location: src/error.rs
+    responsibility: error type
+  - id: gurobi.ffi
+    location: src/gurobi/ffi.rs
+    responsibility: the only declarations of Gurobi C functions and constants
+  - id: gurobi.env
+    location: src/gurobi/env.rs
+    responsibility: owned Gurobi environment, created once, licence check
+  - id: gurobi.load
+    location: src/gurobi/load.rs
+    responsibility: bulk loading (GRBXloadmodel, blocked GRBXaddvars), index conversion buffer, range auxiliary columns, infinity mapping
+  - id: gurobi.params
+    location: src/gurobi/params.rs
+    responsibility: the single function applying parameters to Gurobi; returns the effective parameter set
+  - id: gurobi.status
+    location: src/gurobi/status.rs
+    responsibility: total translation of Gurobi status codes
+  - id: gurobi.callback
+    location: src/gurobi/callback.rs
+    responsibility: cancellation and progress callback with panic containment
+  - id: gurobi.solve
+    location: src/gurobi/solve.rs
+    responsibility: Backend implementation for Gurobi; result extraction
+  - id: test.harness
+    location: tests/common/
+    responsibility: the shared test module (harness, backend availability, MPS reader, SplitMix64 objectives, assertions)
+  - id: test.corpus
+    location: tests/fixtures/
+    responsibility: frozen iDopaNeuroC MPS fixtures and provenance records
+  - id: tools.corpus_extraction
+    location: tools/corpus/extract_idopaneuroc_fixtures.m
+    responsibility: MATLAB extraction of fixtures from the variational kinetics corpus (reuses vkProblemInstanceDir, gurobi_write, gurobi_read)
+  - id: bench.load_solve
+    location: benches/load_solve.rs
+    responsibility: per-instance phase timings and memory measurement
+
+components_modified: []
+components_removed: []
+
+dependency_edges_added:
+  - from: gurobi.*
+    to: core.*
+    reason: the backend implements the solver-independent contract
+  - from: gurobi.load
+    to: gurobi.ffi
+    reason: bulk load calls
+  - from: gurobi.params
+    to: gurobi.ffi
+    reason: the only use of vendor parameter setters
+  - from: test.harness
+    to: core.backend
+    reason: tests reach backends only through the Backend trait
+  - from: tools.corpus_extraction
+    to: external variational kinetics repository (vkProblemInstanceDir), Gurobi MATLAB interface
+    reason: reuse of existing extraction code (read-only)
+
+dependency_edges_forbidden:
+  - from: core.*
+    to: gurobi.*
+    principle: VIII
+  - from: any module except gurobi.params
+    to: vendor parameter-setting functions
+    principle: VII-G
+  - from: any module except gurobi.ffi
+    to: extern C declarations
+    principle: VII-A
+  - from: test.*
+    to: gurobi.* (except header conformance and status translation tests)
+    principle: II (tests written once against the contract)
+
+public_interfaces_added:
+  - contracts/public-api.md
+
+persistent_data_structures_added:
+  - MPS fixture files and JSON provenance records (data-model.md)
+  - benchmark run bundles (generated output)
+
+placement_document_change:
+  add_role: "Maintenance tooling | tools/<purpose>/ | scripts run by maintainers, not by the library or its tests (for example fixture extraction)"
+
+naming_decisions_for_maintainer:  # constitution XIII-F
+  - Backend (trait every solver implements)
+  - Env (Gurobi environment handle)
+  - verify (solver-independent verification function), VerificationReport
+  - Solution, Status, LimitReason, SolutionReturned
+  - tools/corpus/extract_idopaneuroc_fixtures.m
+
+required_constitution_amendment:
+  - "Notation Convention: add gamma (objective constant), b_l and b_u (row range bounds), y (row duals), z (reduced costs), sigma (objective sense) — before tasks"

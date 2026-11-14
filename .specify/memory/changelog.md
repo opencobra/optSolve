@@ -6,6 +6,17 @@ entry first, sections ordered alphabetically by path.
 
 ## .specify/memory/constitution.md
 
+### 2.4.0 — 2026-11-14
+
+Sync Impact Report.
+
+- Version change: 2.3.0 → 2.4.0 (MINOR: Notation Convention inventory expanded).
+- Trigger: feature 001 Gate 2A (maintainer approval of the symbols proposed in
+  specs/001-core-gurobi-lp/data-model.md).
+- Modified: Notation Convention — added b_l, b_u, y, z, γ, σ.
+- Companions: ✅ docs/architecture/repo_folder_organisation.md (Maintenance tooling role, same
+  gate); templates unchanged.
+
 ### 2.3.0 — 2026-11-14
 
 Sync Impact Report.

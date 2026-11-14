@@ -23,6 +23,7 @@ Whether a path is tracked is stated in `.gitignore` only.
 | Downloaded external literature | `literature/<source>/` | Upstream text and licence files only; index in `literature/SOURCES.md` (IX-J). |
 | Spec Kit governance | `.specify/` | Constitution, templates, skills, extensions, scripts. |
 | Agent pointer files | `.claude/`, `.agents/` | Tier 5. |
+| Maintenance tooling | `tools/<purpose>/` | Scripts run by maintainers, not by the library or its tests (for example fixture extraction). |
 | Scratch | `tmp/` | Disposable; nothing is read from it by tracked code. |
 | Retired content | `old/` at the level of what it replaces | Read-only (IX-H). |
 
