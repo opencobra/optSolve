@@ -1,0 +1,33 @@
+{
+  "instance": "iDopaNeuroC_problem_1",
+  "source_repository": "variationalKinetics",
+  "source_commit": "f164a3ac37be84bccc255e334f1a6e2ca6379ab2",
+  "source_file": "iDopaNeuroC_problem_1.mat",
+  "source_sha256": "1b9e8c53013536aad882a64d37eb4a6154d62916fd1a973404112eef01df4647",
+  "extracting_script": "tools/corpus/extract_idopaneuroc_fixtures.m",
+  "optsolver_commit": "b4628b38d56ce435a0cc04764015890efdd4c538",
+  "optsolver_worktree_clean": false,
+  "m": 1344,
+  "n": 2942,
+  "nnz": 13748,
+  "objective_sense": "max",
+  "seeds": [
+    1,
+    2,
+    3
+  ],
+  "citation": "Brunk et al, Nat Biotech, 2018; doi:10.1038/nbt.4072",
+  "licence": "not verified (maintainer decision 2026-11-14)",
+  "mps_sha256": "7e87f02defb983b9067e5f1c40a43c0bcf8499b99a4ecd6d42ec12e43a26f98c",
+  "array_sha256": {
+    "A_col_ptrs": "fe0e30b7d3fc56cbc163983301576ea179db2473eac58b01967520657fa04cf4",
+    "A_row_indices": "46646116ae7ea7b337a55a71fb01d12f4df746a20dd4a2fddbfb766d91fde558",
+    "A_values": "da011589d583e79aca3aee883570392000d88fcb9316d1938dd092f01297bcc1",
+    "sense": "56e5a5dfd9152900d488d964a9c449ffd50ff710155207d7de84d126ce905f40",
+    "b": "ee0d534dd385f4c26c52ee121654897b783c0754c6512886e53578dce4b24735",
+    "l": "938aef96399885ef102538227e5564d12e7097ee6686fb32fee67be6514245e1",
+    "u": "15b235ad5f2b57dc0849f6ca7b17188b9b92cae2a81bf1c8eac679c8520d25e5",
+    "c": "7ddf967580e714a8b12b641ed0475eccba1db273bc3021b4511b8f20200be86c"
+  },
+  "round_trip": "gurobi_read of the written file is bit-for-bit identical in A, rhs, sense, lb, ub, obj"
+}

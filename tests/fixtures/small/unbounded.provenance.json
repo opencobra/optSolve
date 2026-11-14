@@ -1,0 +1,15 @@
+{
+  "instance": "unbounded",
+  "origin": "hand-built for feature 001 (task T031)",
+  "author": "claude-opus-5-5, feature 001 implementation",
+  "created": "2026-11-14",
+  "purpose": "Maximise x1 + x2 with x1 = x2 and no upper bounds",
+  "expected_status": "Unbounded",
+  "expected_objective": null,
+  "m": 1,
+  "n": 2,
+  "nnz": 2,
+  "objective_sense": "max",
+  "licence": "MIT OR Apache-2.0 (part of optSolver)",
+  "mps_sha256": "134f877e9e619a4794fe6a3787b74bd27758961419864d82abe8410e189a2c02"
+}

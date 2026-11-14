@@ -1,7 +1,56 @@
 # Component model (constitution XIII-A, XIII-B). Tier 1; originates no rule.
-#
-# No source exists yet. Components are introduced by approved feature architecture deltas
-# (XIII-C), starting with feature 001. A component listed before its code exists MUST carry
-# status: specified-not-created.
+# Reconciled at feature 001 closeout against specs/001-core-gurobi-lp/architecture-delta.yaml
+# (ADR-0001). Boundaries: boundaries.yaml.
 schema: 1
-components: []
+components:
+  - id: core.problem
+    location: src/problem.rs, src/problem/validate.rs, src/problem/convert.rs
+    responsibility: solver-independent problem, single-pass validation, usize-to-i32 block conversion
+  - id: core.options
+    location: src/options.rs, src/options/check.rs
+    responsibility: options structure, the single declaration of optSolver defaults (VII-G), option and problem-class checks
+  - id: core.result
+    location: src/result.rs
+    responsibility: solution, status vocabulary, limit reasons, basis, certificates
+  - id: core.verify
+    location: src/verify.rs
+    responsibility: solver-independent verification (XVI-D)
+  - id: core.backend
+    location: src/backend.rs
+    responsibility: provisional Backend trait, ProblemRef, Capabilities (ADR-0001)
+  - id: core.error
+    location: src/error.rs
+    responsibility: error type
+  - id: gurobi.ffi
+    location: src/gurobi/ffi.rs
+    responsibility: the only Gurobi C declarations and constants
+  - id: gurobi.env
+    location: src/gurobi/env.rs
+    responsibility: owned Gurobi environment
+  - id: gurobi.load
+    location: src/gurobi/load.rs
+    responsibility: bulk loading, ranged-row auxiliary columns, infinity mapping
+  - id: gurobi.params
+    location: src/gurobi/params.rs
+    responsibility: the single function applying Gurobi parameters (VII-G)
+  - id: gurobi.status
+    location: src/gurobi/status.rs
+    responsibility: total status translation
+  - id: gurobi.callback
+    location: src/gurobi/callback.rs
+    responsibility: cancellation and progress callback with panic containment
+  - id: gurobi.solve
+    location: src/gurobi/solve.rs
+    responsibility: Backend for Env, result extraction, load report for benchmarks
+  - id: test.harness
+    location: tests/common/
+    responsibility: the shared test module (harness, MPS reader, seeded objectives, fixtures, contract-level US3 tests)
+  - id: test.corpus
+    location: tests/fixtures/
+    responsibility: frozen iDopaNeuroC flux-balance LP fixture and hand-built small fixtures, with provenance
+  - id: tools.corpus_extraction
+    location: tools/corpus/extract_idopaneuroc_fixtures.m
+    responsibility: MATLAB extraction from the variational kinetics corpus
+  - id: bench.load_solve
+    location: benches/load_solve.rs
+    responsibility: per-phase timing and dedicated-process memory measurement

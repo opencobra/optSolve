@@ -1,0 +1,44 @@
+[package]
+name = "optsolver"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT OR Apache-2.0"
+description = "Zero-copy loading of large matrix-form optimisation problems into native solvers"
+links = "gurobi"
+build = "build.rs"
+
+[features]
+default = []
+gurobi = []
+
+[dependencies]
+log = "0.4"
+
+[dev-dependencies]
+libtest-mimic = "0.8"
+cc = "1"
+dhat = "0.3"
+
+[[test]]
+name = "contract"
+harness = false
+
+[[test]]
+name = "corpus"
+harness = false
+
+[[bench]]
+name = "load_solve"
+harness = false
+required-features = ["gurobi"]
+
+[lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+unsafe_code = "deny"
+missing_docs = "warn"
+
+[lints.clippy]
+undocumented_unsafe_blocks = "deny"
+multiple_unsafe_ops_per_block = "warn"
+cast_possible_truncation = "warn"

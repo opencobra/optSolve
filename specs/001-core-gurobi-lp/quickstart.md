@@ -26,7 +26,7 @@ Expected: all pass; every Gurobi corpus test is listed as ignored with the reaso
 cargo test --features gurobi
 ```
 
-Expected: 21 corpus solves (7 instances × seeds 1, 2, 3) report Optimal with a Verified report;
+Expected: 3 corpus solves (iDopaNeuroC_problem_1 × seeds 1, 2, 3) report Optimal with a Verified report;
 small infeasible and unbounded fixtures report Infeasible and Unbounded with verified
 certificates; the status translation test covers codes 1–19 and an unknown code (SC-003,
 SC-006).

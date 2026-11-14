@@ -6,6 +6,20 @@ entry first, sections ordered alphabetically by path.
 
 ## .specify/memory/constitution.md
 
+### 2.4.1 — 2026-11-14
+
+Sync Impact Report.
+
+- Version change: 2.4.0 → 2.4.1 (PATCH: clarification of an existing rule's evidence standard).
+- Trigger: feature 001 task T038 found that the Gurobi 13.0 manual describes the
+  `GRBXloadmodel` / `GRBXaddvars` arrays only as initialisation data; the maintainer accepted
+  that wording plus a recorded probe as the basis (decision recorded in
+  specs/001-core-gurobi-lp/human-loop.md).
+- Modified: VII-A — non-`const` pointers from shared slices also allowed when the vendor
+  documents the array only as input data and a recorded probe on the supported version shows it
+  unchanged; the probe is kept as a licensed test.
+- Companions: templates unchanged.
+
 ### 2.4.0 — 2026-11-14
 
 Sync Impact Report.

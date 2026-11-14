@@ -132,7 +132,7 @@ residuals or row activity). With σ = +1 for minimise and −1 for maximise:
 |---|---|---|---|
 | row-bound violation | max_i max(b_l,i − (Ax)_i, (Ax)_i − b_u,i, 0) | ÷ (1 + max finite \|b_l\|, \|b_u\|) | primal feasibility tolerance |
 | variable-bound violation | max_j max(l_j − x_j, x_j − u_j, 0) | ÷ (1 + max finite \|l\|, \|u\|) | primal feasibility tolerance |
-| reduced-cost consistency | ‖z − (c − Aᵀy)‖∞ | ÷ (1 + ‖c‖∞) | dual feasibility tolerance |
+| reduced-cost consistency | ‖z − (c − Aᵀy)‖∞ | per column ÷ (1 + \|c_j\| + Σ_i \|A_ij y_i\|), then the maximum (amended 2026-11-14, maintainer: with duals up to 1.4e10 on iDopaNeuroC problems 4 and 5, cancellation alone exceeds 1 + ‖c‖∞) | dual feasibility tolerance |
 | dual sign violation | max over rows and columns of the amount by which σy_i or σz_j has the wrong sign: σy_i must be ≥ 0 where b_u,i = +∞, ≤ 0 where b_l,i = −∞, 0 where both infinite; σz_j likewise with l_j, u_j | ÷ (1 + ‖c‖∞) | dual feasibility tolerance |
 | complementary slackness | max of \|y_i\| times the distance of (Ax)_i from the bound its sign selects, and \|z_j\| times the distance of x_j from the bound its sign selects | ÷ (1 + \|p\|) | dual feasibility tolerance |
 | primal-dual gap | \|p − d\|, with d = γ + Σ_i y_i·(b_l,i if σy_i > 0 else b_u,i) + Σ_j z_j·(l_j if σz_j > 0 else u_j), zero-dual terms omitted | ÷ (1 + \|p\| + \|d\|) | dual feasibility tolerance |

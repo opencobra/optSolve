@@ -93,3 +93,20 @@ pub mod gurobi {
 a cross-backend abstraction before a second backend exists. The plan therefore keeps it
 **provisional**: it is what the shared test harness calls, and its shape is re-examined when the
 MOSEK feature implements it (Complexity Tracking).
+
+## Reconciliation at implementation (2026-11-14)
+
+The delivered API differs from the sketch above as follows (recorded in the implementation
+receipt):
+
+- `Problem` fields are private, read through accessors (`A()`, `c()`, `gamma()`, `sense()`,
+  `rows()`, `l()`, `u()`, `var_types()`, `Q()`), so a `Problem` is always valid (VII-D); built
+  by `Problem::new(A, c, sense, rows, l, u)` with `with_gamma`, `with_var_types`, `with_Q`.
+- `CscRef::new_unchecked` is not provided (the constitution allows but does not require it).
+- `Backend` is object-safe: methods take `ProblemRef` (an enum over `usize` and `i32` problems)
+  instead of a generic `Problem<I>`; `solve_into` returns a `Solution` whose arrays are empty
+  (written to the caller's buffers) instead of a separate `SolutionMeta`.
+- Additions: `problem::convert` (`i32_row_indices`, `IndexBuffer`, `Blocks`, `Block`),
+  `options::check::{check, check_problem}`, `verify::names`, `Capabilities::options`
+  (`OptionMapping`), and `#[doc(hidden)] gurobi::Env::load_report` / `LoadReport` for the
+  benchmark's positive control.

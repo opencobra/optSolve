@@ -1,0 +1,15 @@
+{
+  "instance": "ranged",
+  "origin": "hand-built for feature 001 (task T031)",
+  "author": "claude-opus-5-5, feature 001 implementation",
+  "created": "2026-11-14",
+  "purpose": "Ranged row 1 <= x1 + x2 <= 3 (MPS RANGES on an L row) plus x1 - x2 >= -1; minimise x1 + 2 x2; optimum x = (1, 0), objective 1",
+  "expected_status": "Optimal",
+  "expected_objective": 1.0,
+  "m": 2,
+  "n": 2,
+  "nnz": 4,
+  "objective_sense": "min",
+  "licence": "MIT OR Apache-2.0 (part of optSolver)",
+  "mps_sha256": "38bc4f7b82efe52eff65e5cc8f72a7628a035b4ab8fdeaf1ae84b47c9154ad4e"
+}

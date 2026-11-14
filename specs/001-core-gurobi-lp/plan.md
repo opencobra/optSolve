@@ -9,7 +9,7 @@
 Create the single crate `optsolver` with a solver-independent core (borrowed CSC problem,
 options structure, generic result with a named status vocabulary, independent verification)
 and a Gurobi LP backend that bulk-loads through `GRBXloadmodel` / `GRBXaddvars` with
-optSolver's own header-checked declarations. Extract the seven frozen iDopaNeuroC instances
+optSolver's own header-checked declarations. Extract the frozen iDopaNeuroC flux-balance LP instance (problem 1; corpus decision 2026-11-14)
 from the variational kinetics repository into MPS fixtures with provenance, using that
 repository's corpus locator and Gurobi's MATLAB writer, and test everything through one shared
 harness that runs each test once per backend. Benchmark load, solve, extraction and
@@ -97,14 +97,14 @@ PASS with two Complexity Tracking entries and one required amendment (Notation, 
   feature, `gurobi`, additive. Core builds and tests with no Gurobi.
 - **Testing and behavioural evidence**: [II] All corpus, contract and certificate tests written
   once in the shared harness and registered per backend (R14); backend-specific tests: status
-  translation table and header conformance (outside the contract, stated). Fixtures: seven MPS
+  translation table and header conformance (outside the contract, stated). Fixtures: corpus MPS
   files with provenance (R11). Failing-input tests for every validation rule. Cross-solver
   agreement: N/A until a second backend. Real-caller evidence: corpus tests call
   `Backend::solve` exactly as a user would.
 - **Diagnostics and statuses**: [III] `log` facade only; `OutputFlag` 0 by default; raw and
   solver-independent statuses both returned; Gurobi error code and `GRBgeterrormsg` text read
   immediately.
-- **Benchmarks and evidentiary preconditions**: [XIV] (a) seven named instances with
+- **Benchmarks and evidentiary preconditions**: [XIV] (a) the named corpus instance(s) with
   dimensions and provenance. (b) effective parameters, Gurobi version, commit, machine, profile
   recorded per run. (c) environment creation, load, solve, extraction, verification timed
   separately; cold (first solve in a fresh process) and warm labelled; memory per instance in a
@@ -162,7 +162,9 @@ Tracking).
 - *Inspected*: variational kinetics `src/matlab/experiment/corpus/vkProblemInstanceDir.m`
   (whole file); `docs/solver-internals.md` "The Frozen Problem Corpus"; instance contents
   (MATLAB `whos`, field list); COBRA `src/base/io/writeLPProblem.m`, `convertCobraLP2mps.m`
-  (existence only); Gurobi MATLAB `gurobi_write`, `gurobi_read` (present); Rust crates
+  (`writeLPProblem` → `BuildMPS` read 2026-11-14: 12-character number fields, L/G/E row
+  reordering; not reused, maintainer decision, research R11); Gurobi MATLAB `gurobi_write`,
+  `gurobi_read` (present); Rust crates
   `gurobi-rs` 1.1.0, `gurobi-sys` 0.3.0, `grb` 3.0.1, `grb-sys` 0.2.1 (sources).
 - *Disposition*: reuse `vkProblemInstanceDir`, `gurobi_write`, `gurobi_read`; introduce new
   Rust code for everything else (nothing reusable passes IV).

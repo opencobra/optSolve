@@ -245,8 +245,11 @@ pure-Rust solver has no FFI and those sub-parts do not apply to it.
 * Every `unsafe` block MUST carry a `// SAFETY:` comment naming the invariants it relies on.
   Every public `unsafe fn` MUST document a `# Safety` contract.
 * A pointer derived from a shared slice MAY be passed to a C parameter declared non-`const` only
-  when the vendor documents that parameter as input-only; the `SAFETY` comment MUST cite that
-  documentation.
+  when the vendor documents that parameter as input-only, or documents it only as data used to
+  initialise or describe the call's input and a recorded probe on the supported version shows the
+  array unchanged after the call. The `SAFETY` comment MUST cite that documentation (and the
+  probe, where used), and a probe relied on MUST be kept as a licensed test so that a change in a
+  new vendor version is caught.
 
 #### VII-B. Every Native Handle Is Owned
 
@@ -917,4 +920,4 @@ entry first. `/speckit-constitution` writes its Sync Impact Report there; prepen
 constitution is prohibited. Freshness stamps on observed facts, and rationales citing an incident
 to explain a rule, are not records of change and stay where they are.
 
-**Version**: 2.4.0 | **Ratified**: 2026-11-14 | **Last Amended**: 2026-11-14
+**Version**: 2.4.1 | **Ratified**: 2026-11-14 | **Last Amended**: 2026-11-14

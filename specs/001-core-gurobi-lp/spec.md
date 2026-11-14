@@ -31,6 +31,12 @@ decisions")
 - Q: How are the seeded random objectives stored, given an MPS file holds one objective? → A:
   One MPS file per instance with the stored zero objective; seeded objectives are regenerated
   from their recorded seeds by the shared test module.
+- Q (implementation, 2026-11-14): which iDopaNeuroC instances form the LP test corpus? → A:
+  only iDopaNeuroC_problem_1, the flux-balance LP; problems 2 to 5 are variational kinetics
+  problems, not LPs (as stored, problems 2 and 3 are infeasible as LPs because experiments 2
+  and 3 set b from a generated kinetic steady state). Evidence: research.md R18.
+- Q (implementation, 2026-11-14): how is reduced-cost consistency scaled? → A: per column by
+  1 + |c_j| + Σ_i |A_ij y_i| (data-model.md, Verification).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -55,9 +61,9 @@ passed.
 
 **Acceptance Scenarios**:
 
-1. **Given** the variational kinetics repository's frozen iDopaNeuroC instances, **When** the
-   extraction is run, **Then** one fixture per instance (problems 1 to 5 and the two full-rank
-   variants, seven in all) exists in MPS format, holding that instance's constraint matrix, row
+1. **Given** the variational kinetics repository's frozen iDopaNeuroC flux-balance LP
+   instance (problem 1), **When** the extraction is run, **Then** one fixture per corpus
+   instance exists in MPS format, holding that instance's constraint matrix, row
    right-hand sides and senses, variable bounds, objective sense and its stored (zero)
    objective; the seeds of its random objectives are recorded in its provenance record.
 2. **Given** a fixture, **When** its provenance record is read, **Then** it names the source
@@ -192,7 +198,8 @@ solver version, commit, machine and build profile.
 
 **Test corpus and harness**
 
-- **FR-001**: The project MUST hold the seven iDopaNeuroC instances as MPS fixtures, extracted
+- **FR-001**: The project MUST hold the iDopaNeuroC flux-balance LP instance (problem 1; the
+  corpus list is declared in `project.yml`) as MPS fixtures, extracted
   from the variational kinetics repository's frozen problem corpus by existing code from that
   repository where it can be reused, each with a provenance record (Principle II, X).
 - **FR-002**: Each fixture's provenance record MUST list the seeds of its random objectives; the
@@ -282,13 +289,14 @@ solver version, commit, machine and build profile.
 
 ### Measurable Outcomes
 
-- **SC-001**: All seven iDopaNeuroC fixtures exist with complete provenance records, and every
+- **SC-001**: Every corpus fixture exists with a complete provenance record, and every
   provenance hash matches its source file.
 - **SC-002**: With no solver installed, the full test suite passes, and every licence-dependent
   test is reported as skipped with its reason (none reported as passed).
-- **SC-003**: On each of the seven instances, with each of three seeded objectives, the Gurobi
+- **SC-003**: On each corpus instance (iDopaNeuroC_problem_1), with each of three seeded objectives, the Gurobi
   backend returns "optimal" and the solution passes verification at the effective tolerances
-  (7 × 3 = 21 solves; N = 1 per solve, deterministic solver settings recorded).
+  (1 × 3 = 3 solves, plus one with default options; N = 1 per solve, deterministic solver
+  settings recorded).
 - **SC-004**: On each instance (largest: iDopaNeuroC_problem_1, 1344 rows, 2942 columns,
   13,748 nonzeros), the peak memory optSolver adds during loading, beyond Gurobi's own, is at
   most 32 bytes per row and column plus 1 MiB, with no term proportional to the number of

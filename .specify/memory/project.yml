@@ -71,12 +71,6 @@ test_corpus:
   source_repository: variationalKinetics
   instances:
     - iDopaNeuroC_problem_1
-    - iDopaNeuroC_problem_2
-    - iDopaNeuroC_problem_2_fullRankFR
-    - iDopaNeuroC_problem_3
-    - iDopaNeuroC_problem_3_fullRankFR
-    - iDopaNeuroC_problem_4
-    - iDopaNeuroC_problem_5
 
 # Machine-specific values are DELIBERATELY ABSENT: resolved at run time and recorded in each
 # run's provenance, never configured here.

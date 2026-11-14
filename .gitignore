@@ -1,3 +1,12 @@
 
 # Non-commercial licence (CC BY-NC-SA 4.0): keep local, see literature/SOURCES.md
 literature/rust-ffi-omnibus/
+
+# Rust build output
+/target/
+# Generated output (constitution IX-C): run bundles are local, not tracked
+/results/
+# Implementation-continuation marker (local run state)
+/.specify/.implement-in-flight
+# Local tool configuration and cache
+/.serena/
