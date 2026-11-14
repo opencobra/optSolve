@@ -6,6 +6,44 @@ entry first, sections ordered alphabetically by path.
 
 ## .specify/memory/constitution.md
 
+### 2.2.0 — 2026-11-14
+
+Sync Impact Report.
+
+- Version change: 2.1.0 → 2.2.0 (MINOR: new sub-principle and section, expanded guidance).
+- Trigger: the maintainer's design decisions recorded in
+  specs/000-solver-interface-exploration/open-questions.md.
+- Modified: I (all available outputs returned by default, extraction cost measured, optional
+  switch-off; behaviour-changing outputs only on request); VII-A (unsafe confined to FFI
+  modules; forbid at crate or module level); VII-F (`non_snake_case` allowed only on public
+  problem and result types); VII-G, XVI-B, XVI-D ("core crate" → "solver-neutral core");
+  XII renamed Names, Notation And History; Technical Constraints (single crate; licence
+  MIT OR Apache-2.0 decided).
+- Added: XII-C One Symbol Per Object, In Householder Notation; Notation Convention section.
+- Companions: ✅ project.yml (structure for a single crate); ✅
+  docs/architecture/repo_folder_organisation.md; ✅ plan-template.md (notation bullet, single
+  crate tree); ✅ tasks-template.md (single crate paths).
+
+### 2.1.0 — 2026-11-14
+
+Sync Impact Report.
+
+- Version change: 2.0.0 → 2.1.0 (MINOR: new principle, materially expanded guidance).
+- Added: XVI A Solver-Independent Contract — XVI-A Problems And Results Have Generic Formats,
+  XVI-B A Solver-Independent Status Says How The Solve Went, XVI-C Non-Default Solver Behaviour
+  Is Requested Through A Structure, XVI-D Every Solution Is Verified Independently Of The Solver.
+- Modified: IV (solvers reached through their native interface, Rust API or C API through a
+  binding crate; existing wrapper crates allowed only if they expose bulk calls on borrowed
+  slices); VII introduction, VII-E and VII-F (FFI rules apply to code crossing into C, in full
+  to optSolver-owned bindings; existing binding crates assessed in the plan); VII-G (options
+  type is the XVI-C structure); III (status refers to XVI-B); Technical Constraints; review
+  checklist.
+- Templates: ✅ plan-template.md (contract bullet, native-interface route); ✅
+  tasks-template.md (status translation and verification tasks); ✅ spec-template.md (FR-009);
+  ✅ checklist and exploration templates unchanged; ✅ human-loop workflow unchanged.
+- Deferred: generic type representations, status vocabulary details, verification tolerances
+  and run-time default — recorded as open questions in specs/000-solver-interface-exploration.
+
 ### 2.0.0 — 2026-11-14
 
 Sync Impact Report.

@@ -9,12 +9,11 @@ Whether a path is tracked is stated in `.gitignore` only.
 
 | Role | Destination | Notes |
 |---|---|---|
-| Project metadata and configuration | repository root | Workspace `Cargo.toml` and `Cargo.lock`, `CLAUDE.md`, `AGENTS.md`, `README.md`, licence files, `.gitignore`, `.gitattributes`. Nothing else. |
-| Library source | `crates/<crate>/src/` | One directory per workspace member (specified, not yet created). |
-| Crate manifest and build script | `crates/<crate>/Cargo.toml`, `crates/<crate>/build.rs` | IX-B. |
-| Integration tests | `crates/<crate>/tests/` | Unit tests sit beside the code they test. |
-| Benchmarks (source) | `crates/<crate>/benches/` | Benchmark code is source. |
-| Test fixtures (small) | `crates/<crate>/tests/fixtures/` | Inputs, not generated output. |
+| Project metadata and configuration | repository root | `Cargo.toml`, `Cargo.lock`, `build.rs`, `CLAUDE.md`, `AGENTS.md`, `README.md`, licence files, `.gitignore`, `.gitattributes`. Nothing else. |
+| Library source | `src/` | The single crate `optsolver`; backends are modules behind features (specified, not yet created). |
+| Integration tests | `tests/` | Unit tests sit beside the code they test. |
+| Benchmarks (source) | `benches/` | Benchmark code is source. |
+| Test fixtures (small) | `tests/fixtures/` | Inputs, not generated output. |
 | Large test models | not in Git object history | Fetched or located at run time; provenance recorded (X). IX-G. |
 | Generated and run output | `results/<name>/` | One home per feature, exploration or session, keyed by `<name>`; run bundles at `results/<name>/runs/<UTC-timestamp>-<label>/` with that run's logs inside. IX-C, IX-E. |
 | Feature artifacts | `specs/<feature>/` | Spec Kit Tier 2. Exploration at `specs/<YYYYMMDD-HHMMSS>-<slug>/` until go (XI). |
@@ -31,7 +30,7 @@ Whether a path is tracked is stated in `.gitignore` only.
 
 Vendor headers, libraries, licence files and keys; bindings generated from vendor headers
 unless the vendor's licence permits (constitution VII-E, X). Vendor installations are located
-at run time through environment variables read by the `-sys` crates' build scripts.
+at run time through environment variables read by the build script.
 
 ## Retired destinations
 

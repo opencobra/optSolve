@@ -111,11 +111,15 @@ directory before this spec was written; or "none — direct request"]`
   that proves the feature behavior.
 - **FR-008**: System MUST state measurable wall-time and peak-memory constraints when
   the feature affects a load, solve or result path (Principle I).
+- **FR-009**: System MUST accept the solver-independent problem type and options structure and
+  return the solver-independent result, with a translated solver-independent status and
+  independently verified solution measures, for every backend this feature touches
+  (Principle XVI).
 
 *Example of marking unclear requirements:*
 
-- **FR-009**: System MUST authenticate users via [NEEDS CLARIFICATION: auth method not specified - email/password, SSO, OAuth?]
-- **FR-010**: System MUST retain user data for [NEEDS CLARIFICATION: retention period not specified]
+- **FR-010**: System MUST authenticate users via [NEEDS CLARIFICATION: auth method not specified - email/password, SSO, OAuth?]
+- **FR-011**: System MUST retain user data for [NEEDS CLARIFICATION: retention period not specified]
 
 ### Key Entities *(include if feature involves data)*
 

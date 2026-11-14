@@ -24,8 +24,10 @@ identity:
   description: "Rust library for solving large matrix-form optimisation problems through native solver interfaces, with zero-copy CSC inputs."
 
 structure:
-  # Cargo workspace members live under this directory (specified, not yet created).
-  crates: crates
+  # One crate, optsolver, at the repository root (specified, not yet created).
+  source: src
+  tests: tests
+  benches: benches
   specs: specs
   docs: docs
   architecture: docs/architecture

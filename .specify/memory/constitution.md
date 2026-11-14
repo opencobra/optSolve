@@ -21,8 +21,12 @@ least possible wall time and memory beyond what the solver itself needs.
 * Solver environments (including the licence check) MUST be reusable across solves. A loaded
   model MUST be modifiable (objective, bounds, right-hand sides) and re-solvable without
   reloading, so that sequences of related solves keep the solver's warm start.
-* Names, logging and optional results (duals, reduced costs, slacks, basis) MUST cost nothing
-  unless requested.
+* Names and logging MUST cost nothing unless requested. Every output the solver makes
+  available (duals, reduced costs, slacks, basis, bounds, counts, timings) is returned by
+  default; the cost of extracting them MUST be measured and reported per backend, and an
+  options-structure field (XVI-C) MAY switch array outputs off for callers making many small
+  solves. Outputs that require changing solver behaviour (for example infeasibility
+  certificates) are returned only on request.
 * Performance is subordinate to correctness. A performance change MUST NOT alter the returned
   solution, status, objective, duals or error behaviour. Input validation MUST NOT be removed
   for speed; a faster unchecked path MAY exist only as an explicit opt-in (VII-D).
@@ -77,21 +81,26 @@ intended path was taken, at the intended cost, with the intended result.
   (VII-G).
 * Every diagnostic block MUST be gated at its source; volume is fixed where it is emitted, not
   by changing how the code is invoked.
-* Results MUST carry both the normalised status and the solver's raw status code, unchanged.
-  Errors MUST carry the vendor's error code and message, read immediately after the failing call.
+* Results MUST carry both the solver-independent status (XVI-B) and the solver's raw status
+  code, unchanged. Errors MUST carry the vendor's error code and message, read immediately after the failing call.
 * Suppression applies to trace volume only. Warnings and errors MUST NOT be suppressed.
 
 ### IV. Zero-Copy Borrowed Inputs And Bulk Native Calls
 
 * Public input types MUST borrow caller-owned slices (CSC column pointers, row indices,
-  values, objective, bounds, row data). Inputs MUST NOT be copied unless a solver's C interface
-  requires a different type or encoding, and then only that array is converted, once.
+  values, objective, bounds, row data). Inputs MUST NOT be copied unless a solver's native
+  interface requires a different type or encoding, and then only that array is converted, once.
 * The library MUST accept each supported solver's native input forms (for example sense plus
   right-hand side as well as row ranges, byte variable-type codes, 32-bit row indices), so that
   callers already holding those forms pay no conversion.
-* Problems MUST be passed to solvers through their bulk load and slice calls. Per-element or
-  per-row FFI calls in loops, intermediate modelling layers, files, subprocesses and IPC are
+* Each solver is reached through its **native interface**: its Rust API where the solver is
+  written in Rust, otherwise its C API through a binding crate (optSolver's own, or an existing
+  crate). Problems MUST be passed through the solver's bulk load and slice calls. Per-element or
+  per-row calls in loops, intermediate modelling layers, files, subprocesses and IPC are
   prohibited on load and result paths.
+* An existing Rust wrapper crate MAY be used for a backend only if it exposes those bulk calls
+  taking borrowed slices, with no per-element copy or per-variable object; otherwise the bulk
+  calls are bound directly. The plan records which route each backend takes and why.
 * Where conversion is unavoidable (row indices to 32 bits), it MUST be fused with validation in
   one pass, MUST be skippable when the caller supplies the native type, and MUST be boundable by
   processing column blocks through one reused buffer.
@@ -213,11 +222,15 @@ satisfied and four defects that blocked coding.
 ### VII. Rust And FFI Coding Standards
 
 These rules bind every Rust file in the repository, every agent and every contributor.
+VII-A to VII-F govern code that crosses into C. They apply in full to binding code optSolver
+owns. Where a backend uses an existing binding crate instead, the plan MUST state how that crate
+meets VII-A to VII-E for the calls used, or record the gap as accepted risk; a backend over a
+pure-Rust solver has no FFI and those sub-parts do not apply to it.
 
 #### VII-A. Unsafe Code Is Confined And Argued
 
-* `unsafe` code MUST be confined to the FFI modules of backend crates. Crates with no FFI MUST
-  carry `#![forbid(unsafe_code)]`.
+* `unsafe` code MUST be confined to FFI modules. Every crate or module with no FFI MUST carry
+  `#![forbid(unsafe_code)]`.
 * Every `unsafe` block MUST carry a `// SAFETY:` comment naming the invariants it relies on.
   Every public `unsafe fn` MUST document a `# Safety` contract.
 * A pointer derived from a shared slice MAY be passed to a C parameter declared non-`const` only
@@ -254,8 +267,8 @@ These rules bind every Rust file in the repository, every agent and every contri
 
 #### VII-E. Vendor C Interfaces Are Bound As Verified
 
-* Every vendor declaration used MUST be checked against the installed vendor header for the
-  supported version declared in `project.yml`, and where the header is present a test MUST check
+* Every vendor declaration optSolver itself makes MUST be checked against the installed vendor
+  header for the supported version declared in `project.yml`, and where the header is present a test MUST check
   the Rust declarations against it.
 * A vendor entry point that is a C macro is not a linkable symbol. Its underlying function MUST
   be called with arguments (such as version numbers) taken from the vendor's header or library,
@@ -268,8 +281,11 @@ These rules bind every Rust file in the repository, every agent and every contri
 * Edition and minimum supported Rust version are declared once for the workspace and tested.
 * Lints are declared once for the workspace and include, at minimum: `unsafe_op_in_unsafe_fn`
   denied, `clippy::undocumented_unsafe_blocks` denied, `clippy::cast_possible_truncation`
-  warned.
-* Exactly one crate per vendor library declares Cargo's `links` key. Its build script MUST
+  warned. `non_snake_case` MAY be allowed only on the public problem and result types, so their
+  fields follow the Notation Convention (XII-C).
+* Where optSolver owns the binding to a vendor library, exactly one of its crates declares
+  Cargo's `links` key for that library, and none does where an existing binding crate is used.
+  A binding crate's build script MUST
   declare every environment variable it reads, and MUST NOT embed licence data or absolute
   machine paths in any committed file.
 * A library crate MUST NOT set a global allocator and MUST NOT rely on its own build profile.
@@ -281,8 +297,8 @@ optimiser parameter (for example Gurobi parameters, MOSEK integer, double and st
 parameters) and any optSolver option that maps to one (time limit, threads, tolerances, method,
 log output).
 
-* **One declaration of options and defaults.** The solver-neutral options type and every
-  default optSolver imposes are declared in one module of the core crate. A field the caller
+* **One declaration of options and defaults.** The options structure (XVI-C) and every
+  default optSolver imposes are declared in one module of the solver-neutral core. A field the caller
   leaves unset means "the solver's own default" unless that module overrides it, and every such
   override records its rationale beside it (I, solver configuration audit).
 * **One writer per backend.** In each backend, exactly one function applies parameters to the
@@ -436,7 +452,7 @@ be recorded when it occurs, in a durable artifact any agent can resume.
 for the repository's founding design; it is not renamed or reformatted, and it MUST be read before
 any feature work.
 
-### XII. Descriptive Names And History At The End
+### XII. Names, Notation And History
 
 #### XII-A. Descriptive Names, Not Codes
 
@@ -455,6 +471,16 @@ A comment recording history (what code used to do, which feature changed it, why
 approach failed) MUST appear at the end of the file under a heading marking it as history, not
 in a header, a documentation comment, or among the statements it describes. This binds a file
 when it is edited and authorises no sweep of existing files.
+
+#### XII-C. One Symbol Per Object, In Householder Notation
+
+One mathematical object has one symbol, the same in source code, documentation, specifications
+and discussion, as recorded in the Notation Convention section. Before introducing a symbol, the
+inventory MUST be consulted; an object that already has a symbol keeps it, and a symbol MUST NOT
+be reused for a second object. Where a solver imposes its own names (for example Gurobi's
+`vbeg`, `vind`, `vval`), they MAY appear locally in binding code, with the mapping to the
+canonical symbol stated beside them. A new object's symbol is added to the inventory by the
+feature that introduces it, through `/speckit-constitution`.
 
 ### XIII. Architecture Conformance And Component Ownership
 
@@ -612,16 +638,109 @@ convention), search for the rule being contradicted; a task description is not a
 reverse a deliberate earlier decision, and such a task MUST be raised rather than executed.
 Overriding a control is sometimes right and never silent: record the grounds.
 
+### XVI. A Solver-Independent Contract
+
+Callers program against one solver-independent contract. Solver-specific behaviour lives behind
+it, in each backend, and is reached only through the escape hatches this principle names.
+
+#### XVI-A. Problems And Results Have Generic Formats
+
+* Every backend MUST accept the same solver-independent problem type and options structure, and
+  return the same solver-independent result type. No solver-specific type appears in a solve
+  entry point's signature other than the backend's own environment or handle.
+* Solver-specific information in a result is confined to clearly separated fields: the raw
+  status code, the solver's identity and version, and any optional solver-specific extension.
+  Nothing a caller needs in order to interpret a solve requires reading those fields.
+* The representation of the generic types (borrowed views, traits, ownership of results,
+  caller-supplied buffers) is NOT fixed by this constitution. It is decided by a feature, through
+  exploration and plan, and recorded in the architecture model. Whatever is chosen MUST satisfy
+  Principles I and IV.
+
+#### XVI-B. A Solver-Independent Status Says How The Solve Went
+
+* Every result MUST carry a status from one solver-independent, named (non-numeric) vocabulary
+  declared once in the solver-neutral core. The vocabulary MUST distinguish at least: optimality proven;
+  infeasibility proven; unboundedness proven; infeasible-or-unbounded undetermined; stopped at a
+  limit; stopped by numerical difficulty; interrupted; and, separately from the status, whether a
+  feasible solution is returned.
+* Each backend translates its solver's codes into that vocabulary in exactly one translation
+  function. The translation MUST be total over every code the supported solver version
+  documents; a code not recognised maps to an explicit unknown status that keeps the raw code,
+  never to a guess and never to a panic.
+* Each translation MUST be tested code by code; the test needs no licence.
+* Translation to any caller's own convention (for example COBRA's numeric status values) is the
+  caller's adapter's job and lives outside this repository.
+
+#### XVI-C. Non-Default Solver Behaviour Is Requested Through A Structure
+
+* A solve MUST take an options structure whose fields set non-default solver behaviour. A field
+  left unset requests default behaviour; an empty structure requests default behaviour
+  throughout, meaning the solver's defaults modified only by the audited overrides declared in
+  the options module (I, VII-G).
+* Fields for concepts shared across solvers (time limit, threads, tolerances, method, logging)
+  have solver-independent names. Where a shared field's meaning differs between solvers, its
+  documentation states the mapping for each backend.
+* Solver-specific parameters are set through the structure's raw name/value passthrough
+  (VII-G), never through another route.
+* A field a backend cannot honour MUST NOT be silently ignored: it is honoured, rejected as an
+  error, or reported in the result, by a rule declared once in the options module.
+
+#### XVI-D. Every Solution Is Verified Independently Of The Solver
+
+* The solver-neutral core MUST provide solver-independent verification that measures, from the generic
+  problem and the generic result alone, how well the returned solution satisfies the
+  feasibility and optimality criteria of its problem class. For LP and MILP this covers at least:
+  violation of row bounds, variable bounds and integrality; and, where duals are returned, dual
+  sign feasibility, complementary slackness, and the gap between primal and dual objectives
+  (for MILP, the gap to the reported bound). Where a solver returns a certificate of
+  infeasibility or unboundedness, verification checks it.
+* Measures are reported individually, in absolute and scaled form, not collapsed into one
+  number, and never recomputed from the solver's own reported residuals.
+* Verification MUST NOT change the status: a disagreement between status and verification is
+  reported alongside both.
+* Every licensed-solver test MUST verify each solver's returned solution with it, and
+  cross-solver agreement (II) compares verified measures. Verification MUST itself be tested
+  against deliberately violated solutions (XV-C).
+* Whether verification runs during ordinary solves, and the definition of its tolerances and
+  scaling, are decided in a feature; if it runs at solve time it is controlled through the
+  options structure (XVI-C) and its cost is reported.
+
+Rationale: a caller comparing or switching solvers must not need to know any solver's status
+codes, parameter names or data layout, and must not have to trust a solver's own claim of
+optimality. A single contract with independent verification is what makes results from
+different solvers comparable at all.
+
+## Notation Convention
+
+Householder notation: matrices are upper-case Roman letters, vectors lower-case Roman letters,
+scalars Greek letters where practical. In code, a symbol is written as its letter (`A`, `Q`,
+`c`), and a subscript or qualifier becomes a descriptive suffix.
+
+| Symbol | Object |
+|---|---|
+| A | Constraint matrix, m rows by n columns, stored in CSC form |
+| Q | Quadratic objective matrix, n by n |
+| c | Linear objective coefficient vector, length n |
+| b | Row right-hand side vector, length m, used with a row sense |
+| l | Variable lower bound vector, length n |
+| u | Variable upper bound vector, length n |
+| x | Primal variable vector, length n |
+| m | Number of rows of A |
+| n | Number of columns of A |
+
+`m` and `n` are dimensions, written in lower case by convention.
+
 ## Technical Constraints
 
-* Language: Rust. Edition and minimum supported version per VII-F.
+* Language: Rust. Edition and minimum supported version per VII-F. One crate, `optsolver`,
+  with solver backends as modules behind additive features.
 * Targets: 64-bit only, asserted at compile time.
-* Supported solvers and versions: declared in `project.yml`. Further solvers (with a Rust or C
-  interface) are added only after checking for a bulk CSC or CSR load call.
+* Supported solvers and versions: declared in `project.yml`. Further solvers (with a Rust API,
+  or a C API reachable through a binding crate) are added only after checking for a bulk CSC or
+  CSR load call.
 * Problem classes, in order: LP and MILP; convex QP; later QCP and conic.
 * The public API is synchronous; asynchronous callers run solves on blocking threads.
-* Licence of optSolver's own code: MIT OR Apache-2.0, to be confirmed by the maintainer in
-  feature 001.
+* Licence of optSolver's own code: MIT OR Apache-2.0.
 
 ## Development Workflow And Quality Gates
 
@@ -636,7 +755,8 @@ warnings denied, the unlicensed test tier, feature-combination checks proving ad
 the minimum-supported-version build, and, where a licence is present, the licensed tier.
 
 Review MUST confirm: no new copies on hot paths (I, IV); solver parameters set only in their one
-location (VII-G); `SAFETY` comments and validation before FFI (VII); feature additivity (VIII);
+location (VII-G); the solver-independent contract kept, statuses translated totally and
+solutions verified (XVI); `SAFETY` comments and validation before FFI (VII); feature additivity (VIII);
 tests and benchmarks present (II, XIV); provenance recorded (X).
 
 After implementation, the contributor MUST report files edited, checks run, what passed, what
@@ -781,4 +901,4 @@ entry first. `/speckit-constitution` writes its Sync Impact Report there; prepen
 constitution is prohibited. Freshness stamps on observed facts, and rationales citing an incident
 to explain a rule, are not records of change and stay where they are.
 
-**Version**: 2.0.0 | **Ratified**: 2026-11-14 | **Last Amended**: 2026-11-14
+**Version**: 2.2.0 | **Ratified**: 2026-11-14 | **Last Amended**: 2026-11-14

@@ -58,10 +58,22 @@ write N/A only where stated.*
   only by each backend's single parameter-applying function, reachable by raw name/value
   passthrough, never overriding a caller value, and reportable as part of the effective
   parameter set. Name the module and function. N/A if no solver parameter is involved]
-- **Zero-copy inputs and bulk calls**: [Principle IV — list every input array and whether it is
-  borrowed as is or converted (and why); confirm only bulk load and slice calls are used;
-  describe the fused validation-conversion pass and its bound]
-- **Rust and FFI standards**: [Principle VII-A to VII-F — where `unsafe` lives and its SAFETY
+- **Zero-copy inputs and bulk calls**: [Principle IV — for each backend, the native-interface
+  route (solver's Rust API, optSolver's own C binding, or an existing binding crate) and why;
+  for an existing crate, evidence that it exposes the bulk calls on borrowed slices. List every
+  input array and whether it is borrowed as is or converted (and why); confirm only bulk load
+  and slice calls are used; describe the fused validation-conversion pass and its bound]
+- **Solver-independent contract**: [Principle XVI — (a) confirm every backend takes the generic
+  problem type and options structure and returns the generic result type, with solver-specific
+  information only in the separated fields (XVI-A); state any representation decision made by
+  this feature. (b) Name each backend's status translation function and confirm it is total over
+  the supported version's documented codes, with an explicit unknown status (XVI-B). (c) Confirm
+  new behaviour is requested only through options-structure fields, shared fields documented per
+  backend, and the rule for fields a backend cannot honour (XVI-C). (d) Name the verification
+  measures applied to every solution and the tests that use them (XVI-D). N/A only if the feature
+  touches no problem, options, result or status type]
+- **Rust and FFI standards**: [Principle VII-A to VII-F, for code that crosses into C (for an
+  existing binding crate, how it meets them or the accepted gap) — where `unsafe` lives and its SAFETY
   arguments; handle ownership, lifetimes and any Send/Sync with vendor citation; error versus
   status mapping and panic containment in callbacks; validation before the first FFI call;
   each vendor declaration and constant used, checked against the installed header (cite the
@@ -86,6 +98,9 @@ write N/A only where stated.*
   comparison harness added, the task exercising it against the failure it guards, including an
   "everything failed" case. (c) where run output is redirected and which log is complete.
   (d) any repository-wide rule added or widened, and the earlier decision searched for]
+- **Notation**: [Principle XII-C — every mathematical object this feature names uses its symbol
+  from the constitution's Notation Convention, in code, documents and discussion; new objects'
+  symbols are added to the inventory through `/speckit-constitution`. N/A if none]
 - **Provenance and licensing**: [Principle X — every external source, crate and test model with
   origin and licence; no vendor files or vendor-derived bindings committed]
 - **Project parameters**: [Governance — every project-specific value this feature reads or
@@ -172,14 +187,11 @@ specs/[###-feature]/
 -->
 
 ```text
-Cargo.toml                      # workspace
-crates/
-└── [crate]/
-    ├── Cargo.toml
-    ├── build.rs                # vendor binding crates only
-    ├── src/
-    ├── tests/
-    └── benches/
+Cargo.toml
+build.rs
+src/
+tests/
+benches/
 ```
 
 **Structure Decision**: [Document the selected structure and reference the real

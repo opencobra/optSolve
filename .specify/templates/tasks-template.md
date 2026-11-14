@@ -29,9 +29,8 @@ exempts code development from this workflow.
 
 ## Path Conventions
 
-- Cargo workspace: `crates/<crate>/src/`, `crates/<crate>/tests/`, `crates/<crate>/benches/`
-  as stated in `docs/architecture/repo_folder_organisation.md`
-- Adjust to the crates named in plan.md
+- Single crate: `src/`, `tests/`, `benches/`, as stated in
+  `docs/architecture/repo_folder_organisation.md`
 
 <!--
   ============================================================================
@@ -86,13 +85,19 @@ Examples of foundational tasks (adjust based on your project):
   parameter is added or touched: confirm vendor parameter-setting symbols appear only in each
   backend's single applying function, and test that a caller-supplied value reaches the
   solver unchanged and that the effective parameter set is reported
-- [ ] T010d Positive control (Principle XIV-D) — REQUIRED whenever a finding could be
+- [ ] T010d Status translation test (Principle XVI-B) — REQUIRED for any backend whose status
+  translation is added or changed: map every documented code of the supported solver version
+  and an unrecognised code, without a licence
+- [ ] T010e Solution verification (Principle XVI-D) — REQUIRED whenever a backend returns
+  solutions: every licensed test verifies the returned solution with the solver-independent
+  measures, and the verification itself is tested against deliberately violated solutions
+- [ ] T010f Positive control (Principle XIV-D) — REQUIRED whenever a finding could be
   "no difference": an executable check that the mechanism under test (chunked path,
   zero-copy path, warm start) is actually engaged. It MUST precede the comparison
-- [ ] T010e Guard self-test (Principle XV-C) — REQUIRED for every check, gate or comparison
+- [ ] T010g Guard self-test (Principle XV-C) — REQUIRED for every check, gate or comparison
   harness this feature adds: exercise it against the failure it guards, including an
   "everything failed" case reported as uninterpretable. Omit only if no guard is added
-- [ ] T010f Benchmark setup (Principles XIV, XV-A) — declare instances with provenance,
+- [ ] T010h Benchmark setup (Principles XIV, XV-A) — declare instances with provenance,
   record the effective parameter set, versions, commit, machine and profile, set N, time
   phases separately, measure peak memory in a dedicated process, and redirect output to the
   run bundle's log. Omit only if the feature makes no performance claim
@@ -112,14 +117,14 @@ Examples of foundational tasks (adjust based on your project):
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
 - [ ] T011 [P] [US1] Contract or interface compatibility test for [behavior] in tests/[path]
-- [ ] T012 [P] [US1] Licensed-solver test for [user journey] in crates/[crate]/tests/[name].rs (skipped visibly without a licence)
+- [ ] T012 [P] [US1] Licensed-solver test for [user journey] in tests/[name].rs (skipped visibly without a licence)
 
 ### Implementation for User Story 1
 
-- [ ] T013 [P] [US1] Create [Entity1] model in crates/[crate]/src/[entity1].rs
-- [ ] T014 [P] [US1] Create [Entity2] model in crates/[crate]/src/[entity2].rs
-- [ ] T015 [US1] Implement [Service] in crates/[crate]/src/[service].rs (depends on T013, T014)
-- [ ] T016 [US1] Implement [endpoint/feature] in crates/[crate]/src/[file].rs
+- [ ] T013 [P] [US1] Create [Entity1] model in src/[entity1].rs
+- [ ] T014 [P] [US1] Create [Entity2] model in src/[entity2].rs
+- [ ] T015 [US1] Implement [Service] in src/[service].rs (depends on T013, T014)
+- [ ] T016 [US1] Implement [endpoint/feature] in src/[file].rs
 - [ ] T017 [US1] Add validation and error handling
 - [ ] T018 [US1] Add verbosity-gated diagnostics for user story 1 operations (Principle III)
 - [ ] T019 [US1] Run benchmark against the wall-time and peak-memory targets in plan.md
@@ -137,13 +142,13 @@ Examples of foundational tasks (adjust based on your project):
 ### Tests for User Story 2
 
 - [ ] T020 [P] [US2] Contract or interface compatibility test for [behavior] in tests/[path]
-- [ ] T021 [P] [US2] Licensed-solver test for [user journey] in crates/[crate]/tests/[name].rs
+- [ ] T021 [P] [US2] Licensed-solver test for [user journey] in tests/[name].rs
 
 ### Implementation for User Story 2
 
-- [ ] T022 [P] [US2] Create [Entity] model in crates/[crate]/src/[entity].rs
-- [ ] T023 [US2] Implement [Service] in crates/[crate]/src/[service].rs
-- [ ] T024 [US2] Implement [endpoint/feature] in crates/[crate]/src/[file].rs
+- [ ] T022 [P] [US2] Create [Entity] model in src/[entity].rs
+- [ ] T023 [US2] Implement [Service] in src/[service].rs
+- [ ] T024 [US2] Implement [endpoint/feature] in src/[file].rs
 - [ ] T025 [US2] Integrate with User Story 1 components (if needed)
 - [ ] T026 [US2] Run benchmark against the wall-time and peak-memory targets in plan.md
 
@@ -160,13 +165,13 @@ Examples of foundational tasks (adjust based on your project):
 ### Tests for User Story 3
 
 - [ ] T027 [P] [US3] Contract or interface compatibility test for [behavior] in tests/[path]
-- [ ] T028 [P] [US3] Licensed-solver test for [user journey] in crates/[crate]/tests/[name].rs
+- [ ] T028 [P] [US3] Licensed-solver test for [user journey] in tests/[name].rs
 
 ### Implementation for User Story 3
 
-- [ ] T029 [P] [US3] Create [Entity] model in crates/[crate]/src/[entity].rs
-- [ ] T030 [US3] Implement [Service] in crates/[crate]/src/[service].rs
-- [ ] T031 [US3] Implement [endpoint/feature] in crates/[crate]/src/[file].rs
+- [ ] T029 [P] [US3] Create [Entity] model in src/[entity].rs
+- [ ] T030 [US3] Implement [Service] in src/[service].rs
+- [ ] T031 [US3] Implement [endpoint/feature] in src/[file].rs
 - [ ] T032 [US3] Run benchmark against the wall-time and peak-memory targets in plan.md
 
 **Checkpoint**: All user stories should now be independently functional
@@ -204,7 +209,7 @@ the approved feature scope to satisfy these tasks; a named deferral is the corre
   reference or contract this change invalidated (Principle XIII-D)
 - [ ] TXXX Code cleanup and refactoring
 - [ ] TXXX Performance optimization across all stories
-- [ ] TXXX [P] Additional unit tests in crates/[crate]/
+- [ ] TXXX [P] Additional unit tests in 
 - [ ] TXXX Security hardening
 - [ ] TXXX Run quickstart.md validation
 - [ ] TXXX Report files edited, checks run, pass/fail results, and unverified
@@ -256,12 +261,12 @@ the approved feature scope to satisfy these tasks; a named deferral is the corre
 
 ```bash
 # Launch all tests for User Story 1 together (if tests requested):
-Task: "Contract test for [endpoint] in crates/[crate]/tests/[name].rs"
-Task: "Integration test for [user journey] in crates/[crate]/tests/[name].rs"
+Task: "Contract test for [endpoint] in tests/[name].rs"
+Task: "Integration test for [user journey] in tests/[name].rs"
 
 # Launch all models for User Story 1 together:
-Task: "Create [Entity1] model in crates/[crate]/src/[entity1].rs"
-Task: "Create [Entity2] model in crates/[crate]/src/[entity2].rs"
+Task: "Create [Entity1] model in src/[entity1].rs"
+Task: "Create [Entity2] model in src/[entity2].rs"
 ```
 
 ---
