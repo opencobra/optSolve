@@ -27,7 +27,8 @@ no backend accepts them yet.
 ### Session 2026-11-15
 
 - Q: Which mixed-integer classes are in scope? → A: every mixed-integer class the solvers
-  support: MILP on both; mixed-integer QP on Gurobi (MOSEK has none); mixed-integer conic
+  support: MILP on both; mixed-integer QP on both (corrected in planning: MOSEK 11.2 supports
+  MIQP, research R1); mixed-integer conic
   problems on Gurobi with its cone kinds (quadratic, rotated quadratic, nonnegative, zero) and on
   MOSEK with the cone kinds MOSEK allows with integer variables (planning confirms which; the
   semidefinite cone is expected to be excluded).
@@ -115,8 +116,9 @@ compared across solvers.
 
 **Acceptance Scenarios**:
 
-1. **Given** a mixed-integer QP, **When** solved on Gurobi, **Then** Optimal with the known
-   optimum and a Verified report; on MOSEK, "unsupported".
+1. **Given** a mixed-integer QP, **When** solved on Gurobi or MOSEK, **Then** Optimal with the
+   known optimum and a Verified report on both, and the two agree (MOSEK's MIQP support
+   corrected in planning, research R1).
 2. **Given** a mixed-integer second-order-cone problem, **When** solved on both, **Then** both
    reach the known optimum and agree.
 3. **Given** a mixed-integer problem with a cone kind a backend does not allow with integers,
@@ -198,7 +200,8 @@ the drift test covers every new public item.
 - **FR-009**: Integer and binary variables MUST be accepted together with a quadratic objective
   or conic constraints wherever the backend supports that combination (Gurobi: mixed-integer QP
   and mixed-integer conic problems with its cone kinds; MOSEK: mixed-integer conic problems with
-  the cone kinds it allows with integer variables; MOSEK has no mixed-integer QP). Capabilities
+  the cone kinds it allows with integer variables, every kind except the semidefinite cone;
+  MOSEK also solves mixed-integer QP, research R1). Capabilities
   MUST state which combinations each backend accepts, and the shared problem check MUST reject
   any other combination as unsupported before a solver call.
 - **FR-009a**: For mixed-integer QP and conic problems the same rules as MILP apply: integrality
@@ -241,7 +244,7 @@ the drift test covers every new public item.
   benchmark instance with N = 5.
 - **SC-005**: The document's MILP example compiles in every tier and runs where a backend is
   available; the drift test passes.
-- **SC-006**: Every supported mixed-integer combination (MIQP on Gurobi; mixed-integer conic on
+- **SC-006**: Every supported mixed-integer combination (MIQP on both; mixed-integer conic on
   each backend for its allowed cone kinds) has at least one toy instance that solves to its known
   optimum, and every unsupported combination is rejected before solving.
 - **SC-007**: With fixed-model duals requested, every toy MILP with an optimal solution returns

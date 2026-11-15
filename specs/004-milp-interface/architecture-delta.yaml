@@ -1,0 +1,86 @@
+# Architecture delta for feature 004 (constitution XIII-C). Model before:
+# docs/architecture/components.yaml (reconciled in feature 003).
+schema: 1
+feature: 004-milp-interface
+verdict: APPROVE_WITH_ADR  # Gate 2A, 2026-11-15, maintainer; ADR-0004
+
+adr_required:
+  reason: >
+    the capability model gains per-class integer support (integer_classes,
+    integer_cones) and fixed-model duals fix a convention for duals of mixed-integer problems
+  written: docs/architecture/decisions/ADR-0004-mixed-integer-through-existing-interface.md
+
+components_added: []
+
+components_modified:
+  - id: core.options
+    change: five MIP option fields and fixed_model_duals; check_problem applies the mixed-integer rule
+  - id: core.backend
+    change: Capabilities::integer_classes, integer_cones
+  - id: core.result
+    change: Counts::nodes; Solution::mip_gap
+  - id: core.verify
+    change: INTEGRALITY and MIP_GAP measures; Tolerances gap fields; fixed-problem duals
+  - id: core.lib
+    change: interface document gains the mixed-integer sections and example
+  - id: gurobi.ffi
+    change: GRBfixmodel, GRBsetdblattrlist, MIP callback constants (header-checked)
+  - id: gurobi.load
+    change: vtype from the caller's slice (both paths); auxiliary columns continuous
+  - id: gurobi.params
+    change: MIPGap, MIPGapAbs, NodeLimit, SolutionLimit, IntFeasTol; DualReductions not set for MI; tolerances incl. gap
+  - id: gurobi.solve
+    change: capabilities; bound, nodes; fixed-model duals via GRBfixmodel and the existing extraction
+  - id: gurobi.callback
+    change: GRB_CB_MIP progress
+  - id: mosek.ffi
+    change: putvartypelist, clonetask, putvarboundlist, MIO constants (header-checked)
+  - id: mosek.load
+    change: variable types in one call; binary bounds intersected with [0, 1]
+  - id: mosek.params
+    change: MIO tolerances and limits, MIO seed for MI problems
+  - id: mosek.status
+    change: INTEGER_OPTIMAL
+  - id: mosek.solve
+    change: ITG solution, bound, nodes; fixed-model duals via a cloned task and the existing extraction
+  - id: mosek.callback
+    change: IM_MIO / NEW_INT_MIO progress
+  - id: test.harness
+    change: MPS integer markers and BV/LI/UI; JTASK int; toy accepted_statuses; comparison compatible statuses and MI objective rule; per-backend MI tests
+  - id: test.corpus
+    change: mixed-integer toy instances; derived MILP benchmark instance
+  - id: tools.toy_instances
+    change: mixed-integer definitions and two-tool checks
+  - id: docs.test_corpus
+    change: mixed-integer instances
+  - id: bench.load_solve
+    change: MILP scenario
+
+components_removed: []
+
+dependency_edges_added: []
+
+dependency_edges_forbidden:
+  - from: core.*
+    to: gurobi.* or mosek.*
+    principle: VIII
+  - from: any module except each backend's params
+    to: vendor parameter setters (MIP parameters included)
+    principle: VII-G
+
+public_interfaces_changed:
+  - contracts/public-api.md
+
+persistent_data_structures_added:
+  - mixed-integer toy files and provenance (tests/fixtures/small/)
+  - derived MILP provenance (tests/fixtures/milp/)
+
+naming_decisions_for_maintainer:  # constitution XIII-F
+  - Options fields mip_relative_gap, mip_absolute_gap, node_limit, solution_limit, integrality_tolerance, fixed_model_duals
+  - Capabilities fields integer_classes, integer_cones
+  - Counts::nodes; Solution::mip_gap; Tolerances::mip_relative_gap, mip_absolute_gap
+  - ProgressPhase::BranchAndBound; measure names INTEGRALITY, MIP_GAP
+  - toy names toy_milp_*, toy_miqp, toy_misocp, toy_mi_pexp; iDopaNeuroC_problem_LP_int
+  - provenance field accepted_statuses
+
+required_constitution_amendment: []
