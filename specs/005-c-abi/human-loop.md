@@ -1,13 +1,12 @@
 # Human Loop State
 
 ## Current State
-- Status: Bundle 1 complete; Gate 1 compliance review requested.
+- Status: Bundle 1 complete; Gate 1 review 1 FAIL repaired; Gate 1 review 2 requested.
 - Active feature directory: specs/005-c-abi (worktree `../optSolver-005-c-abi`, branch `005-c-abi`)
 - Last completed bundle: Bundle 1 (requirements preparation)
 - Source code modified by this workflow: no
-- Committed: no. Constitution 3.0.0 makes feature-branch commits agent actions, but the agent
-  session's tool permissions refused `git commit`; artefact revisions are therefore identified in
-  each gate review by SHA-256 content hashes (constitution VI-A permits this where uncommitted).
+- Committed: yes, on branch 005-c-abi before each gate review (a first attempt was refused by the
+  session's tool permissions; a later attempt succeeded).
 
 ## Core Command Ledger
 - constitution:   amended to 3.0.0 on the maintainer's instruction (see changelog); checked
@@ -24,13 +23,14 @@
 | Date (UTC) | Gate | Decision or verdict (with rationale) | Review file | Consequence |
 |---|---|---|---|---|
 | 2026-11-15 | (before Bundle 1) | Start feature 005 from request REQ-001 of the COBRA Toolbox fork, carried by a subagent the maintainer authorised | — | Branch 005-c-abi from devel (32e83ed) in its own worktree, because 004-milp-interface is open |
-| 2026-11-15 | Gate 1 (decisions) | MOSEK memory limit rejected as unsupported (vendor forbids MOSEK calls from the callback); Gurobi maps to SoftMemLimit only; environment handle usable from any thread, one at a time, Gurobi creation/freeing serialised. Rationale and evidence: spec Clarifications | (review below) | FR-008, FR-011 and SC-002/3/4/7 revised |
+| 2026-11-15 | Gate 1 (decisions, first round) | MOSEK memory limit rejected as unsupported (vendor forbids MOSEK calls from the callback); Gurobi maps to SoftMemLimit only; environment handle usable from any thread, one at a time, Gurobi creation/freeing serialised. Rationale and evidence: spec Clarifications | (review below) | Thread-rule and memory-limit requirements (FR-008, FR-011) and the heap, wall-time, environment-reuse and link-demonstration criteria (SC-002, SC-003, SC-004, SC-007) revised |
+
+| 2026-11-15 | Gate 1 review 1 | FAIL, seven findings: evidence not recorded; output-array rule deferred; comparison rule undefined; earlier non-Send ruling superseded silently; codes in place of names; M and N symbols; uncommitted work | gate-reviews/gate-1-20261115T232223Z.md | Repairs: dated vendor evidence in Clarifications; output-array and comparison rules decided; Env becomes Send (not Sync) with Gurobi creation lock, superseding feature 001 R15 and feature 002 R2 (recorded); names beside codes; version rule without symbols; work committed (710ae9a, 2f62cce) |
 
 ## Human-Reserved Decisions Pending (constitution VI-A)
 - Committing constitution 3.0.0 to the integration branch `devel` (it is written, uncommitted, in
   the worktree `../optSolver-devel`; carried, uncommitted, into this worktree).
-- Committing this feature's work (agent action under 3.0.0, refused by the session's tool
-  permissions) and, after Gate 3, integrating it into `devel`.
+- After Gate 3, integrating this feature into `devel`.
 
 ## Approved Implementation Scope
 - Approved: no

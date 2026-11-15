@@ -17,13 +17,18 @@
 
 ## Requirement Completeness
 
-- [x] CHK005 No [NEEDS CLARIFICATION] markers remain — the two in FR-011 and the thread question
-  were decided on 2026-11-15 under constitution 3.0.0 and recorded in the spec's Clarifications
-  section (closing artifact: spec.md, Clarifications and FR-008, FR-011).
-- [x] CHK006 Requirements are testable and unambiguous (each FR names its test in FR-013, FR-014,
-  FR-022 or a success criterion)
-- [x] CHK007 Success criteria are measurable (SC-002, SC-003, SC-004 give instance, solver
-  versions, N and statistic)
+- [x] CHK005 No [NEEDS CLARIFICATION] markers remain — the two in the memory-limit requirement
+  (FR-011) and the thread question were decided on 2026-11-15 under constitution 3.0.0 and
+  recorded with dated vendor evidence in the spec's Clarifications section (closing artifact:
+  spec.md, Clarifications, the thread-rule requirement FR-008 and the memory-limit requirement
+  FR-011).
+- [x] CHK006 Requirements are testable and unambiguous — re-verified 2026-11-15 after the first
+  Gate 1 review: the output-array rule (wrong length, quantity not returned) and the C-versus-Rust
+  comparison rule are now decided in the Clarifications; each functional requirement is checked by
+  the header-agreement requirement (FR-013), the C-level test requirement (FR-014), the
+  narrowest-check requirement (FR-022) or a success criterion.
+- [x] CHK007 Success criteria are measurable (the heap, wall-time and environment-reuse criteria,
+  SC-002 to SC-004, give instance, solver versions, N and statistic)
 - [x] CHK008 Success criteria are technology-agnostic — except where the feature's subject is a
   technology (C, link flags); accepted for this feature
 - [x] CHK009 All acceptance scenarios are defined
@@ -33,7 +38,10 @@
 
 ## Feature Readiness
 
-- [x] CHK013 All functional requirements have clear acceptance criteria
+- [x] CHK013 All functional requirements have clear acceptance criteria — re-verified 2026-11-15:
+  the comparison rule (Clarifications) defines vector agreement; the mixed-integer extension point
+  (FR-020) now has an observable check (a caller structure of an earlier, shorter size is
+  accepted).
 - [x] CHK014 User scenarios cover primary flows
 - [ ] CHK015 Feature meets measurable outcomes defined in Success Criteria — not checkable before
   implementation; routed to Gate 3 (closeout).

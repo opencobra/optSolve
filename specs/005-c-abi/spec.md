@@ -34,36 +34,74 @@ the founding decision that the adapter lives outside this repository (constituti
 
 Decided by the feature agent under constitution 3.0.0 (VI-A: clarification answers are agent
 decisions checked by the Gate 1 compliance review), with the requesting side's (COBRA's)
-preferences as input. Evidence is recorded in `research.md` (planning) and summarised here.
+preferences as input. Each vendor fact below was checked on 2026-11-15 against the source named
+(constitution X); the plan's research record repeats them with the design consequences.
 
 - Q: On MOSEK, how is the memory limit handled? → A: **Rejected as unsupported before any solver
   call** (option A). Rationale: COBRA preferred polling `MSK_getmemusagetask` from the progress
-  callback (option B) only if allowed there; the MOSEK 11.2 C API manual (`capi.pdf`, entry
-  `MSKcallbackfunc`) states "The user must not call any MOSEK function directly or indirectly from
-  the callback function", the only exception being retrieval of a mixed-integer solution. Polling
-  is therefore not permitted, and no probe can license what the vendor prohibits. Rejection uses
-  the existing rule of constitution XVI-C (the field is absent from MOSEK's option mapping, so the
-  shared check returns "unsupported" naming the field and the backend).
+  callback (option B) only if allowed there. Evidence: MOSEK 11.2 C API manual (installed
+  `doc/capi.pdf`), entry `MSKcallbackfunc`: "The user must not call any MOSEK function directly or
+  indirectly from the callback function. The only exception is the possibility to retrieve a
+  current best integer solution from the mixed-integer optimizer". `mosek.h` 11.2 declares no
+  memory-limit parameter. Polling is therefore prohibited, and no probe can license what the
+  vendor prohibits. Rejection uses the existing rule of constitution XVI-C (the field is absent
+  from MOSEK's option mapping, so the shared option check returns "unsupported" naming the field
+  and the backend).
 - Q: On Gurobi, which memory parameter does the limit map to? → A: **`SoftMemLimit` only**; the
-  hard limit `MemLimit` stays reachable through the raw parameter passthrough. Rationale: the soft
-  limit ends the optimisation with the memory-limit status (a status, constitution VII-C), which
-  is what the COBRA contract needs; the hard limit fails with an error and no solution. Setting
-  the solver-independent limit and `SoftMemLimit` by the raw route in one call is a parameter
-  conflict (constitution VII-G); `MemLimit` by the raw route alongside it is not.
+  hard limit `MemLimit` stays reachable through the raw parameter passthrough. Evidence: Gurobi
+  Optimizer Reference Manual 13.0, Parameter Reference (docs.gurobi.com/projects/optimizer/en/13.0/
+  reference/parameters.html, read 2026-11-15): `SoftMemLimit`, type double, default Infinity,
+  minimum 0, "Limits the total amount of memory (in GB, i.e., 10^9 bytes) available to Gurobi. If
+  more is needed, Gurobi will terminate with a MEM_LIMIT status code", "leads to a graceful exit of
+  the optimization, such that it is possible to retrieve solution information afterwards", "only
+  checked at places where optimization can be terminated gracefully, so memory use may exceed the
+  limit between these checks", "allocated memory is tracked across all models within a Gurobi
+  environment"; `MemLimit`: same units, "If more is needed, Gurobi will fail with an OUT_OF_MEMORY
+  error", "it is not possible to retrieve solution information after an error termination".
+  Installed `gurobi_c.h` 13.0.3 declares both names and `GRB_MEM_LIMIT` 17, which the Gurobi status
+  translation already maps to "stopped at a limit" with limit reason "memory". Rationale: the soft
+  limit gives a status (constitution VII-C), which the COBRA contract needs. Setting the
+  solver-independent limit and `SoftMemLimit` by the raw route in one call is a parameter conflict
+  (constitution VII-G); `MemLimit` by the raw route alongside it is not. Unverified until the
+  licensed test of the memory-limit success criterion runs: that `SoftMemLimit` set on a model's
+  environment (where optSolver sets parameters) is honoured.
+- Q: Units of the memory limit? → A: gigabytes of 10^9 bytes, as `SoftMemLimit` (evidence in the
+  previous answer); the field is named `memory_limit_gb` so the unit is in the name.
 - Q: May an environment handle be used from a thread other than the one that created it? →
-  A: **Yes, from any thread, one thread at a time** (option A). Rationale: MOSEK 11.2 C API manual
-  §10.3: "Sharing a task between threads is safe, as long as it is not accessed from more than one
-  thread at a time", and "Calling MSK_optimize from different threads using the same MOSEK
-  environment only consumes one license token"; Gurobi 13.0 reference manual (C API, environment
-  functions): "Multiple threads cannot work simultaneously within the same environment", and
-  Gurobi's support article on multithreaded applications (support.gurobi.com, article
-  360043111231): "Pass each additional thread an initialized environment for its exclusive use"
-  and "Gurobi's environment creation and deletion are not thread-safe". The C layer therefore
-  serialises Gurobi environment creation and freeing with one process-wide lock; different
-  handles may be used concurrently.
-- Q: Units of the memory limit? → A: gigabytes of 10^9 bytes, as Gurobi's `SoftMemLimit`
-  (verified against the 13.0 parameter reference in planning); the field is named
-  `memory_limit_gb` so the unit is in the name.
+  A: **Yes, from any thread, one thread at a time** (option A); different handles concurrently.
+  Evidence: MOSEK 11.2 C API manual §10.3: "Sharing a task between threads is safe, as long as it is
+  not accessed from more than one thread at a time. Multiple tasks can be created and used in
+  parallel without any problems", and §10.6: "Calling MSK_optimize from different threads using the
+  same MOSEK environment only consumes one license token". Gurobi 13.0 C reference, environment
+  functions (quoted in feature 001 research R17, item 7, checked 2026-11-14): "Multiple threads
+  cannot work simultaneously within the same environment", "environment initialization is itself
+  not thread-safe"; Gurobi support article 360043111231 (support.gurobi.com, read 2026-11-15):
+  "Gurobi's environment creation and deletion are not thread-safe", "Pass each additional thread an
+  initialized environment for its exclusive use". **This supersedes** the earlier rulings that the
+  environments are neither `Send` nor `Sync` pending this vendor check — feature 001 research R15
+  ("Making them `Send` waits for the vendor documentation check"), feature 002 research R2 (MOSEK
+  `Env` "neither `Send` nor `Sync`, as for Gurobi") — and the Threading section of the interface
+  document: the Rust types `gurobi::Env` and `mosek::Env` become `Send` (not `Sync`), each
+  implementation citing the evidence above (constitution VII-B), and Gurobi environment creation
+  and freeing are serialised by one process-wide lock in the Gurobi backend, because the vendor
+  says they are not thread-safe. The rulings waited for exactly this check; the grounds are
+  recorded here (constitution XV-E).
+- Q: What happens to a caller-supplied output array of the wrong length, or for a quantity the
+  solver did not return? → A: The caller passes each output array with its length; a wrong length
+  is the "invalid input" error naming the array, before any solver call, as in the Rust API (the C
+  layer adds no rule). Before solving, the C layer fills every supplied output array with NaN; an
+  entry the backend does not write stays NaN, and the result's solution-returned value says whether
+  a primal solution exists. Undefined content is never presented as data.
+- Q: How are vectors compared between the C interface and the Rust API? → A: Both solves use the
+  same backend, instance and options. Status, limit reason, solution-returned value, verification
+  verdict and the names of failed measures must be identical; the objective, the bound and every
+  entry of every returned vector must satisfy |a − b| ≤ 10 τ max(1, |b|), where b is the Rust API's
+  value and τ is the effective tolerance the Rust API's verification report records — the
+  row-bound measure's tolerance for x, row activity and the objective, the reduced-cost
+  consistency measure's tolerance for y, z, z_l, z_u, s and the bound (10⁻⁶ when the report lacks
+  that measure). Whether the two runs were bit-identical is reported, not required (Gurobi's
+  default LP method may run concurrent algorithms, which the vendor documents as possibly
+  non-deterministic). Missing arrays must be missing in both.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -87,9 +125,8 @@ anything. LP and QP are what COBRA's `solveCobraLP` and `solveCobraQP` route to 
 
 **Independent Test**: a small C program, compiled against the header and linked to the library,
 solves each LP and QP toy instance on each available backend; every returned quantity agrees with
-the Rust API's result for the same instance and options (status, limit reason, solution returned
-and verification verdict exactly; vectors and objective within the solver's tolerance, and
-exactly where the quantity is copied rather than computed).
+the Rust API's result for the same instance and options by the comparison rule in the
+Clarifications.
 
 **Acceptance Scenarios**:
 
@@ -163,7 +200,7 @@ needs returns the memory-limit outcome; without the limit the same problem solve
    reports "stopped at a limit" with the limit reason "memory", and the process continues.
 2. **Given** a memory limit on MOSEK, **When** solved, **Then** the call fails with the
    "unsupported" error naming the memory-limit field and the MOSEK backend, before any solver
-   call (FR-011) — never silently ignored (constitution XVI-C).
+   call (memory-limit requirement, FR-011) — never silently ignored (constitution XVI-C).
 3. **Given** the memory limit set through the Rust API instead, **When** solved, **Then** the
    outcome is the same: the limit is a solver-independent option of the Rust API, not only of the
    C interface.
@@ -219,7 +256,7 @@ checker free every library-owned object.
 2. **Given** an internal panic, **When** it occurs inside a call, **Then** the call returns the
    "internal error" code with a message, and the process continues.
 3. **Given** the header's declared interface version, **When** the library's version function is
-   called, **Then** it returns the same version; the version changes by the rule in FR-015 whenever
+   called, **Then** it returns the same version; the version changes by the rule in the versioning requirement (FR-015) whenever
    the interface changes.
 4. **Given** a library built with only one backend, **When** the caller asks for capabilities,
    **Then** it learns which backends are compiled in, whether each is usable (library loaded,
@@ -237,12 +274,13 @@ checker free every library-owned object.
 - A dimension above what the solvers accept (row or column count beyond the 32-bit limit): the
   "too large" error, as in the Rust API.
 - Row indices given as 32-bit integers that are negative: "invalid input", before any solver call.
-- An output array supplied with the wrong length, or an output array for a quantity the solver did
-  not return (for example duals of an infeasible problem): the array is left as the decided rule in
-  the plan states, and the result says the quantity is absent; never undefined content presented as
-  data.
+- An output array supplied with the wrong length: the "invalid input" error naming the array,
+  before any solver call, as in the Rust API. An output array for a quantity the solver did not
+  return (for example duals of an infeasible problem): its entries are NaN (the C layer fills
+  supplied arrays with NaN before solving) and the solution-returned value says whether a primal
+  solution exists; never undefined content presented as data.
 - An environment handle used after it has been freed, or used from two threads at once: documented
-  as undefined behaviour the caller must avoid (the thread rule is stated in FR-008); the library
+  as undefined behaviour the caller must avoid (the thread rule is stated in the thread-rule requirement, FR-008); the library
   does not attempt to detect use after free.
 - A backend not compiled into the library is requested: the "unsupported" error naming the backend.
 - A vendor shared library or licence absent at run time: environment creation fails with the
@@ -262,7 +300,8 @@ checker free every library-owned object.
   thin translation onto the existing solver-independent Rust API (problem, options, result,
   backend environments); the C layer MUST NOT re-implement validation, status translation,
   parameter application or verification.
-- **FR-002**: Problem input through C MUST mirror the Rust API exactly: an m-by-n matrix A in
+- **FR-002**: Problem input through C MUST mirror the Rust API exactly, except variable types
+  (out of scope; mixed-integer requirement, FR-020): an m-by-n matrix A in
   compressed sparse column form (column pointers as unsigned machine-size integers; row indices as
   unsigned machine-size integers or 32-bit signed integers; values as doubles); objective c;
   objective sense (minimise, maximise); objective constant; variable bounds l and u; row bounds
@@ -277,7 +316,7 @@ checker free every library-owned object.
   per cone) MAY be built by the C layer, and the plan MUST state their size.
 - **FR-004**: Options through C MUST mirror every shared field of the Rust options structure (time
   limit, iteration limit, threads, primal and dual feasibility tolerances, method, presolve, random
-  seed, solver log, certificates, array outputs, verification) plus the memory limit of FR-011,
+  seed, solver log, certificates, array outputs, verification) plus the memory limit of the memory-limit requirement (FR-011),
   each with an explicit "unset" state meaning "the solver's default", and the raw vendor parameter
   passthrough by name with an integer, double or string value. Precedence and conflict rules are
   those of the Rust API.
@@ -290,7 +329,8 @@ checker free every library-owned object.
   verification is switched off, and each measure with its name, absolute and relative value,
   tolerance, verdict and whether it is required).
 - **FR-006**: Results MUST be obtainable in either of two ways: written by the backend directly
-  into caller-supplied arrays (the Rust API's caller-buffer path), or held in a library-owned
+  into caller-supplied arrays, each passed with its length (the Rust API's caller-buffer path,
+  with the NaN rule of the Clarifications), or held in a library-owned
   result object from which the caller reads them in place and which the caller frees with its
   free function. Neither path makes a copy of a result array that the Rust API does not make.
 - **FR-007**: A caller MUST be able to create a backend environment handle (acquiring the licence
@@ -331,14 +371,14 @@ checker free every library-owned object.
 - **FR-014**: C-level tests MUST compile and run a C program against the header and the library
   inside the project's test harness, on the LP, QP and conic toy instances for each available
   backend, comparing every result field with the Rust API's result for the same instance and
-  options, by the comparison rules already used for cross-solver tests (constitution II: written
-  once, reused). Tests needing a licence are skipped visibly where the licence is absent;
+  options, by the comparison rule in the Clarifications, implemented once in the shared test module
+  and reused for every instance and backend (constitution II). Tests needing a licence are skipped visibly where the licence is absent;
   validation, error-code, panic-containment and version tests need no licence and run everywhere.
 - **FR-015**: The interface MUST carry a version, declared once in the header and returned by a
   library function, with a documented rule: an incompatible change (a removed or changed function,
   type, field, constant meaning or ownership rule) increments the major part; a compatible
-  addition increments the minor part. A caller compiled against major version M and minor version
-  N works with any library of major version M and minor version at least N.
+  addition increments the minor part. A caller compiled against a given major and minor version works with any library of the same major
+  version and an equal or higher minor version.
 - **FR-016**: Ownership MUST be explicit for every pointer that crosses the boundary: inputs are
   borrowed for the duration of the call only and never retained after it returns (unless a later
   feature introduces a persistent loaded model, which would state otherwise); every object or
@@ -355,10 +395,15 @@ checker free every library-owned object.
   function, type and constant.
 - **FR-020**: Mixed-integer problems are out of scope while feature 004 is unmerged. The interface
   MUST leave a compatible extension point (adding variable types and mixed-integer options later
-  is a minor version change under FR-015).
+  is a minor version change under the versioning requirement, FR-015). The extension mechanism
+  is that input structures begin with their own size, so a later minor version appends fields; a
+  test shows that a caller structure of an earlier, shorter size is accepted.
 - **FR-021**: The system MUST preserve the documented Rust public interface and its status and
-  error semantics; the only Rust-API change is the memory-limit option of FR-011, added without
-  breaking any existing caller (the options structure is already non-exhaustive).
+  error semantics. The Rust-API changes are: the memory-limit option of the memory-limit
+  requirement (FR-011), added without breaking any existing caller (the options structure is
+  already non-exhaustive); and `gurobi::Env` and `mosek::Env` becoming `Send` (not `Sync`), with
+  Gurobi environment creation and freeing serialised (Clarifications), which only widens what
+  callers may do. The interface document's Threading section is updated accordingly.
 - **FR-022**: The narrowest checks that prove the behaviour are: the unlicensed C test (version,
   validation errors, panic containment, header agreement) and the licensed C toy-instance
   comparison on each backend.
@@ -385,11 +430,11 @@ checker free every library-owned object.
 ### Measurable Outcomes
 
 - **SC-001**: For every LP, QP and conic toy instance that a backend supports, the C interface's
-  result on that backend agrees with the Rust API's: status, limit reason, solution returned and
-  verification verdict identical; objective, bound and every returned vector equal within the
-  tolerance the cross-solver comparison already uses for same-backend runs, and bit-identical where
-  the run is deterministic and the quantity is copied. Checked on every run of the licensed tier
-  (N = 1 per instance and backend, deterministic solves).
+  result on that backend agrees with the Rust API's by the comparison rule in the Clarifications
+  (identical status, limit reason, solution returned, verification verdict and failed-measure
+  names; objective, bound and every returned vector within 10 τ relative), on the owned-result and
+  the caller-buffer paths. Checked on every run of the licensed tier (N = 1 per instance, path and
+  backend); bit-identity reported.
 - **SC-002**: The C layer adds no allocation proportional to m, n or the number of nonzeros on the
   input path: on `iDopaNeuroC_problem_LP` (LP, m = 1344, n = 2942, nnz(A) = 13748, Gurobi 13.0.3
   and MOSEK 11.2), the peak heap memory owned by optSolver (heap profiler) of a solve through the
@@ -408,8 +453,9 @@ checker free every library-owned object.
   N = 1 sequence (deterministic solves). Wall time of the sequence and of the one-shot solves is
   recorded (informational, N = 1).
 - **SC-005**: On Gurobi, a solve with a memory limit below the instance's requirement returns the
-  memory-limit outcome of FR-011 and the test process continues; on MOSEK the decided behaviour of
-  FR-011 is demonstrated by a test (N = 1, deterministic outcome).
+  memory-limit outcome (status "stopped at a limit", limit reason "memory") and the test process
+  continues; on MOSEK the memory limit gives the "unsupported" error naming the field, shown by a
+  test (N = 1, deterministic outcome).
 - **SC-006**: Every invalid-input case of the existing Rust failing-input tests that a C caller can
   express returns the "invalid input" (or "too large") code with a message naming the input, before
   any solver call; a forced panic returns the "internal error" code; zero leaks are reported by a
@@ -428,13 +474,14 @@ checker free every library-owned object.
   `contracts/optsolver-mex.md` of COBRA feature `20261115-173718-runmat-testall-optsolver`); its
   fields (`abiVersion`, per-backend `available`, `reason`, problem classes, cones, `version`;
   problem fields; options `primalFeasTol`, `dualFeasTol`, `timeLimit`, `solverLog`, `memLimitGB`,
-  raw parameters; result fields) are all covered by FR-002 to FR-017. MATLAB sparse indices
+  raw parameters; result fields) are all covered by the functional requirements on problem input, options, results,
+  environments, errors and capabilities (FR-002 to FR-017). MATLAB sparse indices
   (`mwIndex`) are unsigned machine-size integers on 64-bit platforms, the Rust API's native row
   index type, so the gateway needs no index conversion.
 - Supported platforms are the 64-bit targets the crate already supports; the header uses
   fixed-width and `size_t` types only.
 - Cancellation and progress callbacks are out of scope for this version; they are a compatible
-  addition later (FR-015).
+  addition later (versioning requirement, FR-015).
 - Persistent loaded models (modify and re-solve without reloading, constitution I) do not exist in
   the Rust API yet; when they are added, their C exposure is a later minor version.
 - A library built with a backend feature links that vendor's shared library; a caller using such a
@@ -444,6 +491,7 @@ checker free every library-owned object.
   `requests/from-cobratoolbox/REQ-001-*.md`, a destination optSolver's placement document does not
   yet name; per constitution IX-F the plan amends the placement document first, and the request
   text is also quoted in this spec's Input.
-- Environment-creation counting (SC-004) and forced-panic containment (SC-006) need two
+- Environment-creation counting (environment-reuse criterion, SC-004) and forced-panic containment
+  (error-handling criterion, SC-006) need two
   test-support entry points in the C interface; they are documented as such and change no
   behaviour of the solving functions.
