@@ -1,7 +1,7 @@
 # Human Loop State
 
 ## Current State
-- Status: Bundle 1 complete; Gate 1 reviews 1 to 3 FAIL, each repaired; Gate 1 review 4 requested.
+- Status: Gate 1 PASS (review 4); Bundle 2 plan written; Gate 2A review requested.
 - Active feature directory: specs/005-c-abi (worktree `../optSolver-005-c-abi`, branch `005-c-abi`)
 - Last completed bundle: Bundle 1 (requirements preparation)
 - Source code modified by this workflow: no
@@ -14,7 +14,7 @@
 - clarify:        2026-11-15 — three questions answered by the feature agent under 3.0.0
                   (spec Clarifications), plus the unit of the memory limit
 - checklist:      requirements checklist 15/16; the success-criteria item (CHK015) routed to Gate 3
-- plan:
+- plan:           2026-11-15 — plan, research, data model, contract, quickstart, architecture delta, ADR-0004 (proposed)
 - tasks:
 - analyze:
 - implement:
@@ -28,6 +28,7 @@
 | 2026-11-15 | Gate 1 review 1 | FAIL, seven findings: evidence not recorded; output-array rule deferred; comparison rule undefined; earlier non-Send ruling superseded silently; codes in place of names; M and N symbols; uncommitted work | gate-reviews/gate-1-20261115T232223Z.md | Repairs: dated vendor evidence in Clarifications; output-array and comparison rules decided; Env becomes Send (not Sync) with Gurobi creation lock, superseding the deferred-Send rulings of feature 001 research (R15) and feature 002 research (R2) (recorded); names beside codes; version rule without symbols; work committed (710ae9a, 2f62cce) |
 | 2026-11-15 | Gate 1 review 2 | FAIL, six findings: comparison and reuse criteria assumed deterministic Gurobi runs; comparison rule used symbols outside the inventory; codes without names; commit 710ae9a omitted the in-flight governance changes; missing rationale for the structure-size mechanism and the factor ten; stale record of the constitution's commit state | gate-reviews/gate-1-20261115T232922Z.md | Repairs: deterministic comparison configuration with vendor rationale; rule stated in words; names beside codes; deviation recorded below; rationales added; record corrected |
 | 2026-11-15 | Gate 1 review 3 | FAIL, three findings: a symbol outside the inventory left in the agreement criterion (SC-001); the memory-limit criterion (SC-005) not reliably testable; stale current-state record | gate-reviews/gate-1-20261115T233404Z.md | Repairs: criterion in words; memory-limit criterion fixes instance, one thread, a limit far below need and N = 3 with vendor rationale; state record updated |
+| 2026-11-15 | Gate 1 review 4 | PASS | gate-reviews/gate-1-20261115T233939Z.md | Gate 1 passed; Bundle 2 (plan) starts. Observations routed to the plan: capabilities usability, crate types versus the feature, C-layer failing-input tests, thread-rule and no-output checks, machine class, version mapping, absent arrays. Wording observation (User Story 3 says "toy-sized" while the memory-limit criterion uses iDopaNeuroC_problem_LP) left for the next spec revision, which will need a Gate 1 re-review |
 
 **Recorded deviation (Governance, "Commits Carry In-Flight Manual Work")**: commit 710ae9a
 (feature artefacts) did not include or list the eleven tracked governance changes then in the

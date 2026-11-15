@@ -1,0 +1,95 @@
+# Architecture delta for feature 005 (constitution XIII-C). Model before:
+# docs/architecture/components.yaml (reconciled in feature 003).
+schema: 1
+feature: 005-c-abi
+verdict: PENDING  # issued by the Gate 2A compliance review (constitution VI-A, XIII-C)
+
+adr_required:
+  reason: >
+    introduces a layer (a C-exporting interface module), new library crate types (static and
+    shared library), a public data representation for C callers, and couples optSolver to an
+    external caller convention (a C ABI with its own versioning)
+  written: docs/architecture/decisions/ADR-0004-c-interface.md
+
+naming:  # constitution XIII-F, decided by the feature agent, checked at Gate 2A
+  - name: capi
+    denotes: the module that exports optSolver's solver-independent API as C functions (src/capi/) and the Cargo feature that compiles it
+    why: "C API" is the established term for a library's C-callable interface, and the same abbreviation the vendors use (Gurobi C API, MOSEK C API); it names what the module is, not a caller
+  - name: "C interface"
+    denotes: the header src/capi/optsolver.h together with the exported functions; the term used in prose
+    why: descriptive (XII-A); avoids "ABI" except for the version number, which is what the version protects
+  - name: "src/capi/optsolver.h"
+    denotes: the public C header
+    why: conventional location and name of a library's public header
+
+components_added:
+  - id: capi
+    location: src/capi/
+    responsibility: C entry points over the solver-independent API (problem, options, environments, solve, result, capabilities), panic containment, per-thread error messages; no validation, status translation, parameter application or verification of its own
+    status: specified, not yet created
+  - id: capi.header
+    location: src/capi/optsolver.h
+    responsibility: the public C header (types, constants, prototypes, ownership and thread rules, version)
+    status: specified, not yet created
+  - id: test.c_interface
+    location: tests/c_interface.rs, tests/c/
+    responsibility: header agreement, C programs compiled against the header and run against the libraries, comparison with the Rust API through the shared harness
+    status: specified, not yet created
+  - id: bench.c_interface
+    location: benches/c_interface.rs
+    responsibility: C-path versus Rust-path heap and wall-time comparison (SC-002, SC-003)
+    status: specified, not yet created
+
+components_modified:
+  - id: core.options
+    change: memory_limit_gb field (Option<f64>), listed in set_shared_fields
+  - id: gurobi.params
+    change: memory_limit_gb → SoftMemLimit in apply and MAPPINGS
+  - id: gurobi.env
+    change: Env is Send (not Sync), vendor-cited; process-wide lock serialising environment creation and freeing
+  - id: mosek.env
+    change: Env is Send (not Sync), vendor-cited
+  - id: gurobi.solve
+    change: solve_into checks the conic-dual buffer length (closing a validation gap; MOSEK already checks)
+  - id: test.harness
+    change: toy-instance binary writer and C-result reader for the C driver; comparison reused unchanged
+  - id: docs.llm_interface
+    change: C interface section (every function, type and constant); memory_limit_gb; Threading section (Env is Send, not Sync)
+  - id: docs.repo_folder_organisation
+    change: roles public C header (src/capi/), C test sources (tests/c/), incoming cross-repository requests (specs/<feature>/requests/); no project.yml change
+  - id: manifest
+    change: Cargo.toml crate-type lib + staticlib + cdylib; feature capi; [[test]] c_interface; [[bench]] c_interface
+  - id: test.standards
+    change: src/capi/ admitted as an FFI module for unsafe and extern "C" definitions; drift test covers the header's names
+
+components_removed: []
+
+dependency_edges_added:
+  - from: capi
+    to: core.problem, core.conic, core.options, core.result, core.verify, core.backend, core.error
+    reason: translates C structures onto the Rust API types
+  - from: capi
+    to: gurobi.env, mosek.env, gurobi.solve, mosek.solve
+    reason: creates and owns backend environments behind an opaque handle and solves through their Backend implementations (feature-gated per backend)
+  - from: test.c_interface
+    to: capi.header, test.harness
+    reason: compiles C programs against the header; reuses fixture loading and comparison
+
+dependency_edges_forbidden:
+  - from: core.*
+    to: capi
+    reason: the solver-neutral core never depends on its C interface (VIII)
+  - from: gurobi.*, mosek.*
+    to: capi
+    reason: backends do not know their callers
+  - from: capi
+    to: gurobi.ffi, gurobi.params, mosek.ffi, mosek.params
+    reason: the C layer reaches backends only through Backend and Env::new; never vendor calls or parameter setters (VII-G)
+
+public_interfaces_changed:
+  - Options gains memory_limit_gb (non_exhaustive struct: additive)
+  - gurobi::Env and mosek::Env become Send (not Sync): additive (supersedes feature 001 R15, feature 002 R2)
+  - new C interface, ABI 1.0 (specs/005-c-abi/contracts/c-interface.md)
+persistent_data_structures_changed: []
+runtime_topology_changed:
+  - the library is additionally produced as liboptsolver.a and liboptsolver.so; consumers (the COBRA MEX gateway) link it
