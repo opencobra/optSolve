@@ -31,9 +31,11 @@ impl<'a, I: RowIndex> Problem<'a, I> {
 }
 
 // src/result.rs (changed)
-pub struct Solution { /* … existing fields … */ pub s: Vec<f64> }        // conic duals, length k
+pub struct Solution { /* … existing fields … */ pub s: Vec<f64>,       // conic duals, length k
+                      pub z_l: Vec<f64>, pub z_u: Vec<f64> }             // bound multipliers (R19)
+pub struct SolutionView<'a> { /* … */ pub s, pub z_l, pub z_u: Option<&'a [f64]>, pub basic: bool }
 pub enum Certificate { Farkas { y, z, s }, UnboundedRay { r } }          // s added (empty if k = 0)
-pub struct SolutionBuffers<'b> { /* … */ pub s: Option<&'b mut [f64]> }
+pub struct SolutionBuffers<'b> { /* … */ pub s, pub z_l, pub z_u: Option<&'b mut [f64]> }
 
 // src/backend.rs (changed)
 pub enum ProblemClass { Lp, Milp, Qp, Conic }                            // Conic added

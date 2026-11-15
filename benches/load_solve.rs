@@ -8,8 +8,10 @@
 //!   solve, extraction and verification separately (cold = first repetition), plus the rise in
 //!   peak resident memory (`VmHWM`) and Gurobi's `MaxMemUsed` (cross-check, research R8).
 //!
-//! Records go to `results/001-core-gurobi-lp/runs/<UTC>-bench/` as JSON lines, and a summary
-//! evaluating SC-004 and SC-005 is printed. Run: `cargo bench --features gurobi`.
+//! Every scenario runs for each compiled backend (feature 002, task T036: MOSEK with
+//! `--features gurobi,mosek`). Records go to `results/002-mosek-lp-qp-clp/runs/<UTC>-bench/` as
+//! JSON lines, and a summary evaluating SC-004 and SC-005 per solver is printed. Run:
+//! `cargo bench --features gurobi,mosek`.
 
 #![allow(missing_docs, non_snake_case, unused_imports)]
 
@@ -29,6 +31,7 @@ const CHILD_ENV: &str = "OPTSOLVER_BENCH_CHILD";
 /// One benchmark record (task T047: a record missing any field is refused by `validate`).
 #[derive(Debug, Clone, Default)]
 struct Record {
+    solver: String,
     instance: String,
     index_type: String,
     kind: String,
@@ -65,6 +68,7 @@ impl Record {
     fn validate(&self) -> Result<(), String> {
         let mut missing = Vec::new();
         for (name, v) in [
+            ("solver", &self.solver),
             ("instance", &self.instance),
             ("index_type", &self.index_type),
             ("kind", &self.kind),
@@ -106,7 +110,7 @@ impl Record {
                 if self.vmhwm_rise_kib.is_none() {
                     missing.push("vmhwm_rise_kib");
                 }
-                if self.gurobi_max_mem_used_gb.is_none() {
+                if self.solver == "gurobi" && self.gurobi_max_mem_used_gb.is_none() {
                     missing.push("gurobi_max_mem_used_gb");
                 }
             }
@@ -141,7 +145,8 @@ impl Record {
         let opt_f = |v: Option<f64>| v.map_or("null".to_string(), |x| format!("{x:e}"));
         let esc = |s: &str| s.replace('\\', "\\\\").replace('"', "\\\"");
         format!(
-            "{{\"instance\":\"{}\",\"index_type\":\"{}\",\"kind\":\"{}\",\"m\":{},\"n\":{},\"nnz\":{},\"n_repetitions\":{},\"env_creation\":{},\"load\":{},\"solve\":{},\"extraction\":{},\"verification\":{},\"validation\":{},\"load_optsolver\":{},\"load_vendor\":{},\"heap_peak_during_load_bytes\":{},\"vmhwm_rise_kib\":{},\"gurobi_max_mem_used_gb\":{},\"load_path\":\"{}\",\"buffer_high_water\":{},\"effective_parameters\":\"{}\",\"solver_version\":\"{}\",\"optsolver_commit\":\"{}\",\"machine\":\"{}\",\"profile\":\"{}\"}}",
+            "{{\"solver\":\"{}\",\"instance\":\"{}\",\"index_type\":\"{}\",\"kind\":\"{}\",\"m\":{},\"n\":{},\"nnz\":{},\"n_repetitions\":{},\"env_creation\":{},\"load\":{},\"solve\":{},\"extraction\":{},\"verification\":{},\"validation\":{},\"load_optsolver\":{},\"load_vendor\":{},\"heap_peak_during_load_bytes\":{},\"vmhwm_rise_kib\":{},\"gurobi_max_mem_used_gb\":{},\"load_path\":\"{}\",\"buffer_high_water\":{},\"effective_parameters\":\"{}\",\"solver_version\":\"{}\",\"optsolver_commit\":\"{}\",\"machine\":\"{}\",\"profile\":\"{}\"}}",
+            self.solver,
             esc(&self.instance),
             self.index_type,
             self.kind,
@@ -191,6 +196,7 @@ impl Record {
                 .collect()
         };
         Record {
+            solver: field("solver"),
             instance: field("instance"),
             index_type: field("index_type"),
             kind: field("kind"),
@@ -283,18 +289,86 @@ fn profile() -> String {
     }
 }
 
-fn deterministic_options<'a>() -> Options<'a> {
+fn deterministic_options<'a>(solver: &str) -> Options<'a> {
     let mut o = Options::default();
     o.method = Some(Method::DualSimplex);
     o.threads = Some(1);
-    o.random_seed = Some(0);
+    if solver == "gurobi" {
+        o.random_seed = Some(0); // MOSEK maps no seed (feature 002 research R9)
+    }
     o
+}
+
+/// The solvers compiled into this benchmark.
+fn solvers() -> Vec<&'static str> {
+    let mut v = vec!["gurobi"];
+    if cfg!(feature = "mosek") {
+        v.push("mosek");
+    }
+    v
+}
+
+/// A backend environment of either solver, with the load report both provide.
+enum Solver {
+    Gurobi(optsolver::gurobi::Env),
+    #[cfg(feature = "mosek")]
+    Mosek(optsolver::mosek::Env),
+}
+
+/// (path, blocks, buffer high-water, vendor seconds, total seconds) of a load-only call.
+type LoadFigures = (&'static str, usize, usize, f64, f64);
+
+impl Solver {
+    fn new(name: &str) -> Result<Self, String> {
+        match name {
+            "gurobi" => optsolver::gurobi::Env::new()
+                .map(Solver::Gurobi)
+                .map_err(|e| e.to_string()),
+            #[cfg(feature = "mosek")]
+            "mosek" => optsolver::mosek::Env::new()
+                .map(Solver::Mosek)
+                .map_err(|e| e.to_string()),
+            other => Err(format!("solver {other} not compiled")),
+        }
+    }
+    fn backend(&self) -> &dyn Backend {
+        match self {
+            Solver::Gurobi(e) => e,
+            #[cfg(feature = "mosek")]
+            Solver::Mosek(e) => e,
+        }
+    }
+    fn load_report(&self, p: optsolver::ProblemRef<'_, '_>) -> Result<LoadFigures, String> {
+        match self {
+            Solver::Gurobi(e) => e.load_report(p).map(|r| {
+                (
+                    r.path,
+                    r.blocks,
+                    r.buffer_high_water,
+                    r.vendor_seconds,
+                    r.total_seconds,
+                )
+            }),
+            #[cfg(feature = "mosek")]
+            Solver::Mosek(e) => e.load_report(p).map(|r| {
+                (
+                    r.path,
+                    r.blocks,
+                    r.buffer_high_water,
+                    r.vendor_seconds,
+                    r.total_seconds,
+                )
+            }),
+        }
+        .map_err(|e| e.to_string())
+    }
 }
 
 /// Child process body: one scenario, prints exactly one JSON record line on stdout.
 fn child(spec: &str) -> Result<Record, String> {
     let mut parts = spec.split('|');
-    let (instance, index_type, kind) = (
+    let (instance, index_type, kind, solver) = (
+        parts.next().unwrap_or(""),
         parts.next().unwrap_or(""),
         parts.next().unwrap_or(""),
         parts.next().unwrap_or(""),
@@ -308,22 +382,20 @@ fn child(spec: &str) -> Result<Record, String> {
         .iter()
         .map(|&i| i32::try_from(i).expect("row index fits i32"))
         .collect();
-    let env = optsolver::gurobi::Env::new().map_err(|e| e.to_string())?;
+    let env = Solver::new(solver)?;
     let rows = RowBounds::SenseRhs {
         sense: &mp.sense,
         b: &mp.b,
     };
     let mut r = Record {
+        solver: solver.into(),
         instance: instance.into(),
         index_type: index_type.into(),
         kind: kind.into(),
         m: mp.m,
         n: mp.n,
         nnz: mp.values.len(),
-        solver_version: {
-            let (a, b, c) = env.version();
-            format!("{a}.{b}.{c}")
-        },
+        solver_version: env.backend().capabilities().solver.version,
         optsolver_commit: commit(),
         machine: machine(),
         profile: profile(),
@@ -344,12 +416,12 @@ fn child(spec: &str) -> Result<Record, String> {
                 |problem: optsolver::ProblemRef<'_, '_>, r: &mut Record| -> Result<(), String> {
                     let _profiler = dhat::Profiler::builder().testing().build();
                     let before = dhat::HeapStats::get();
-                    let report = env.load_report(problem).map_err(|e| e.to_string())?;
+                    let (path, blocks, high_water, _, _) = env.load_report(problem)?;
                     let after = dhat::HeapStats::get();
                     r.heap_peak_during_load_bytes =
                         Some((after.max_bytes.saturating_sub(before.curr_bytes)) as u64);
-                    r.load_path = format!("{} (blocks {})", report.path, report.blocks);
-                    r.buffer_high_water = report.buffer_high_water;
+                    r.load_path = format!("{path} (blocks {blocks})");
+                    r.buffer_high_water = high_water;
                     Ok(())
                 };
             if index_type == "i32" {
@@ -380,21 +452,23 @@ fn child(spec: &str) -> Result<Record, String> {
             }
             let run =
                 |problem: optsolver::ProblemRef<'_, '_>, r: &mut Record| -> Result<(), String> {
-                    let rep = env.load_report(problem).map_err(|e| e.to_string())?;
-                    r.load_path = format!("{} (blocks {})", rep.path, rep.blocks);
+                    let (path, blocks, _, _, _) = env.load_report(problem)?;
+                    r.load_path = format!("{path} (blocks {blocks})");
                     // Load split (task T055), N repetitions of a load-only call.
                     for _ in 0..N_REPETITIONS {
-                        let rep = env.load_report(problem).map_err(|e| e.to_string())?;
-                        r.load_vendor.push(rep.vendor_seconds);
-                        r.load_optsolver
-                            .push((rep.total_seconds - rep.vendor_seconds).max(0.0));
+                        let (_, _, _, vendor, total) = env.load_report(problem)?;
+                        r.load_vendor.push(vendor);
+                        r.load_optsolver.push((total - vendor).max(0.0));
                     }
                     for _ in 0..N_REPETITIONS {
                         let t = Instant::now();
-                        let e = optsolver::gurobi::Env::new().map_err(|e| e.to_string())?;
+                        let e = Solver::new(solver)?;
                         r.env_creation.push(t.elapsed().as_secs_f64());
-                        let mut o = deterministic_options();
-                        let s = e.solve(problem, &mut o).map_err(|e| e.to_string())?;
+                        let mut o = deterministic_options(solver);
+                        let s = e
+                            .backend()
+                            .solve(problem, &mut o)
+                            .map_err(|e| e.to_string())?;
                         if s.status != optsolver::Status::Optimal {
                             return Err(format!("status {:?}", s.status));
                         }
@@ -455,6 +529,7 @@ fn child(spec: &str) -> Result<Record, String> {
 /// Guard self-test (XV-C, task T047): an incomplete record must be refused.
 fn record_writer_self_test() {
     let good = Record {
+        solver: "gurobi".into(),
         instance: "x".into(),
         index_type: "usize".into(),
         kind: "mem".into(),
@@ -499,8 +574,7 @@ fn main() {
         return;
     }
     record_writer_self_test();
-    let instances =
-        common::fixtures::corpus_instances().expect("corpus instances from project.yml");
+    let instances = common::fixtures::lp_instances().expect("corpus instances from project.yml");
     let stamp = {
         let out = Command::new("date")
             .args(["-u", "+%Y%m%dT%H%M%SZ"])
@@ -509,113 +583,124 @@ fn main() {
         String::from_utf8_lossy(&out.stdout).trim().to_string()
     };
     let dir = common::fixtures::repo_root()
-        .join("results/001-core-gurobi-lp/runs")
+        .join("results/002-mosek-lp-qp-clp/runs")
         .join(format!("{stamp}-bench"));
     std::fs::create_dir_all(&dir).expect("run bundle directory");
     let exe = std::env::current_exe().expect("benchmark executable");
     let mut lines = Vec::new();
-    for instance in &instances {
-        for index_type in ["usize", "i32"] {
-            let mut specs = vec![format!("{instance}|{index_type}|time")];
-            specs.extend((0..N_REPETITIONS).map(|_| format!("{instance}|{index_type}|mem")));
-            for spec in specs {
-                let out = Command::new(&exe)
-                    .env(CHILD_ENV, &spec)
-                    .output()
-                    .expect("child process");
-                if !out.status.success() {
-                    panic!(
-                        "child {spec} failed: {}",
-                        String::from_utf8_lossy(&out.stderr)
-                    );
+    for solver in solvers() {
+        for instance in &instances {
+            for index_type in ["usize", "i32"] {
+                let mut specs = vec![format!("{instance}|{index_type}|time|{solver}")];
+                specs.extend(
+                    (0..N_REPETITIONS).map(|_| format!("{instance}|{index_type}|mem|{solver}")),
+                );
+                for spec in specs {
+                    let out = Command::new(&exe)
+                        .env(CHILD_ENV, &spec)
+                        .output()
+                        .expect("child process");
+                    if !out.status.success() {
+                        panic!(
+                            "child {spec} failed: {}",
+                            String::from_utf8_lossy(&out.stderr)
+                        );
+                    }
+                    let line = String::from_utf8_lossy(&out.stdout)
+                        .lines()
+                        .last()
+                        .unwrap_or("")
+                        .to_string();
+                    lines.push(line);
                 }
-                let line = String::from_utf8_lossy(&out.stdout)
-                    .lines()
-                    .last()
-                    .unwrap_or("")
-                    .to_string();
-                lines.push(line);
             }
         }
     }
     std::fs::write(dir.join("records.jsonl"), lines.join("\n") + "\n").expect("records");
     let records: Vec<Record> = lines.iter().map(|l| Record::from_json(l)).collect();
     let mut summary = format!("# Benchmark summary\n\nRun bundle: {}\n\n", dir.display());
-    for instance in &instances {
-        for index_type in ["usize", "i32"] {
-            let sel: Vec<&Record> = records
-                .iter()
-                .filter(|r| &r.instance == instance && r.index_type == index_type)
-                .collect();
-            let mem: Vec<f64> = sel
-                .iter()
-                .filter(|r| r.kind == "mem")
-                .filter_map(|r| r.heap_peak_during_load_bytes.map(|b| b as f64))
-                .collect();
-            let Some(t) = sel.iter().find(|r| r.kind == "time") else {
-                continue;
-            };
-            let paths: Vec<&str> = sel
-                .iter()
-                .filter(|r| r.kind == "mem")
-                .map(|r| r.load_path.as_str())
-                .collect();
-            let high_water = sel
-                .iter()
-                .filter(|r| r.kind == "mem")
-                .map(|r| r.buffer_high_water)
-                .max()
-                .unwrap_or(0);
-            let (mm, mlo, mhi) = median_and_spread(&mem);
-            let limit = 32.0 * (t.m + t.n) as f64 + 1_048_576.0;
-            let added: Vec<f64> = (0..t.load.len())
-                .map(|k| {
-                    (t.validation[k] + t.load_optsolver[k] + t.extraction[k] + t.verification[k])
-                        / t.solve[k]
-                })
-                .collect();
-            let (am, alo, ahi) = median_and_spread(&added);
-            let phase = |v: &[f64]| {
-                let (a, b, c) = median_and_spread(v);
-                format!("median {a:.3e} s (min {b:.3e}, max {c:.3e})")
-            };
-            summary += &format!(
-                "## {instance}, {index_type} row indices (m = {}, n = {}, nnz = {})\n\n\
+    for solver in solvers() {
+        for instance in &instances {
+            for index_type in ["usize", "i32"] {
+                let sel: Vec<&Record> = records
+                    .iter()
+                    .filter(|r| {
+                        r.solver == solver && &r.instance == instance && r.index_type == index_type
+                    })
+                    .collect();
+                let mem: Vec<f64> = sel
+                    .iter()
+                    .filter(|r| r.kind == "mem")
+                    .filter_map(|r| r.heap_peak_during_load_bytes.map(|b| b as f64))
+                    .collect();
+                let Some(t) = sel.iter().find(|r| r.kind == "time") else {
+                    continue;
+                };
+                let paths: Vec<&str> = sel
+                    .iter()
+                    .filter(|r| r.kind == "mem")
+                    .map(|r| r.load_path.as_str())
+                    .collect();
+                let high_water = sel
+                    .iter()
+                    .filter(|r| r.kind == "mem")
+                    .map(|r| r.buffer_high_water)
+                    .max()
+                    .unwrap_or(0);
+                let (mm, mlo, mhi) = median_and_spread(&mem);
+                let limit = 32.0 * (t.m + t.n) as f64 + 1_048_576.0;
+                let added: Vec<f64> = (0..t.load.len())
+                    .map(|k| {
+                        (t.validation[k]
+                            + t.load_optsolver[k]
+                            + t.extraction[k]
+                            + t.verification[k])
+                            / t.solve[k]
+                    })
+                    .collect();
+                let (am, alo, ahi) = median_and_spread(&added);
+                let phase = |v: &[f64]| {
+                    let (a, b, c) = median_and_spread(v);
+                    format!("median {a:.3e} s (min {b:.3e}, max {c:.3e})")
+                };
+                summary += &format!(
+                    "## {solver}: {instance}, {index_type} row indices (m = {}, n = {}, nnz = {})\n\n\
                  - Positive control (load path, every memory run): {:?}; buffer high-water {} entries\n\
                  - SC-004 heap peak during load: median {mm:.0} B (min {mlo:.0}, max {mhi:.0}), N = {}; limit 32 B × (m + n) + 1 MiB = {limit:.0} B → {}\n\
-                 - SC-005 (validation + optSolver load + extraction + verification) / solve: median {am:.3} (min {alo:.3}, max {ahi:.3}), N = {}; limit 0.05 → {} (validation + optSolver's own load work + extraction + verification; Gurobi's load calls excluded)\n\
-                 - Validation: {}\n- Load, optSolver's own work: {}\n- Load, inside Gurobi calls: {}\n\
+                 - SC-005 (validation + optSolver load + extraction + verification) / solve: median {am:.3} (min {alo:.3}, max {ahi:.3}), N = {}; limit 0.05 → {} (validation + optSolver's own load work + extraction + verification; the solver's load calls excluded)\n\
+                 - Validation: {}\n- Load, optSolver's own work: {}\n- Load, inside the solver's calls: {}\n\
                  - Environment creation: {}\n- Load: {}\n- Solve: {}\n- Extraction: {}\n- Verification: {}\n\
                  - Cold (first repetition) solve {:.3e} s; warm median {:.3e} s\n\
-                 - VmHWM rise over the time run: {:?} KiB; Gurobi MaxMemUsed {:?} GB\n\
-                 - Effective parameters: {}\n- Gurobi {}, commit {}, machine {}, profile {}\n\n",
-                t.m,
-                t.n,
-                t.nnz,
-                paths,
-                high_water,
-                mem.len(),
-                if mm <= limit { "PASS" } else { "FAIL" },
-                added.len(),
-                if am <= 0.05 { "PASS" } else { "FAIL" },
-                phase(&t.validation),
-                phase(&t.load_optsolver),
-                phase(&t.load_vendor),
-                phase(&t.env_creation),
-                phase(&t.load),
-                phase(&t.solve),
-                phase(&t.extraction),
-                phase(&t.verification),
-                t.solve[0],
-                median_and_spread(&t.solve[1..]).0,
-                t.vmhwm_rise_kib,
-                t.gurobi_max_mem_used_gb,
-                t.effective_parameters,
-                t.solver_version,
-                t.optsolver_commit,
-                t.machine,
-                t.profile
-            );
+                 - VmHWM rise over the time run: {:?} KiB; Gurobi MaxMemUsed (Gurobi only) {:?} GB\n\
+                 - Effective parameters: {}\n- {solver} {}, commit {}, machine {}, profile {}\n\n",
+                    t.m,
+                    t.n,
+                    t.nnz,
+                    paths,
+                    high_water,
+                    mem.len(),
+                    if mm <= limit { "PASS" } else { "FAIL" },
+                    added.len(),
+                    if am <= 0.05 { "PASS" } else { "FAIL" },
+                    phase(&t.validation),
+                    phase(&t.load_optsolver),
+                    phase(&t.load_vendor),
+                    phase(&t.env_creation),
+                    phase(&t.load),
+                    phase(&t.solve),
+                    phase(&t.extraction),
+                    phase(&t.verification),
+                    t.solve[0],
+                    median_and_spread(&t.solve[1..]).0,
+                    t.vmhwm_rise_kib,
+                    t.gurobi_max_mem_used_gb,
+                    t.effective_parameters,
+                    t.solver_version,
+                    t.optsolver_commit,
+                    t.machine,
+                    t.profile
+                );
+            }
         }
     }
     std::fs::write(dir.join("summary.md"), &summary).expect("summary");

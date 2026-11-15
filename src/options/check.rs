@@ -44,13 +44,22 @@ pub fn check(options: &Options<'_>, capabilities: &Capabilities) -> Result<()> {
 }
 
 /// Rejects a problem the backend cannot solve, before any solver call (FR-013): variable
-/// types need [`ProblemClass::Milp`], Q needs [`ProblemClass::Qp`], and a problem with
-/// neither needs [`ProblemClass::Lp`]. The error is [`Error::Unsupported`] naming the field
-/// (`"var_types"`, `"Q"` or `"LP"`) and the backend.
+/// types need [`ProblemClass::Milp`], Q needs [`ProblemClass::Qp`], conic constraints need
+/// [`ProblemClass::Conic`], and a problem with none of these needs [`ProblemClass::Lp`]. The
+/// error is [`Error::Unsupported`] naming the field (`"var_types"`, `"Q"`, `"conic"` or
+/// `"LP"`) and the backend.
 pub fn check_problem(problem: ProblemRef<'_, '_>, capabilities: &Capabilities) -> Result<()> {
-    let (has_var_types, has_Q) = match problem {
-        ProblemRef::Usize(p) => (p.var_types().is_some(), p.Q().is_some()),
-        ProblemRef::I32(p) => (p.var_types().is_some(), p.Q().is_some()),
+    let (has_var_types, has_Q, has_conic) = match problem {
+        ProblemRef::Usize(p) => (
+            p.var_types().is_some(),
+            p.Q().is_some(),
+            p.conic().is_some(),
+        ),
+        ProblemRef::I32(p) => (
+            p.var_types().is_some(),
+            p.Q().is_some(),
+            p.conic().is_some(),
+        ),
     };
     let supports = |c: ProblemClass| capabilities.problem_classes.contains(&c);
     let unsupported = |field| {
@@ -65,7 +74,10 @@ pub fn check_problem(problem: ProblemRef<'_, '_>, capabilities: &Capabilities) -
     if has_Q && !supports(ProblemClass::Qp) {
         return unsupported("Q");
     }
-    if !has_var_types && !has_Q && !supports(ProblemClass::Lp) {
+    if has_conic && !supports(ProblemClass::Conic) {
+        return unsupported("conic");
+    }
+    if !has_var_types && !has_Q && !has_conic && !supports(ProblemClass::Lp) {
         return unsupported("LP");
     }
     Ok(())

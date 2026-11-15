@@ -74,6 +74,16 @@ impl Backend for Env {
                 return Err(bad("out.row_activity", r.len(), m));
             }
         }
+        for (what, buf) in [
+            ("out.z_l", out.z_l.as_deref()),
+            ("out.z_u", out.z_u.as_deref()),
+        ] {
+            if let Some(b) = buf {
+                if b.len() != n {
+                    return Err(bad(what, b.len(), n));
+                }
+            }
+        }
         run(self, problem, options, Some(out))
     }
 }
@@ -297,6 +307,20 @@ fn extract(
         let have_y = dbl_array(model, c"Pi", 0, &mut y);
         let have_z = dbl_array(model, c"RC", 0, &mut z);
         if have_y && have_z {
+            // Gurobi reports one reduced cost per variable; its sign gives the bound it
+            // belongs to: z_l = the part with σz ≥ 0, z_u = the part with σz ≤ 0 (z = z_l − z_u).
+            let sigma = match problem {
+                ProblemRef::Usize(p) => p.sense().sigma(),
+                ProblemRef::I32(p) => p.sense().sigma(),
+            };
+            let z_l: Vec<f64> = z
+                .iter()
+                .map(|&v| if sigma * v > 0.0 { v } else { 0.0 })
+                .collect();
+            let z_u: Vec<f64> = z
+                .iter()
+                .map(|&v| if sigma * v < 0.0 { -v } else { 0.0 })
+                .collect();
             match out.as_mut() {
                 Some(b) => {
                     if let Some(dst) = b.y.as_deref_mut() {
@@ -305,10 +329,18 @@ fn extract(
                     if let Some(dst) = b.z.as_deref_mut() {
                         dst.copy_from_slice(&z);
                     }
+                    if let Some(dst) = b.z_l.as_deref_mut() {
+                        dst.copy_from_slice(&z_l);
+                    }
+                    if let Some(dst) = b.z_u.as_deref_mut() {
+                        dst.copy_from_slice(&z_u);
+                    }
                 }
                 None => {
                     s.y = y;
                     s.z = z;
+                    s.z_l = z_l;
+                    s.z_u = z_u;
                 }
             }
         }
@@ -344,17 +376,21 @@ fn extract(
         if status == Status::Infeasible {
             let mut y_f = vec![0.0; m];
             if dbl_array(model, c"FarkasDual", 0, &mut y_f) {
-                // Sign: the verifier rejects Gurobi's FarkasDual as returned and accepts its
-                // negation (observed on 13.0.3 with tests/fixtures/small/infeasible.mps,
-                // 2026-11-14); the data model's convention needs d_F > 0, so y_F = −FarkasDual.
-                // The vendor's documented convention is still to be cited (research R17).
-                // Every returned certificate is checked by the verifier.
+                // Sign: the data model's convention needs d_F > 0, so y_F = −FarkasDual. This
+                // is established as behaviour by the per-backend contract test
+                // `f002::t014_certificate_sign` (y_F,1 > 0, z_F < 0 on
+                // tests/fixtures/small/infeasible.mps), and every returned certificate is
+                // checked by the verifier.
                 for v in &mut y_f {
                     *v = -*v;
                 }
                 // Bound multipliers z_F = -A^T y_F (data-model.md: A^T y_F + z_F = 0).
                 let z_f = minus_at_y(problem, &y_f);
-                s.certificate = Some(Certificate::Farkas { y: y_f, z: z_f });
+                s.certificate = Some(Certificate::Farkas {
+                    y: y_f,
+                    z: z_f,
+                    s: Vec::new(),
+                });
             }
         } else if status == Status::Unbounded {
             let mut r = vec![0.0; n];

@@ -1,13 +1,14 @@
 //! The solver-independent problem (data-model.md, Problem; constitution IV, VII-D, XVI-A).
 //!
-//! A linear programme: optimise σ-sense of cᵀx + γ subject to row bounds on Ax and
-//! l ≤ x ≤ u. Every array is borrowed from the caller. A [`Problem`] can only be built by
+//! Optimise σ-sense of ½ xᵀQx + cᵀx + γ subject to row bounds on Ax, l ≤ x ≤ u and, when
+//! set, affine conic constraints Fx + g ∈ K. Every array is borrowed from the caller. A [`Problem`] can only be built by
 //! its validating constructor, so holding one is proof that every invariant the C
 //! libraries assume has been checked (VII-D). Field names follow the Notation Convention.
 
 #![forbid(unsafe_code)]
 #![allow(non_snake_case)] // Notation Convention (XII-C): A, Q are matrices.
 
+use crate::conic::ConicRef;
 use crate::error::{Error, Result};
 
 mod sealed {
@@ -181,6 +182,7 @@ pub struct Problem<'a, I: RowIndex> {
     pub(crate) u: &'a [f64],
     pub(crate) var_types: Option<&'a [u8]>,
     pub(crate) Q: Option<CscRef<'a, usize>>,
+    pub(crate) conic: Option<ConicRef<'a>>,
 }
 
 impl<'a, I: RowIndex> Problem<'a, I> {
@@ -203,6 +205,7 @@ impl<'a, I: RowIndex> Problem<'a, I> {
             u,
             var_types: None,
             Q: None,
+            conic: None,
         };
         crate::problem::validate::problem(&p)?;
         Ok(p)
@@ -224,7 +227,10 @@ impl<'a, I: RowIndex> Problem<'a, I> {
         self.var_types = Some(var_types);
         Ok(self)
     }
-    /// Sets the quadratic objective matrix Q (reserved for QP), n by n.
+    /// Sets the quadratic objective matrix Q, given by its lower triangle (entries with row ≥
+    /// column only), n by n; the objective is ½ xᵀQx + cᵀx + γ with Q the symmetric matrix the
+    /// lower triangle defines (data-model.md of feature 002). Positive semidefiniteness is not
+    /// checked (a solver that rejects a non-convex Q returns an error).
     pub fn with_Q(mut self, Q: CscRef<'a, usize>) -> Result<Self> {
         if Q.m != self.A.n || Q.n != self.A.n {
             return Err(Error::Invalid {
@@ -232,7 +238,29 @@ impl<'a, I: RowIndex> Problem<'a, I> {
                 detail: format!("Q is {}x{}, expected {}x{}", Q.m, Q.n, self.A.n, self.A.n),
             });
         }
+        for j in 0..Q.n {
+            let (rows, _) = Q.column(j);
+            if let Some(&i) = rows.first().filter(|&&i| i < j) {
+                return Err(Error::Invalid {
+                    what: "Q",
+                    detail: format!(
+                        "entry ({i}, {j}) is above the diagonal; give the lower triangle only"
+                    ),
+                });
+            }
+        }
         self.Q = Some(Q);
+        Ok(self)
+    }
+    /// Sets affine conic constraints Fx + g ∈ K; F must have n columns.
+    pub fn with_conic(mut self, conic: ConicRef<'a>) -> Result<Self> {
+        if conic.F.n != self.A.n {
+            return Err(Error::Invalid {
+                what: "F",
+                detail: format!("F has {} columns, expected n = {}", conic.F.n, self.A.n),
+            });
+        }
+        self.conic = Some(conic);
         Ok(self)
     }
     /// Constraint matrix A.
@@ -270,6 +298,14 @@ impl<'a, I: RowIndex> Problem<'a, I> {
     /// Quadratic objective matrix, if set.
     pub fn Q(&self) -> Option<&CscRef<'a, usize>> {
         self.Q.as_ref()
+    }
+    /// Affine conic constraints, if set.
+    pub fn conic(&self) -> Option<&ConicRef<'a>> {
+        self.conic.as_ref()
+    }
+    /// Number of conic rows k (0 without conic constraints).
+    pub fn k(&self) -> usize {
+        self.conic.as_ref().map_or(0, ConicRef::k)
     }
     /// Number of rows m.
     pub fn m(&self) -> usize {

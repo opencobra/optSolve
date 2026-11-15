@@ -63,14 +63,43 @@ domain:
 
 # Frozen test corpus (constitution II). Fixtures are extracted from the variational
 # kinetics repository's frozen problem corpus (its data/interim directory, located at run
-# time, never stored here) into MPS files with provenance records.
+# time, never stored here) with provenance records; docs/test-corpus.md describes each.
 test_corpus:
   fixtures: tests/fixtures
-  format: mps
-  objective: seeded-random
   source_repository: variationalKinetics
-  instances:
+  # LP: MPS files in `fixtures`, objective regenerated from seeds.
+  lp_format: mps
+  objective: seeded-random
+  lp_instances:
+    - iDopaNeuroC_problem_LP
+  # LP fixture name -> variational kinetics source instance.
+  lp_source_instances:
+    iDopaNeuroC_problem_LP: iDopaNeuroC_problem_1
+  # QP: derived from an LP fixture (provenance only, in `fixtures`/qp).
+  qp_instances:
+    - iDopaNeuroC_problem_LP_minNorm
+  # CLP: the problem optimizeVKmodel passes to solveCobraCLP, MOSEK JTASK in `fixtures`/clp.
+  clp_format: jtask
+  clp_instances:
+    - iCoreED_problem_1
+    - iCoreED_problem_2
+    - iCoreED_problem_3
+    - iCoreED_problem_4
+    - iCoreED_problem_5
+  # Heavy tier (OPTSOLVER_HEAVY_TESTS=1); iDopaNeuroC_problem_4 excluded (MOSEK stalls).
+  clp_heavy_instances:
     - iDopaNeuroC_problem_1
+    - iDopaNeuroC_problem_2
+    - iDopaNeuroC_problem_2_fullRankFR
+    - iDopaNeuroC_problem_3
+    - iDopaNeuroC_problem_3_fullRankFR
+    - iDopaNeuroC_problem_5
+  # Instances whose solver-reported optimum is expected to FAIL independent verification
+  # (maintainer decision at feature 002 Gate 3, 2026-11-15; research R19): MOSEK reports
+  # Optimal with a row-bound violation of about 2e-7 relative, as the variational kinetics
+  # reference run does. The test asserts that the verifier catches it.
+  clp_expected_verification_failures:
+    - iDopaNeuroC_problem_5
 
 # Machine-specific values are DELIBERATELY ABSENT: resolved at run time and recorded in each
 # run's provenance, never configured here.

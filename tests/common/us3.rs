@@ -9,8 +9,7 @@
 #![allow(non_snake_case)] // Notation Convention (XII-C): A, Q are matrices.
 
 use super::fixtures::{
-    CorpusFixture, Json, Provenance, corpus_instances, fixtures_dir, load_corpus_fixture,
-    sha256_hex,
+    CorpusFixture, Json, Provenance, fixtures_dir, load_corpus_fixture, lp_instances, sha256_hex,
 };
 use super::mps::{MpsProblem, read_mps_file};
 use super::objectives::seeded_objective;
@@ -25,7 +24,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 const INF: f64 = f64::INFINITY;
 
 /// The largest corpus instance (spec SC-004): used where a solve must last long enough.
-pub const LARGEST_INSTANCE: &str = "iDopaNeuroC_problem_1";
+pub const LARGEST_INSTANCE: &str = "iDopaNeuroC_problem_LP";
 
 /// Trial name (without the backend suffix) of the helper the silence test runs in a child
 /// process.
@@ -39,18 +38,26 @@ pub fn close(a: f64, b: f64) -> bool {
     (a - b).abs() <= 1e-9 * b.abs().max(1.0)
 }
 
-/// Options for deterministic corpus solves (SC-003): dual simplex, one thread, random seed 0.
-pub fn deterministic_options() -> Options<'static> {
+/// Options for deterministic corpus solves (SC-003): dual simplex, one thread, and random
+/// seed 0 when the backend maps a seed (MOSEK maps none: its continuous optimisers are
+/// deterministic for a fixed thread count, feature 002 research R9).
+pub fn deterministic_options(b: &dyn Backend) -> Options<'static> {
     let mut o = Options::default();
     o.method = Some(Method::DualSimplex);
     o.threads = Some(1);
-    o.random_seed = Some(0);
+    if b.capabilities()
+        .options
+        .iter()
+        .any(|m| m.field == "random_seed")
+    {
+        o.random_seed = Some(0);
+    }
     o
 }
 
 /// The i-th corpus instance declared in `project.yml`.
 pub fn instance(i: usize) -> Result<String, Failed> {
-    let all = corpus_instances().map_err(fail)?;
+    let all = lp_instances().map_err(fail)?;
     all.get(i).cloned().ok_or_else(|| {
         fail(format!(
             "corpus declares {} instances, no index {i}",
@@ -291,7 +298,7 @@ pub fn problems_build() -> Result<(), Failed> {
     p.with_var_types(b"CI").map_err(fail)?;
     let q = CscRef::new(2, 2, &Q_COL_PTRS, &Q_ROW_INDICES, &Q_VALUES).map_err(fail)?;
     p.with_Q(q).map_err(fail)?;
-    let all = corpus_instances().map_err(fail)?;
+    let all = lp_instances().map_err(fail)?;
     ensure(
         all.iter().any(|i| i == LARGEST_INSTANCE),
         format!("{LARGEST_INSTANCE} is not in the corpus"),
@@ -308,7 +315,7 @@ pub fn corpus_seeded<const I: usize, const S: usize>(b: &dyn Backend) -> Result<
     let (f, seed) = corpus_with_seed(&name, S)?;
     let c = seeded_objective(seed, f.problem.n);
     let p = f.problem.problem(&c).map_err(fail)?;
-    let mut o = deterministic_options();
+    let mut o = deterministic_options(b);
     let sol = b.solve((&p).into(), &mut o).map_err(fail)?;
     expect_optimal_verified(&sol, f.problem.n, &format!("{name} seed {seed}"))
 }
@@ -562,14 +569,16 @@ fn vendor_parameter(b: &dyn Backend, field: &str) -> Result<&'static str, Failed
         .ok_or_else(|| fail(format!("{}: no vendor parameter for {field}", caps.backend)))
 }
 
-/// A raw parameter (the vendor parameter behind `random_seed`, value 7) appears unchanged in
+/// A raw parameter (the vendor parameter behind `threads`, value 1) appears unchanged in
 /// `effective_parameters`.
 pub fn t033_raw_parameter_effective(b: &dyn Backend) -> Result<(), Failed> {
-    let name = vendor_parameter(b, "random_seed")?;
+    // Any shared field mapped to one integer vendor parameter will do (feature 002 T020; MOSEK
+    // maps no seed): the thread count, set to 1 through the raw route.
+    let name = vendor_parameter(b, "threads")?;
     let fx = SmallFixture::load("empty_column")?;
     let p = fx.problem.problem(&fx.problem.c).map_err(fail)?;
     let mut o = Options::default();
-    o.raw.push((name.to_string(), ParamValue::Int(7)));
+    o.raw.push((name.to_string(), ParamValue::Int(1)));
     let sol = b.solve((&p).into(), &mut o).map_err(fail)?;
     ensure(
         sol.status == Status::Optimal,
@@ -578,9 +587,9 @@ pub fn t033_raw_parameter_effective(b: &dyn Backend) -> Result<(), Failed> {
     ensure(
         sol.effective_parameters
             .iter()
-            .any(|(k, v)| k.eq_ignore_ascii_case(name) && *v == ParamValue::Int(7)),
+            .any(|(k, v)| k.eq_ignore_ascii_case(name) && *v == ParamValue::Int(1)),
         format!(
-            "({name}, Int(7)) missing from {:?}",
+            "({name}, Int(1)) missing from {:?}",
             sol.effective_parameters
         ),
     )
@@ -589,7 +598,7 @@ pub fn t033_raw_parameter_effective(b: &dyn Backend) -> Result<(), Failed> {
 /// The helper run in a child process by [`t033_default_solve_is_silent`]: one corpus solve
 /// with `Options::default()`. In the normal run it is an ordinary solve test.
 pub fn t033_quiet_child(b: &dyn Backend) -> Result<(), Failed> {
-    let (f, seed) = corpus_with_seed("iDopaNeuroC_problem_1", 0)?;
+    let (f, seed) = corpus_with_seed("iDopaNeuroC_problem_LP", 0)?;
     let c = seeded_objective(seed, f.problem.n);
     let p = f.problem.problem(&c).map_err(fail)?;
     let sol = b
@@ -655,13 +664,13 @@ pub fn t033_default_solve_is_silent(b: &dyn Backend) -> Result<(), Failed> {
 /// Options that make the largest instance take long enough for progress callbacks: barrier,
 /// one thread, first seeded objective. Assumes the backend reports progress at least once
 /// during this solve (barrier iterations) before it completes.
-fn long_solve() -> Result<(CorpusFixture, Vec<f64>), Failed> {
+pub fn long_solve() -> Result<(CorpusFixture, Vec<f64>), Failed> {
     let (f, seed) = corpus_with_seed(LARGEST_INSTANCE, 0)?;
     let c = seeded_objective(seed, f.problem.n);
     Ok((f, c))
 }
 
-fn long_options<'cb>() -> Options<'cb> {
+pub fn long_options<'cb>() -> Options<'cb> {
     let mut o = Options::default();
     o.method = Some(Method::Barrier);
     o.threads = Some(1);
@@ -765,7 +774,7 @@ pub fn t035_one_backend_three_problems(b: &dyn Backend) -> Result<(), Failed> {
         .expected_objective()?
         .ok_or_else(|| fail("ranged objective"))?;
 
-    let (f, seed) = corpus_with_seed("iDopaNeuroC_problem_1", 1)?;
+    let (f, seed) = corpus_with_seed("iDopaNeuroC_problem_LP", 1)?;
     let c = seeded_objective(seed, f.problem.n);
     let p2 = f.problem.problem(&c).map_err(fail)?;
 
@@ -782,7 +791,7 @@ pub fn t035_one_backend_three_problems(b: &dyn Backend) -> Result<(), Failed> {
     expect_objective(&s1, obj1, "first: ranged")?;
 
     let s2 = b
-        .solve((&p2).into(), &mut deterministic_options())
+        .solve((&p2).into(), &mut deterministic_options(b))
         .map_err(fail)?;
     expect_optimal_verified(&s2, p2.n(), "second: corpus")?;
     ensure(
@@ -817,12 +826,12 @@ fn same(a: &[f64], b: &[f64]) -> bool {
 /// (deterministic options, so the two solves follow the same path; compared to 1e-9 relative),
 /// and its returned `Solution` has those arrays empty. With only x supplied, x is filled.
 pub fn c1_solve_into_matches_solve(b: &dyn Backend) -> Result<(), Failed> {
-    let (f, seed) = corpus_with_seed("iDopaNeuroC_problem_1", 2)?;
+    let (f, seed) = corpus_with_seed("iDopaNeuroC_problem_LP", 2)?;
     let c = seeded_objective(seed, f.problem.n);
     let p = f.problem.problem(&c).map_err(fail)?;
     let (m, n) = (p.m(), p.n());
     let reference = b
-        .solve((&p).into(), &mut deterministic_options())
+        .solve((&p).into(), &mut deterministic_options(b))
         .map_err(fail)?;
     expect_optimal_verified(&reference, n, "solve")?;
 
@@ -837,9 +846,12 @@ pub fn c1_solve_into_matches_solve(b: &dyn Backend) -> Result<(), Failed> {
         y: Some(&mut y),
         z: Some(&mut z),
         row_activity: Some(&mut ra),
+        s: None,
+        z_l: None,
+        z_u: None,
     };
     let sol = b
-        .solve_into((&p).into(), &mut deterministic_options(), out)
+        .solve_into((&p).into(), &mut deterministic_options(b), out)
         .map_err(fail)?;
     ensure(
         sol.status == Status::Optimal && sol.returned == SolutionReturned::Optimal,
@@ -876,9 +888,12 @@ pub fn c1_solve_into_matches_solve(b: &dyn Backend) -> Result<(), Failed> {
         y: None,
         z: None,
         row_activity: None,
+        s: None,
+        z_l: None,
+        z_u: None,
     };
     let sol = b
-        .solve_into((&p).into(), &mut deterministic_options(), out)
+        .solve_into((&p).into(), &mut deterministic_options(b), out)
         .map_err(fail)?;
     ensure(
         sol.status == Status::Optimal,
@@ -900,6 +915,9 @@ pub fn c1_solve_into_wrong_lengths(b: &dyn Backend) -> Result<(), Failed> {
         y: None,
         z: None,
         row_activity: None,
+        s: None,
+        z_l: None,
+        z_u: None,
     };
     let r = b.solve_into((&p).into(), &mut Options::default(), out);
     ensure(
@@ -913,6 +931,9 @@ pub fn c1_solve_into_wrong_lengths(b: &dyn Backend) -> Result<(), Failed> {
         y: Some(&mut y),
         z: None,
         row_activity: None,
+        s: None,
+        z_l: None,
+        z_u: None,
     };
     let r = b.solve_into((&p).into(), &mut Options::default(), out);
     ensure(
@@ -942,6 +963,9 @@ fn expect_unsupported(b: &dyn Backend, p: &Problem<'_, usize>, field: &str) -> R
         y: None,
         z: None,
         row_activity: None,
+        s: None,
+        z_l: None,
+        z_u: None,
     };
     let r = b.solve_into(p.into(), &mut Options::default(), out);
     ensure(

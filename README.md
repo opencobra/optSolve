@@ -9,21 +9,34 @@ This file is descriptive (Tier 3); the rules are in
 
 ## Status
 
-Feature 001: linear programmes through Gurobi 13.0.3. MOSEK and further problem classes are
-later features.
+- Feature 001: linear programmes (LP) through Gurobi 13.0.3.
+- Feature 002: MOSEK 11.2 for LP, convex quadratic programmes (QP) and conic linear programmes
+  (affine conic constraints Fx + g ∈ K with quadratic, rotated quadratic, exponential, power,
+  nonnegative, zero and semidefinite cones). Gurobi remains LP only.
+
+The test corpus is described in [docs/test-corpus.md](docs/test-corpus.md).
 
 ## Build
+
+Minimum Rust version: 1.85 (`rust-version` in `Cargo.toml`), checked in the in-gate checks
+with `cargo +1.85.0 test --all-targets`.
 
 ```bash
 cargo build                    # solver-independent core only; no vendor software needed
 cargo test                     # tests that need a solver are reported as ignored
 GUROBI_HOME=/path/to/gurobi/linux64 cargo test --features gurobi
+MOSEK_BINDIR=/path/to/mosek/11.2/tools/platform/linux64x86/bin cargo test --features mosek
+OPTSOLVER_HEAVY_TESTS=1 cargo test --release --features gurobi,mosek   # heavy tier
 ```
 
-The Gurobi feature links `libgurobi130` from `$GUROBI_HOME/lib` at build time; the library
-directory must be on the run-time library path and a valid Gurobi licence available.
+The features are additive. `gurobi` links `libgurobi130` from `$GUROBI_HOME/lib`; `mosek`
+links `libmosek64` from `$MOSEK_BINDIR`. Each library directory must be on the run-time library
+path and a valid licence available. Test tiers: no solver; licensed (`--features …`); heavy
+(`OPTSOLVER_HEAVY_TESTS=1`: the large variational kinetics conic problems); minimum Rust
+version.
 
-Validation scenarios: [specs/001-core-gurobi-lp/quickstart.md](specs/001-core-gurobi-lp/quickstart.md).
+Validation scenarios: [specs/001-core-gurobi-lp/quickstart.md](specs/001-core-gurobi-lp/quickstart.md),
+[specs/002-mosek-lp-qp-clp/quickstart.md](specs/002-mosek-lp-qp-clp/quickstart.md).
 
 ## Licence
 

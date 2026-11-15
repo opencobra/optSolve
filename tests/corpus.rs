@@ -11,12 +11,14 @@ fn main() {
     let mut trials: Vec<Trial> = Vec::new();
     trials.extend(us1_trials());
     trials.extend(us3_trials(&registry));
+    trials.extend(f002_trials(&registry));
     libtest_mimic::run(&args, trials).exit();
 }
 
 fn us1_trials() -> Vec<Trial> {
     let mut trials = common::mps::self_tests();
     trials.extend(common::fixtures::self_tests());
+    trials.extend(common::jtask::self_tests());
     trials.push(Trial::test(
         "us1::splitmix64_reference_vector",
         us1_splitmix64_reference_vector,
@@ -25,7 +27,11 @@ fn us1_trials() -> Vec<Trial> {
         "us1::seeded_objective_reference_checksum",
         us1_seeded_objective_reference_checksum,
     ));
-    let instances = match common::fixtures::corpus_instances() {
+    trials.push(Trial::test(
+        "us1::t013_corpus_document_matches_declaration",
+        us1_corpus_document_matches_declaration,
+    ));
+    let instances = match common::fixtures::lp_instances() {
         Ok(v) => v,
         Err(e) => {
             trials.push(Trial::test("us1::corpus_declaration", move || {
@@ -166,17 +172,17 @@ fn us1_seeded_objectives_reproducible(instance: &str) -> Result<(), common::Fail
     Ok(())
 }
 
-/// Reference checksum of the seed-1 objective of iDopaNeuroC_problem_1 (task T013): the
+/// Reference checksum of the seed-1 objective of iDopaNeuroC_problem_LP (task T013): the
 /// wrapping sum of the `to_bits()` values of all n entries. Obtained on 2026-11-14 from an
 /// independent Python implementation of SplitMix64 and the R13 float conversion, with
 /// n = 2942 (the instance's column count); first entries 0.1331231503445618,
 /// 0.49156351452540226, 0.9420055071735924.
-const PROBLEM_1_SEED_1_CHECKSUM: u64 = 13_446_950_058_244_376_948;
+const LP_SEED_1_CHECKSUM: u64 = 13_446_950_058_244_376_948;
 
 fn us1_seeded_objective_reference_checksum() -> Result<(), common::Failed> {
     use common::fixtures::{Provenance, provenance_path};
     use common::objectives::{bits_checksum, seeded_objective};
-    let instance = "iDopaNeuroC_problem_1";
+    let instance = "iDopaNeuroC_problem_LP";
     let p = Provenance::load(&provenance_path(instance).map_err(common::fail)?)
         .map_err(common::fail)?;
     ensure(
@@ -190,8 +196,8 @@ fn us1_seeded_objective_reference_checksum() -> Result<(), common::Failed> {
     )?;
     let sum = bits_checksum(&c);
     ensure(
-        sum == PROBLEM_1_SEED_1_CHECKSUM,
-        format!("checksum {sum} != {PROBLEM_1_SEED_1_CHECKSUM}"),
+        sum == LP_SEED_1_CHECKSUM,
+        format!("checksum {sum} != {LP_SEED_1_CHECKSUM}"),
     )
 }
 
@@ -219,7 +225,7 @@ fn us3_trials(registry: &Registry) -> Vec<Trial> {
 
     // T030 (scenario 1, SC-003): every instance x seeds 1, 2, 3 from its provenance record,
     // deterministic options; plus one solve per instance with Options::default().
-    let instances = match common::fixtures::corpus_instances() {
+    let instances = match common::fixtures::lp_instances() {
         Ok(v) => v,
         Err(e) => {
             trials.push(Trial::test("us3::corpus_declaration", move || {
@@ -321,4 +327,109 @@ fn us3_trials(registry: &Registry) -> Vec<Trial> {
         trials.extend(registry.trials(name, test));
     }
     trials
+}
+
+/// Feature 002 per-backend tests, written once in `common::f002` and registered for every
+/// declared backend.
+fn f002_trials(registry: &Registry) -> Vec<Trial> {
+    use common::f002;
+    let per_backend: Vec<(&str, common::BackendTest)> = vec![
+        // User Story 2 (T014, T015).
+        ("f002::t014_certificate_sign", f002::t014_certificate_sign),
+        ("f002::t015_callback_thread", f002::t015_callback_thread),
+        // User Story 4 (T029).
+        ("f002::t029_corpus_qp", f002::t029_corpus_qp),
+        ("f002::t029_small_qps", f002::t029_small_qps),
+        // User Story 5 (T034).
+        ("f002::t034_conic_cases", f002::t034_conic_cases),
+        ("f002::t034_conic_infeasible", f002::t034_conic_infeasible),
+    ];
+    let mut trials = Vec::new();
+    for (name, test) in per_backend {
+        trials.extend(registry.trials(name, test));
+    }
+    trials.extend(registry.trials("f002::t033_clp_solve_into", f002::t033_clp_solve_into));
+    // User Story 5 (T033): CLP fixtures, licensed tier and heavy tier.
+    match (
+        common::fixtures::clp_instances(),
+        common::fixtures::clp_heavy_instances(),
+    ) {
+        (Ok(licensed), Ok(heavy)) => {
+            for name in licensed {
+                let label = format!("f002::t033_clp_fixture::{name}");
+                let test: common::BackendClosure =
+                    std::sync::Arc::new(move |b| f002::t033_clp_fixture(b, &name));
+                trials.extend(registry.trials_dyn(&label, test));
+            }
+            for name in heavy {
+                let label = format!("f002::t033_clp_fixture_heavy::{name}");
+                let test: common::BackendClosure =
+                    std::sync::Arc::new(move |b| f002::t033_clp_fixture(b, &name));
+                trials.extend(registry.heavy_trials_dyn(&label, test));
+            }
+        }
+        (a, b) => {
+            let msg = format!("CLP declaration: {:?} {:?}", a.err(), b.err());
+            trials.push(Trial::test("f002::clp_declaration", move || {
+                Err(common::fail(&msg))
+            }));
+        }
+    }
+    // User Story 3 (T019, SC-001): cross-solver agreement on the LP corpus.
+    trials.extend(registry.pair_trials("f002::t019_lp_agreement", f002::t019_lp_agreement));
+    trials
+}
+
+/// T013 (spec FR-002): every fixture declared in `project.yml` appears, in backticks, in
+/// `docs/test-corpus.md`, and every fixture listed in the document's summary table exists
+/// (LP and small fixtures as MPS, the derived QP as its provenance record, CLP fixtures in the
+/// declared format).
+fn us1_corpus_document_matches_declaration() -> Result<(), common::Failed> {
+    use common::fixtures::{
+        clp_heavy_instances, clp_instances, fixtures_dir, lp_instances, qp_instances, repo_root,
+    };
+    let path = repo_root().join("docs").join("test-corpus.md");
+    let doc = std::fs::read_to_string(&path)
+        .map_err(|e| common::fail(format!("{}: {e}", path.display())))?;
+    let mut declared = Vec::new();
+    for list in [
+        lp_instances(),
+        qp_instances(),
+        clp_instances(),
+        clp_heavy_instances(),
+    ] {
+        declared.extend(list.map_err(common::fail)?);
+    }
+    for name in &declared {
+        ensure(
+            doc.contains(&format!("`{name}`")),
+            format!("{name} is declared in project.yml but not in docs/test-corpus.md"),
+        )?;
+    }
+    // Summary table rows: | `name` | class | ...
+    let dir = fixtures_dir().map_err(common::fail)?;
+    let mut listed = 0;
+    for line in doc.lines() {
+        let Some(rest) = line.strip_prefix("| `") else {
+            continue;
+        };
+        let Some((name, _)) = rest.split_once('`') else {
+            continue;
+        };
+        let candidates = [
+            dir.join(format!("{name}.mps")),
+            dir.join("small").join(format!("{name}.mps")),
+            dir.join("qp").join(format!("{name}.provenance.json")),
+            dir.join("clp").join(format!("{name}.jtask")),
+        ];
+        ensure(
+            candidates.iter().any(|c| c.is_file()),
+            format!("docs/test-corpus.md lists {name}, but no fixture file exists for it"),
+        )?;
+        listed += 1;
+    }
+    ensure(
+        listed >= declared.len(),
+        format!("only {listed} fixtures listed in the tables"),
+    )
 }

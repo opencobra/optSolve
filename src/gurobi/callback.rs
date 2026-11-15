@@ -158,7 +158,9 @@ pub(super) unsafe extern "C" fn trampoline(
     }
     // SAFETY: `usrdata` is the `CallbackState` registered by `install`, which by its contract
     // is alive, in place, and accessed by nothing else until `uninstall`; Gurobi invokes the
-    // callback from one thread at a time, so this exclusive reference is unique.
+    // callback from one thread at a time, on the thread that called optimise (established as
+    // behaviour by the per-backend contract test `f002::t015_callback_thread`, four threads,
+    // barrier), so this exclusive reference is unique.
     let state = unsafe { &mut *usrdata.cast::<CallbackState<'_>>() };
     if state.panic.is_some() {
         return 0;

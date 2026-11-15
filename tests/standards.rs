@@ -40,10 +40,13 @@ fn code_lines(text: &str) -> impl Iterator<Item = &str> {
     })
 }
 
+/// Backend module directories, each with its own `ffi.rs` and `params.rs`.
+const BACKENDS: [&str; 2] = ["src/gurobi/", "src/mosek/"];
+
 #[test]
-fn unsafe_and_extern_only_in_gurobi_modules() {
+fn unsafe_and_extern_only_in_backend_modules() {
     for (path, text) in sources() {
-        if path.starts_with("src/gurobi/") {
+        if BACKENDS.iter().any(|b| path.starts_with(b)) {
             continue;
         }
         for line in code_lines(&text) {
@@ -51,7 +54,7 @@ fn unsafe_and_extern_only_in_gurobi_modules() {
                 !line.contains("unsafe ")
                     && !line.contains("unsafe{")
                     && !line.contains("extern \"C\""),
-                "{path}: unsafe or extern outside src/gurobi/: {line}"
+                "{path}: unsafe or extern outside the backend modules: {line}"
             );
         }
     }
@@ -60,40 +63,68 @@ fn unsafe_and_extern_only_in_gurobi_modules() {
 #[test]
 fn extern_c_declarations_only_in_ffi_module() {
     for (path, text) in sources() {
-        if path == "src/gurobi/ffi.rs" {
+        if BACKENDS.iter().any(|b| path == format!("{b}ffi.rs")) {
             continue;
         }
         for line in code_lines(&text) {
             let t = line.trim_start();
             // Extern *blocks* (declarations) only; `unsafe extern "C" fn` definitions such as
-            // callback trampolines are allowed in the gurobi modules.
+            // callback trampolines are allowed in the backend modules.
             let is_block =
                 t.starts_with("unsafe extern \"C\" {") || t.starts_with("extern \"C\" {");
             assert!(
                 !is_block,
-                "{path}: extern block outside src/gurobi/ffi.rs: {line}"
+                "{path}: extern block outside a backend's ffi.rs: {line}"
             );
         }
     }
 }
 
+/// Vendor parameter setters per backend (constitution VII-G): only `params.rs` (and the
+/// declarations in `ffi.rs`) may name them.
+const SETTERS: [(&str, &[&str]); 2] = [
+    (
+        "src/gurobi/",
+        &[
+            "GRBsetintparam",
+            "GRBsetdblparam",
+            "GRBsetstrparam",
+            "GRBsetparam",
+        ],
+    ),
+    (
+        "src/mosek/",
+        &[
+            "MSK_putintparam",
+            "MSK_putdouparam",
+            "MSK_putstrparam",
+            "MSK_putnaintparam",
+            "MSK_putnadouparam",
+            "MSK_putnastrparam",
+            "MSK_putparam",
+        ],
+    ),
+];
+
 #[test]
 fn vendor_parameter_setters_only_in_params_module() {
     for (path, text) in sources() {
-        if path == "src/gurobi/params.rs" || path == "src/gurobi/ffi.rs" {
-            continue;
-        }
-        for line in code_lines(&text) {
-            for setter in [
-                "GRBsetintparam",
-                "GRBsetdblparam",
-                "GRBsetstrparam",
-                "GRBsetparam",
-            ] {
-                assert!(
-                    !line.contains(setter),
-                    "{path}: {setter} outside src/gurobi/params.rs (constitution VII-G): {line}"
-                );
+        for (dir, setters) in SETTERS {
+            if path == format!("{dir}params.rs") || path == format!("{dir}ffi.rs") {
+                continue;
+            }
+            for line in code_lines(&text) {
+                for setter in setters {
+                    // Whole identifiers only: MSK_putparam must not match MSK_putparamxyz.
+                    let hit = line.match_indices(setter).any(|(i, _)| {
+                        !line[i + setter.len()..]
+                            .starts_with(|c: char| c.is_ascii_alphanumeric() || c == '_')
+                    });
+                    assert!(
+                        !hit,
+                        "{path}: {setter} outside {dir}params.rs (constitution VII-G): {line}"
+                    );
+                }
             }
         }
     }

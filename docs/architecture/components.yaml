@@ -1,23 +1,27 @@
 # Component model (constitution XIII-A, XIII-B). Tier 1; originates no rule.
 # Reconciled at feature 001 closeout against specs/001-core-gurobi-lp/architecture-delta.yaml
-# (ADR-0001). Boundaries: boundaries.yaml.
+# (ADR-0001), and in feature 002 (task T038) against specs/002-mosek-lp-qp-clp/
+# architecture-delta.yaml (ADR-0002). Boundaries: boundaries.yaml.
 schema: 1
 components:
   - id: core.problem
     location: src/problem.rs, src/problem/validate.rs, src/problem/convert.rs
-    responsibility: solver-independent problem, single-pass validation, usize-to-i32 block conversion
+    responsibility: solver-independent problem (LP, QP with lower-triangle Q, conic data), single-pass validation, usize-to-i32 block conversion
+  - id: core.conic
+    location: src/conic.rs
+    responsibility: cone types, validated conic data (F, g, cones), cone and dual-cone membership measures
   - id: core.options
     location: src/options.rs, src/options/check.rs
     responsibility: options structure, the single declaration of optSolver defaults (VII-G), option and problem-class checks
   - id: core.result
     location: src/result.rs
-    responsibility: solution, status vocabulary, limit reasons, basis, certificates
+    responsibility: solution (incl. split bound multipliers z_l, z_u and conic duals s), status vocabulary, limit reasons, basis, certificates
   - id: core.verify
     location: src/verify.rs
-    responsibility: solver-independent verification (XVI-D)
+    responsibility: solver-independent verification (XVI-D), LP, QP and conic measures
   - id: core.backend
     location: src/backend.rs
-    responsibility: provisional Backend trait, ProblemRef, Capabilities (ADR-0001)
+    responsibility: Backend trait (ADR-0001, re-examined with its second implementation in ADR-0002), ProblemRef, ProblemClass, Capabilities
   - id: core.error
     location: src/error.rs
     responsibility: error type
@@ -42,15 +46,45 @@ components:
   - id: gurobi.solve
     location: src/gurobi/solve.rs
     responsibility: Backend for Env, result extraction, load report for benchmarks
+  - id: mosek.ffi
+    location: src/mosek/ffi.rs
+    responsibility: the only MOSEK C declarations and constants (header-checked)
+  - id: mosek.env
+    location: src/mosek/env.rs
+    responsibility: owned MOSEK environment (licence checked out at creation), per-solve task
+  - id: mosek.load
+    location: src/mosek/load.rs
+    responsibility: bulk loading of LP, QP and conic data into a task
+  - id: mosek.params
+    location: src/mosek/params.rs
+    responsibility: the single function applying MOSEK parameters (VII-G)
+  - id: mosek.status
+    location: src/mosek/status.rs
+    responsibility: total translation of MOSEK termination, problem and solution statuses
+  - id: mosek.callback
+    location: src/mosek/callback.rs
+    responsibility: progress, cancellation and panic containment
+  - id: mosek.solve
+    location: src/mosek/solve.rs
+    responsibility: Backend for MOSEK, solution and certificate extraction, load report
+  - id: mosek.probes
+    location: src/mosek/probes.rs
+    responsibility: licensed probes of MOSEK behaviour the backend relies on (test only)
   - id: test.harness
     location: tests/common/
-    responsibility: the shared test module (harness, MPS reader, seeded objectives, fixtures, contract-level US3 tests)
+    responsibility: the shared test module (harness with heavy tier and backend pairs, MPS and JTASK readers, seeded objectives, fixtures, contract-level per-backend tests)
   - id: test.corpus
     location: tests/fixtures/
-    responsibility: frozen iDopaNeuroC flux-balance LP fixture and hand-built small fixtures, with provenance
+    responsibility: frozen LP fixture iDopaNeuroC_problem_LP, derived QP record, variational kinetics CLP fixtures (JTASK) and hand-built small fixtures, with provenance
   - id: tools.corpus_extraction
     location: tools/corpus/extract_idopaneuroc_fixtures.m
     responsibility: MATLAB extraction from the variational kinetics corpus
+  - id: tools.vk_clp_extraction
+    location: tools/corpus/extract_vk_clp_fixtures.m
+    responsibility: capture of the variational kinetics conic problems as JTASK fixtures
+  - id: docs.test_corpus
+    location: docs/test-corpus.md
+    responsibility: description of every corpus fixture (Tier 3)
   - id: bench.load_solve
     location: benches/load_solve.rs
-    responsibility: per-phase timing and dedicated-process memory measurement
+    responsibility: per-phase timing and dedicated-process memory measurement, per backend

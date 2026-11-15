@@ -39,6 +39,8 @@ pub enum ProblemClass {
     Milp,
     /// Convex quadratic programme.
     Qp,
+    /// Conic linear programme (affine conic constraints Fx + g ∈ K).
+    Conic,
 }
 
 /// How a shared options field maps to a vendor parameter in one backend.

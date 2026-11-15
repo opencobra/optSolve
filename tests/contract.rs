@@ -2,6 +2,8 @@
 //! harness self-test (T010a). Custom harness (research R14).
 
 mod common;
+#[path = "contract/qp_conic.rs"]
+mod qp_conic;
 
 use common::{Arguments, DeclaredBackend, Failed, Registry, Trial, ensure};
 
@@ -31,6 +33,45 @@ fn harness_self_test() -> Result<(), Failed> {
         trials[1].name().contains("no licence"),
         "the reason appears in the trial name",
     )?;
+    // Heavy tier switched off: ignored with the reason, never passed (T007).
+    let available = Registry::from_declared(vec![DeclaredBackend {
+        name: "ok",
+        make: Some(|| Ok(Box::new(common::fake_backend::FakeBackend::lp_only()))),
+    }]);
+    let heavy = available.heavy_trials_if(false, "heavy", std::sync::Arc::new(|_| Ok(())));
+    ensure(
+        heavy.len() == 1 && heavy[0].has_ignored_flag() && heavy[0].name().contains("heavy tier"),
+        "heavy trials ignored with the reason when switched off",
+    )?;
+    let heavy = available.heavy_trials_if(true, "heavy", std::sync::Arc::new(|_| Ok(())));
+    ensure(
+        heavy.len() == 1 && !heavy[0].has_ignored_flag(),
+        "heavy trials run when switched on",
+    )?;
+    // Pair trials: ignored unless both members are available (T007).
+    let pairs = registry.pair_trials("pair", |_, _| Ok(()));
+    ensure(
+        pairs.len() == 1 && pairs[0].has_ignored_flag() && pairs[0].name().contains("absent"),
+        format!(
+            "pair with an absent backend is ignored: {:?}",
+            pairs.iter().map(|t| t.name()).collect::<Vec<_>>()
+        ),
+    )?;
+    let two = Registry::from_declared(vec![
+        DeclaredBackend {
+            name: "a",
+            make: Some(|| Ok(Box::new(common::fake_backend::FakeBackend::lp_only()))),
+        },
+        DeclaredBackend {
+            name: "b",
+            make: Some(|| Ok(Box::new(common::fake_backend::FakeBackend::lp_only()))),
+        },
+    ]);
+    let pairs = two.pair_trials("pair", |_, _| Ok(()));
+    ensure(
+        pairs.len() == 1 && !pairs[0].has_ignored_flag() && pairs[0].name() == "pair::a+b",
+        "pair of available backends runs",
+    )?;
     Ok(())
 }
 
@@ -43,6 +84,8 @@ fn main() {
     let _registry = Registry::detect();
     // User Story 2 trials are added below this line (T020-T024).
     trials.extend(us2_trials(&_registry));
+    // Feature 002: QP and conic contract (T003, T004).
+    trials.extend(qp_conic::trials());
     libtest_mimic::run(&args, trials).exit();
 }
 
@@ -140,7 +183,7 @@ fn us2_trials(_registry: &Registry) -> Vec<Trial> {
             "t024_unsupported_problem_class",
             t024_unsupported_problem_class,
         ),
-        // T023 corpus-fixture variant (XV-C): the same guards on iDopaNeuroC_problem_1.
+        // T023 corpus-fixture variant (XV-C): the same guards on iDopaNeuroC_problem_LP.
         (
             "t023_corpus_all_zero_solution_fails",
             t023_corpus_all_zero_solution_fails,
@@ -649,6 +692,10 @@ fn view<'a>(
         x,
         y,
         z,
+        z_l: None,
+        z_u: None,
+        s: None,
+        basic: true,
         certificate: None,
     }
 }
@@ -820,12 +867,13 @@ fn t022_complementary_slackness_and_gap() -> Result<(), Failed> {
         1.0 / 4.0,
         Verdict::Fail,
     )?;
-    check_measure(&rep, names::GAP, 1.0, 1.0 / 6.0, Verdict::Fail)?;
+    // Gap relative to max(1, min(|p|, |d|)) = 2.
+    check_measure(&rep, names::GAP, 1.0, 0.5, Verdict::Fail)?;
     ensure(rep.overall == Overall::Failed, "overall Failed")?;
     // Judged against the tolerance supplied: a loose tolerance passes the same values.
     let loose = Tolerances {
         primal: 1e-6,
-        dual: 0.03,
+        dual: 0.06,
         integrality: 1e-5,
     };
     let rep = verify(
@@ -838,7 +886,7 @@ fn t022_complementary_slackness_and_gap() -> Result<(), Failed> {
         ),
         &loose,
     );
-    check_measure(&rep, names::GAP, 1.0, 1.0 / 6.0, Verdict::Pass)?;
+    check_measure(&rep, names::GAP, 1.0, 0.5, Verdict::Pass)?;
     check_measure(
         &rep,
         names::COMPLEMENTARY_SLACKNESS,
@@ -861,7 +909,7 @@ fn t022_gap_includes_gamma() -> Result<(), Failed> {
         &TOL,
     );
     ensure(rep.overall == Overall::Verified, "gamma cancels in the gap")?;
-    // x = (1, 1): p = 3 + 5 = 8, d = 2 + 5 = 7, gap 1, relative 1 / (1 + 8 + 7).
+    // x = (1, 1): p = 3 + 5 = 8, d = 2 + 5 = 7, gap 1, relative 1 / max(1, min(8, 7)).
     let rep = verify(
         &p,
         &view(
@@ -872,7 +920,7 @@ fn t022_gap_includes_gamma() -> Result<(), Failed> {
         ),
         &TOL,
     );
-    check_measure(&rep, names::GAP, 1.0, 1.0 / 16.0, Verdict::Fail)
+    check_measure(&rep, names::GAP, 1.0, 1.0 / 7.0, Verdict::Fail)
 }
 
 fn t022_not_evaluated_without_duals() -> Result<(), Failed> {
@@ -927,6 +975,7 @@ fn t022_farkas_certificate() -> Result<(), Failed> {
     let cert = Certificate::Farkas {
         y: vec![-1.0],
         z: vec![1.0, 1.0],
+        s: vec![],
     };
     let mut v = view(Status::Infeasible, None, None, None);
     v.certificate = Some(&cert);
@@ -940,6 +989,7 @@ fn t022_farkas_certificate() -> Result<(), Failed> {
     let cert = Certificate::Farkas {
         y: vec![-1.0],
         z: vec![1.0, 1.5],
+        s: vec![],
     };
     v.certificate = Some(&cert);
     let rep = verify(&p, &v, &TOL);
@@ -948,6 +998,7 @@ fn t022_farkas_certificate() -> Result<(), Failed> {
     let cert = Certificate::Farkas {
         y: vec![1.0],
         z: vec![-1.0, -1.0],
+        s: vec![],
     };
     v.certificate = Some(&cert);
     let rep = verify(&p, &v, &TOL);
@@ -1197,7 +1248,7 @@ fn t024_unsupported_problem_class() -> Result<(), Failed> {
 
 // --- T023 corpus-fixture variant ---------------------------------------------------------
 
-const T023_CORPUS_INSTANCE: &str = "iDopaNeuroC_problem_1";
+const T023_CORPUS_INSTANCE: &str = "iDopaNeuroC_problem_LP";
 
 fn t023_corpus_all_zero_solution_fails() -> Result<(), Failed> {
     // All-zero x, y, z claimed Optimal on a corpus instance with its first seeded objective.

@@ -16,6 +16,13 @@ the certificate sign and callback threading that run on both backends. Make ever
 and pass on Rust 1.85 and add that build to the in-gate checks. Decisions: research.md R1–R15;
 entities: data-model.md.
 
+**Amended during implementation (2026-11-15, maintainer decisions, research R19)**: the CLP
+fixture format is MOSEK JTASK, not CBF (CBF does not round-trip the linear block and bounds), so
+every "CBF" below reads "JTASK" (`tests/common/jtask.rs`, `tests/fixtures/clp/<instance>.jtask`);
+the result gains split bound multipliers z_l, z_u; the gap uses MOSEK's normalisation; conic
+complementarity is judged per cone; per-item complementary slackness is required only for
+basic solutions.
+
 ## Technical Context
 
 **Language/Version**: Rust 2024, minimum 1.85.0 (installed 2026-11-15); MATLAB (extraction only)

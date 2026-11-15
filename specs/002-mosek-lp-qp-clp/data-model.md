@@ -62,6 +62,10 @@ multiplied by √2, so that svec(X)ᵀsvec(Y) = trace(XY).
   the stationarity condition below).
 - For QP and CLP, y and z keep their LP meaning; the basis is absent for interior-point
   solutions.
+- z_l, z_u (implementation decision 2026-11-15, research R19): separate bound multipliers,
+  length n, σz_l ≥ 0, σz_u ≥ 0, z = z_l − z_u; the dual objective's bound terms are
+  lᵀz_l − uᵀz_u. MOSEK fills them from s_l, s_u; Gurobi splits its reduced cost by sign. The
+  solution view also says whether the solution is basic (a basis is returned).
 
 ## Verification (CHK005)
 
@@ -81,8 +85,14 @@ against the effective solver tolerances × 10):
 | Reduced-cost consistency (now with Qx and Fᵀs) | per column \|z_j − (c_j + (Qx)_j − (Aᵀy)_j − (Fᵀs)_j)\| | per column ÷ (1 + \|c_j\| + \|(Qx)_j\| + Σ\|A_ij y_i\| + Σ\|F_ij s_i\|), then max | dual |
 | Primal cone violation | max over cone blocks of the block's violation of u = (Fx + g)_block (table below) | ÷ (1 + ‖g‖∞ + ‖Fx‖∞) | primal |
 | Dual cone violation | same for σs against K* | ÷ (1 + ‖s‖∞) | dual |
-| Conic complementarity | \|sᵀ(Fx + g)\| | ÷ (1 + \|p\|) | dual |
-| Primal-dual gap | \|p − d\| with p = ½xᵀQx + cᵀx + γ and d = γ − ½xᵀQx + (row and bound terms as in feature 001) − gᵀs | ÷ (1 + \|p\| + \|d\|) | dual |
+| Conic complementarity (per cone, 2026-11-15) | max over cones K of \|s_Kᵀ(Fx + g)_K\| | ÷ (1 + \|p\|) | dual |
+| Primal-dual gap | \|p − d\| with p = ½xᵀQx + cᵀx + γ and d = γ − ½xᵀQx + row terms as in feature 001 + bound terms (lᵀz_l − uᵀz_u when z_l, z_u are given, else as in feature 001) − gᵀs | ÷ max(1, min(\|p\|, \|d\|)) (MOSEK's normalisation, 2026-11-15) | dual |
+
+Per-item complementary slackness (feature 001) is required only for basic solutions; for
+interior-point solutions it is reported, not required, and does not decide the verdict
+(2026-11-15, research R19). With z_l, z_u given it uses each multiplier against its own
+bound, and the reduced-cost and dual-sign measures also check z = z_l − z_u, σz_l, σz_u ≥ 0
+and no multiplier on an infinite bound.
 
 Block violations: quadratic max(0, ‖u₂:‖ − u₁); rotated quadratic max(0, ‖u₃:‖² − 2u₁u₂, −u₁,
 −u₂) scaled by 1/(1 + ‖u‖∞); primal exponential max(0, u₂exp(u₃/u₂) − u₁, −u₂) with the closure

@@ -118,13 +118,16 @@ pub struct Timings {
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
 pub enum Certificate {
-    /// Farkas certificate of infeasibility: row multipliers y_F (length m) and bound
-    /// multipliers z_F (length n).
+    /// Farkas certificate of infeasibility (sense-independent, d_F > 0): row multipliers y_F
+    /// (length m), bound multipliers z_F (length n) and conic multipliers s_F (length k, empty
+    /// without conic constraints), with Aᵀy_F + z_F + Fᵀs_F = 0 and s_F ∈ K*.
     Farkas {
         /// Row multipliers.
         y: Vec<f64>,
         /// Bound multipliers.
         z: Vec<f64>,
+        /// Conic multipliers.
+        s: Vec<f64>,
     },
     /// Ray r (length n) along which the objective is unbounded.
     UnboundedRay {
@@ -158,6 +161,16 @@ pub struct Solution {
     pub y: Vec<f64>,
     /// Reduced costs z, length n (empty if unavailable or switched off).
     pub z: Vec<f64>,
+    /// Lower-bound multipliers z_l, length n, σz_l ≥ 0 (empty if unavailable or written to
+    /// caller buffers). With z_u: z = z_l − z_u, and the dual objective's bound terms are
+    /// lᵀz_l − uᵀz_u, which z alone does not determine when both are nonzero (interior-point
+    /// solutions; maintainer decision 2026-11-15).
+    pub z_l: Vec<f64>,
+    /// Upper-bound multipliers z_u, length n, σz_u ≥ 0.
+    pub z_u: Vec<f64>,
+    /// Conic duals s, length k, with σs ∈ K* (empty without conic constraints, if
+    /// unavailable or written to caller buffers).
+    pub s: Vec<f64>,
     /// Row activity Ax as reported by the solver, length m (empty if unavailable).
     pub row_activity: Vec<f64>,
     /// Basis, when available.
@@ -194,6 +207,9 @@ impl Solution {
             x: Vec::new(),
             y: Vec::new(),
             z: Vec::new(),
+            z_l: Vec::new(),
+            z_u: Vec::new(),
+            s: Vec::new(),
             row_activity: Vec::new(),
             basis: None,
             objective: None,
@@ -228,6 +244,22 @@ impl Solution {
             } else {
                 Some(&self.z)
             },
+            z_l: if self.z_l.is_empty() {
+                None
+            } else {
+                Some(&self.z_l)
+            },
+            z_u: if self.z_u.is_empty() {
+                None
+            } else {
+                Some(&self.z_u)
+            },
+            s: if self.s.is_empty() {
+                None
+            } else {
+                Some(&self.s)
+            },
+            basic: self.basis.is_some(),
             certificate: self.certificate.as_ref(),
         }
     }
@@ -246,11 +278,21 @@ pub struct SolutionView<'a> {
     pub y: Option<&'a [f64]>,
     /// Reduced costs z.
     pub z: Option<&'a [f64]>,
+    /// Lower-bound multipliers z_l.
+    pub z_l: Option<&'a [f64]>,
+    /// Upper-bound multipliers z_u.
+    pub z_u: Option<&'a [f64]>,
+    /// Conic duals s.
+    pub s: Option<&'a [f64]>,
+    /// Whether the solution is basic (a basis is returned): per-item complementary slackness
+    /// is then required.
+    pub basic: bool,
     /// Certificate.
     pub certificate: Option<&'a Certificate>,
 }
 
-/// Caller-supplied output buffers for `solve_into` (lengths: x and z n, y and row_activity m).
+/// Caller-supplied output buffers for `solve_into` (lengths: x and z n, y and row_activity m,
+/// s k).
 #[derive(Debug)]
 pub struct SolutionBuffers<'b> {
     /// Primal x, length n.
@@ -261,4 +303,10 @@ pub struct SolutionBuffers<'b> {
     pub z: Option<&'b mut [f64]>,
     /// Row activity, length m.
     pub row_activity: Option<&'b mut [f64]>,
+    /// Conic duals, length k.
+    pub s: Option<&'b mut [f64]>,
+    /// Lower-bound multipliers, length n.
+    pub z_l: Option<&'b mut [f64]>,
+    /// Upper-bound multipliers, length n.
+    pub z_u: Option<&'b mut [f64]>,
 }

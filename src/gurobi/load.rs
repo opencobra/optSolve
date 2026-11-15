@@ -594,7 +594,7 @@ mod tests {
                     d.rows_usize.iter().map(|&p| p as u64).collect(),
                     d.rows_i32
                         .iter()
-                        .map(|&p| u64::from(p.cast_unsigned()))
+                        .map(|&p| u64::from(u32::from_ne_bytes(p.to_ne_bytes())))
                         .collect(),
                 ],
             )

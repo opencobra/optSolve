@@ -1,0 +1,27 @@
+{
+  "instance": "iDopaNeuroC_problem_LP_minNorm",
+  "class": "QP (derived)",
+  "derived_from": "iDopaNeuroC_problem_LP",
+  "derived_from_mps_sha256": "7e87f02defb983b9067e5f1c40a43c0bcf8499b99a4ecd6d42ec12e43a26f98c",
+  "construction": "A, row senses, b, l, u of iDopaNeuroC_problem_LP unchanged; c = 0; gamma = 0; objective sense minimise; Q = 1e-4 I given by its lower triangle (the diagonal), objective 1/2 x'Qx",
+  "q_diagonal": 0.0001,
+  "m": 1344,
+  "n": 2942,
+  "nnz": 13748,
+  "nnz_Q": 2942,
+  "objective_sense": "min",
+  "expected_status": "Optimal",
+  "reference_objectives": {
+    "mosek_variational_kinetics_parameters": 2.12873e-06,
+    "gurobi_cobra_defaults": 2.12847e-06
+  },
+  "reference_rule": "|p - p_ref| <= 10 * tau * (1 + |p_ref|) for at least one reference, tau the effective dual tolerance of the solve (research R10, R12)",
+  "source": "variational kinetics driver_optimizeVKmodel_VK1to3m.m:872-877 -> COBRA optimizeCbModel (minNorm 1e-4), feature 002 research R12; the variational kinetics commit is that of the LP fixture",
+  "source_repository": "variationalKinetics",
+  "source_commit": "f164a3ac37be84bccc255e334f1a6e2ca6379ab2",
+  "extracting_script": "none: built in the test module from the LP fixture (tests/common/f002.rs)",
+  "optsolver_commit": "2b3be466a4d9b568b443578b776cae401cb4662e",
+  "optsolver_worktree_clean": false,
+  "citation": "Brunk et al, Nat Biotech, 2018; doi:10.1038/nbt.4072",
+  "licence": "not verified (maintainer decision 2026-11-14)"
+}

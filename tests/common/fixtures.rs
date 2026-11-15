@@ -31,40 +31,98 @@ pub fn fixtures_dir() -> Result<PathBuf, String> {
     Ok(repo_root().join(dir))
 }
 
-/// The corpus instance names declared in `project.yml` (`test_corpus.instances`).
-pub fn corpus_instances() -> Result<Vec<String>, String> {
-    let v = corpus_declaration()?;
-    if v.instances.is_empty() {
-        return Err("project.yml: test_corpus.instances is empty".into());
-    }
-    Ok(v.instances)
+/// The LP corpus instance names declared in `project.yml` (`test_corpus.lp_instances`).
+pub fn lp_instances() -> Result<Vec<String>, String> {
+    declared_list("lp_instances")
 }
 
-/// MPS file of a corpus instance.
+/// The derived QP fixture names (`test_corpus.qp_instances`).
+pub fn qp_instances() -> Result<Vec<String>, String> {
+    declared_list("qp_instances")
+}
+
+/// The CLP fixture names of the licensed tier (`test_corpus.clp_instances`).
+pub fn clp_instances() -> Result<Vec<String>, String> {
+    declared_list("clp_instances")
+}
+
+/// The CLP fixture names of the heavy tier (`test_corpus.clp_heavy_instances`).
+pub fn clp_heavy_instances() -> Result<Vec<String>, String> {
+    declared_list("clp_heavy_instances")
+}
+
+/// CLP fixtures whose solver-reported optimum is expected to fail verification
+/// (`test_corpus.clp_expected_verification_failures`; empty when absent).
+pub fn clp_expected_verification_failures() -> Result<Vec<String>, String> {
+    Ok(corpus_declaration()?
+        .lists
+        .get("clp_expected_verification_failures")
+        .cloned()
+        .unwrap_or_default())
+}
+
+/// The variational kinetics source instance an LP fixture was extracted from
+/// (`test_corpus.lp_source_instances`).
+pub fn lp_source_instance(fixture: &str) -> Result<String, String> {
+    corpus_declaration()?
+        .mappings
+        .get("lp_source_instances")
+        .and_then(|m| m.get(fixture))
+        .cloned()
+        .ok_or_else(|| format!("project.yml: no lp_source_instances entry for {fixture}"))
+}
+
+fn declared_list(key: &str) -> Result<Vec<String>, String> {
+    let v = corpus_declaration()?;
+    match v.lists.get(key) {
+        Some(l) if !l.is_empty() => Ok(l.clone()),
+        _ => Err(format!(
+            "project.yml: test_corpus.{key} is missing or empty"
+        )),
+    }
+}
+
+/// MPS file of an LP corpus instance.
 pub fn mps_path(instance: &str) -> Result<PathBuf, String> {
     Ok(fixtures_dir()?.join(format!("{instance}.mps")))
 }
 
-/// Provenance record of a corpus instance.
+/// Provenance record of an LP corpus instance.
 pub fn provenance_path(instance: &str) -> Result<PathBuf, String> {
     Ok(fixtures_dir()?.join(format!("{instance}.provenance.json")))
 }
 
-struct CorpusDeclaration {
-    fixtures: Option<String>,
-    instances: Vec<String>,
+/// Provenance record of a CLP corpus instance.
+pub fn clp_provenance_path(instance: &str) -> Result<PathBuf, String> {
+    Ok(fixtures_dir()?
+        .join("clp")
+        .join(format!("{instance}.provenance.json")))
 }
 
-/// Reads the `test_corpus` block of `project.yml`: its scalar `fixtures` key and its
-/// `instances` list. Only the block-style YAML this project writes is understood.
+/// Provenance record of a derived QP fixture (`fixtures`/qp).
+pub fn qp_provenance_path(instance: &str) -> Result<PathBuf, String> {
+    Ok(fixtures_dir()?
+        .join("qp")
+        .join(format!("{instance}.provenance.json")))
+}
+
+struct CorpusDeclaration {
+    fixtures: Option<String>,
+    lists: BTreeMap<String, Vec<String>>,
+    mappings: BTreeMap<String, BTreeMap<String, String>>,
+}
+
+/// Reads the `test_corpus` block of `project.yml`: scalar keys, lists of scalars and
+/// one-level mappings of scalars. Only the block-style YAML this project writes is understood.
 fn corpus_declaration() -> Result<CorpusDeclaration, String> {
     let path = project_yml();
     let text = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
     let mut in_corpus = false;
-    let mut in_instances = false;
+    let mut current: Option<String> = None;
     let mut out = CorpusDeclaration {
         fixtures: None,
-        instances: Vec::new(),
+        lists: BTreeMap::new(),
+        mappings: BTreeMap::new(),
     };
     for line in text.lines() {
         let content = line.split(" #").next().unwrap_or("").trim_end();
@@ -75,21 +133,34 @@ fn corpus_declaration() -> Result<CorpusDeclaration, String> {
         let t = content.trim();
         if indent == 0 {
             in_corpus = t == "test_corpus:";
-            in_instances = false;
+            current = None;
             continue;
         }
         if !in_corpus {
             continue;
         }
-        if let Some(item) = t.strip_prefix("- ") {
-            if in_instances {
-                out.instances.push(unquote(item.trim()).to_string());
+        if indent == 2 {
+            current = None;
+            if let Some(key) = t.strip_suffix(':') {
+                current = Some(key.to_string());
+            } else if let Some(v) = t.strip_prefix("fixtures:") {
+                out.fixtures = Some(unquote(v.trim()).to_string());
             }
             continue;
         }
-        in_instances = t == "instances:";
-        if let Some(v) = t.strip_prefix("fixtures:") {
-            out.fixtures = Some(unquote(v.trim()).to_string());
+        let Some(key) = current.as_ref() else {
+            continue;
+        };
+        if let Some(item) = t.strip_prefix("- ") {
+            out.lists
+                .entry(key.clone())
+                .or_default()
+                .push(unquote(item.trim()).to_string());
+        } else if let Some((k, v)) = t.split_once(':') {
+            out.mappings
+                .entry(key.clone())
+                .or_default()
+                .insert(unquote(k.trim()).to_string(), unquote(v.trim()).to_string());
         }
     }
     Ok(out)
@@ -636,11 +707,22 @@ pub fn self_tests() -> Vec<super::Trial> {
             Ok(())
         }),
         Trial::test("fixtures::corpus_declaration", || {
-            let names = corpus_instances().map_err(fail)?;
-            ensure(
-                names.iter().all(|n| !n.is_empty() && !n.contains(' ')),
-                format!("{names:?}"),
-            )?;
+            for names in [
+                lp_instances(),
+                qp_instances(),
+                clp_instances(),
+                clp_heavy_instances(),
+            ] {
+                let names = names.map_err(fail)?;
+                ensure(
+                    names.iter().all(|n| !n.is_empty() && !n.contains(' ')),
+                    format!("{names:?}"),
+                )?;
+            }
+            for lp in lp_instances().map_err(fail)? {
+                let source = lp_source_instance(&lp).map_err(fail)?;
+                ensure(!source.is_empty(), format!("{lp}: empty source instance"))?;
+            }
             ensure(
                 fixtures_dir().map_err(fail)?.ends_with("tests/fixtures"),
                 "fixtures dir",

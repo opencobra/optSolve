@@ -5,19 +5,22 @@ function extract_idopaneuroc_fixtures()
 %   setenv('OPTSOLVER_VK_REPO', '<path to the variational kinetics repository>')
 %   extract_idopaneuroc_fixtures()
 %
-% For every instance named in this repository's project declaration
-% (.specify/memory/project.yml, key test_corpus.instances), this function
-%   1. locates the frozen corpus with the variational kinetics locator
+% For every LP fixture named in this repository's project declaration
+% (.specify/memory/project.yml, key test_corpus.lp_instances), this function
+%   1. looks up the fixture's variational kinetics source instance in
+%      test_corpus.lp_source_instances (fixture name -> source instance name);
+%   2. locates the frozen corpus with the variational kinetics locator
 %      vkProblemInstanceDir (reused, not copied);
-%   2. loads the instance's COBRA structure `model`;
-%   3. builds a Gurobi MATLAB model structure field by field:
+%   3. loads the source instance's COBRA structure `model`;
+%   4. builds a Gurobi MATLAB model structure field by field:
 %        A = S, rhs = b, sense from csense (E -> '=', L -> '<', G -> '>'),
 %        lb, ub, obj = c, modelsense from osenseStr;
-%   4. writes tests/fixtures/<instance>.mps with gurobi_write;
-%   5. reads the file back with gurobi_read and requires A, rhs, sense, lb, ub
+%   5. writes tests/fixtures/<fixture>.mps with gurobi_write;
+%   6. reads the file back with gurobi_read and requires A, rhs, sense, lb, ub
 %      and obj to be bit-for-bit identical to what was written (error otherwise);
-%   6. writes tests/fixtures/<instance>.provenance.json (fields of the "Fixture
-%      provenance record" in specs/001-core-gurobi-lp/data-model.md).
+%   7. writes tests/fixtures/<fixture>.provenance.json (fields of the "Fixture
+%      provenance record" in specs/001-core-gurobi-lp/data-model.md, plus
+%      source_instance and renamed_from naming the source instance).
 %
 % Inputs (environment, resolved at run time and never stored)
 %   OPTSOLVER_VK_REPO   absolute path to the variational kinetics repository.
@@ -54,7 +57,8 @@ if status ~= 0
     error('extract_idopaneuroc_fixtures:params', 'project_params.py failed: %s', out);
 end
 params = jsondecode(out);
-instances = cellstr(params.test_corpus.instances);
+instances = cellstr(params.test_corpus.lp_instances);
+sourceMap = params.test_corpus.lp_source_instances;   % struct: fixture name -> source name
 fixtureDir = fullfile(repoRoot, params.test_corpus.fixtures);
 
 corpusDir = vkProblemInstanceDir();
@@ -70,8 +74,13 @@ seeds = [1; 2; 3];
 
 for k = 1:numel(instances)
     name = instances{k};
-    sourceFile = fullfile(corpusDir, [name '.mat']);
-    fprintf('[%s] loading %s\n', name, sourceFile);
+    if ~isfield(sourceMap, name)
+        error('extract_idopaneuroc_fixtures:noSource', ...
+            'test_corpus.lp_source_instances has no entry for fixture "%s".', name);
+    end
+    sourceName = sourceMap.(name);
+    sourceFile = fullfile(corpusDir, [sourceName '.mat']);
+    fprintf('[%s] loading source instance %s from %s\n', name, sourceName, sourceFile);
     s = load(sourceFile, 'model');
     model = s.model;
 
@@ -89,7 +98,9 @@ for k = 1:numel(instances)
     rec.instance = name;
     rec.source_repository = 'variationalKinetics';
     rec.source_commit = vkCommit;
-    rec.source_file = [name '.mat'];
+    rec.source_instance = sourceName;
+    rec.renamed_from = sourceName;
+    rec.source_file = [sourceName '.mat'];
     rec.source_sha256 = localSha256(sourceFile);
     rec.extracting_script = scriptRelPath;
     rec.optsolver_commit = optSolverCommit;

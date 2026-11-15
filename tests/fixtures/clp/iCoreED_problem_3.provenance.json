@@ -1,0 +1,104 @@
+{
+  "instance": "iCoreED_problem_3",
+  "problem_class": "CLP",
+  "tier": "licensed",
+  "statement": "the problem optimizeVKmodel passes to solveCobraCLP (solveStrategy = 'single')",
+  "source_repository": "variationalKinetics",
+  "source_commit": "f164a3ac37be84bccc255e334f1a6e2ca6379ab2",
+  "source_file": "iCoreED_problem_3.mat",
+  "source_sha256": "c76daeb463ad35788e3f31174cc36674fa3fb472d38a476783542df296aedca2",
+  "source_param_overrides": {
+    "solveStrategy": "single",
+    "printLevel": 0,
+    "saveProb": 1,
+    "diary": 0,
+    "plotFigures": 0
+  },
+  "extracting_script": "tools/corpus/extract_vk_clp_fixtures.m",
+  "optsolver_commit": "2b3be466a4d9b568b443578b776cae401cb4662e",
+  "optsolver_worktree_clean": false,
+  "m": 75,
+  "n": 1299,
+  "nnz_A": 715,
+  "k": 1818,
+  "nnz_F": 1008,
+  "cones": [
+    {
+      "type": "rotated quadratic",
+      "mosek_domain": 5,
+      "dimension": 14,
+      "count": 1
+    },
+    {
+      "type": "rotated quadratic",
+      "mosek_domain": 5,
+      "dimension": 22,
+      "count": 1
+    },
+    {
+      "type": "rotated quadratic",
+      "mosek_domain": 5,
+      "dimension": 63,
+      "count": 1
+    },
+    {
+      "type": "rotated quadratic",
+      "mosek_domain": 5,
+      "dimension": 75,
+      "count": 2
+    },
+    {
+      "type": "rotated quadratic",
+      "mosek_domain": 5,
+      "dimension": 77,
+      "count": 3
+    },
+    {
+      "type": "primal exponential",
+      "mosek_domain": 6,
+      "dimension": 3,
+      "count": 446
+    }
+  ],
+  "objective_sense": "minimize",
+  "mosek_version": "11.2.0",
+  "mosek_command": "minimize echo(0)",
+  "mosek_parameters": {
+    "MSK_DPAR_INTPNT_CO_TOL_PFEAS": 1E-8,
+    "MSK_DPAR_OPTIMIZER_MAX_TIME": 600,
+    "MSK_DPAR_INTPNT_TOL_PFEAS": 1E-6,
+    "MSK_DPAR_INTPNT_QO_TOL_PFEAS": 1E-6,
+    "MSK_DPAR_INTPNT_TOL_DFEAS": 1E-6,
+    "MSK_DPAR_INTPNT_QO_TOL_DFEAS": 1E-6,
+    "MSK_DPAR_INTPNT_CO_TOL_DFEAS": 1E-6,
+    "MSK_DPAR_INTPNT_CO_TOL_REL_GAP": 1E-6,
+    "MSK_DPAR_INTPNT_CO_TOL_MU_RED": 1E-8,
+    "MSK_IPAR_INTPNT_SOLVE_FORM": "MSK_SOLVE_PRIMAL",
+    "MSK_IPAR_PRESOLVE_USE": "MSK_PRESOLVE_MODE_FREE",
+    "MSK_DPAR_PRESOLVE_TOL_PRIMAL_INFEAS_PERTURBATION": 0,
+    "MSK_DPAR_PRESOLVE_TOL_X": 1E-10,
+    "MSK_DPAR_PRESOLVE_TOL_S": 1E-10,
+    "MSK_DPAR_DATA_TOL_X": 1E-12,
+    "MSK_DPAR_INTPNT_CO_TOL_NEAR_REL": 1,
+    "MSK_IPAR_INFEAS_REPORT_AUTO": "MSK_OFF",
+    "MSK_IPAR_OPTIMIZER": "MSK_OPTIMIZER_CONIC",
+    "MSK_IPAR_INTPNT_REGULARIZATION_USE": "MSK_ON",
+    "MSK_IPAR_LOG_FEAS_REPAIR": 0,
+    "MSK_IPAR_LOG": 0,
+    "MSK_IPAR_LOG_INTPNT": 0,
+    "MSK_IPAR_LOG_SIM": 0,
+    "MSK_IPAR_LOG_PRESOLVE": 0
+  },
+  "expected_stat": 1,
+  "expected_origStat": "OPTIMAL & MSK_RES_OK",
+  "expected_objective": 0,
+  "vk_solve_time_s": 0.068694,
+  "optimizer_time_s": 0.012627800926566124,
+  "timing_replicates": 1,
+  "citation": "not recorded in the source model",
+  "licence": "not verified (maintainer decision 2026-11-14, extended at Gate 2A 2026-11-15)",
+  "format": "jtask",
+  "format_decision": "format: JTASK, maintainer decision 2026-11-15 (CBF does not round-trip the linear block and bounds)",
+  "jtask_sha256": "92b4f6d4692cbd90ba86469a089f3c153261f45f1be43e8107825bf1da2898d7",
+  "round_trip": "mosekopt read of the written jtask file is bit-for-bit identical in a, c, blc, buc, blx, bux, f, g, accs and the objective sense"
+}

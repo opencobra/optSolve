@@ -6,14 +6,17 @@
 
 #![allow(dead_code, missing_docs)]
 
+pub mod f002;
 pub mod fake_backend;
 pub mod fixtures;
+pub mod jtask;
 pub mod mps;
 pub mod objectives;
 pub mod us3;
 
 pub use libtest_mimic::{Arguments, Failed, Trial};
 use optsolver::Backend;
+use std::sync::Arc;
 
 /// Constructor of a backend instance.
 pub type MakeBackend = fn() -> Result<Box<dyn Backend>, String>;
@@ -35,10 +38,38 @@ pub enum Availability {
 
 /// Every backend the project declares.
 pub fn declared_backends() -> Vec<DeclaredBackend> {
-    vec![DeclaredBackend {
-        name: "gurobi",
-        make: gurobi_maker(),
-    }]
+    vec![
+        DeclaredBackend {
+            name: "gurobi",
+            make: gurobi_maker(),
+        },
+        DeclaredBackend {
+            name: "mosek",
+            make: mosek_maker(),
+        },
+    ]
+}
+
+#[cfg(feature = "mosek")]
+fn mosek_maker() -> Option<MakeBackend> {
+    Some(|| {
+        optsolver::mosek::Env::new()
+            .map(|e| Box::new(e) as Box<dyn Backend>)
+            .map_err(|e| e.to_string())
+    })
+}
+
+#[cfg(not(feature = "mosek"))]
+fn mosek_maker() -> Option<MakeBackend> {
+    None
+}
+
+/// Environment variable that switches the heavy tier on (feature 002 research R14).
+pub const HEAVY_ENV: &str = "OPTSOLVER_HEAVY_TESTS";
+
+/// Whether the heavy tier runs (`OPTSOLVER_HEAVY_TESTS=1`).
+pub fn heavy_enabled() -> bool {
+    std::env::var(HEAVY_ENV).is_ok_and(|v| v == "1")
 }
 
 #[cfg(feature = "gurobi")]
@@ -57,6 +88,12 @@ fn gurobi_maker() -> Option<MakeBackend> {
 
 /// A test written once against the contract.
 pub type BackendTest = fn(&dyn Backend) -> Result<(), Failed>;
+
+/// A test written once against the contract, capturing data (for example a fixture name).
+pub type BackendClosure = Arc<dyn Fn(&dyn Backend) -> Result<(), Failed> + Send + Sync>;
+
+/// A test comparing two backends on the same problem (cross-solver agreement).
+pub type PairTest = fn(&dyn Backend, &dyn Backend) -> Result<(), Failed>;
 
 /// Backends with their availability, detected once per test binary.
 pub struct Registry {
@@ -90,31 +127,90 @@ impl Registry {
     /// One trial per declared backend; unavailable backends give ignored trials with the
     /// reason in the name.
     pub fn trials(&self, name: &str, test: BackendTest) -> Vec<Trial> {
+        self.trials_dyn(name, Arc::new(test))
+    }
+
+    /// As [`Registry::trials`], for a closure.
+    pub fn trials_dyn(&self, name: &str, test: BackendClosure) -> Vec<Trial> {
         self.entries
             .iter()
             .map(|(b, a)| {
                 let label = format!("{name}::{}", b.name);
                 match (a, b.make) {
-                    (Availability::Available, Some(make)) => Trial::test(label, move || {
-                        let backend = make().map_err(Failed::from)?;
-                        test(&*backend)
-                    }),
+                    (Availability::Available, Some(make)) => {
+                        let test = Arc::clone(&test);
+                        Trial::test(label, move || {
+                            let backend = make().map_err(Failed::from)?;
+                            test(&*backend)
+                        })
+                    }
                     (Availability::NotCompiled, _) | (Availability::Available, None) => {
-                        Trial::test(format!("{label} [{}: not compiled]", b.name), || Ok(()))
-                            .with_ignored_flag(true)
+                        ignored(format!("{label} [{}: not compiled]", b.name))
                     }
                     (Availability::Unavailable(reason), _) => {
                         let reason = reason.replace('\n', " ");
-                        Trial::test(
-                            format!("{label} [{}: unavailable: {reason}]", b.name),
-                            || Ok(()),
-                        )
-                        .with_ignored_flag(true)
+                        ignored(format!("{label} [{}: unavailable: {reason}]", b.name))
                     }
                 }
             })
             .collect()
     }
+
+    /// Heavy-tier trials: as [`Registry::trials_dyn`] when `OPTSOLVER_HEAVY_TESTS=1`,
+    /// otherwise one ignored trial per backend with the reason in the name (research R14).
+    pub fn heavy_trials_dyn(&self, name: &str, test: BackendClosure) -> Vec<Trial> {
+        self.heavy_trials_if(heavy_enabled(), name, test)
+    }
+
+    /// [`Registry::heavy_trials_dyn`] with the switch given (for the harness self-test).
+    pub fn heavy_trials_if(&self, enabled: bool, name: &str, test: BackendClosure) -> Vec<Trial> {
+        if enabled {
+            return self.trials_dyn(name, test);
+        }
+        self.entries
+            .iter()
+            .map(|(b, _)| {
+                ignored(format!(
+                    "{name}::{} [heavy tier: set {HEAVY_ENV}=1]",
+                    b.name
+                ))
+            })
+            .collect()
+    }
+
+    /// One trial per unordered pair of declared backends; a pair with an unavailable member
+    /// gives an ignored trial with the reason in the name.
+    pub fn pair_trials(&self, name: &str, test: PairTest) -> Vec<Trial> {
+        let mut out = Vec::new();
+        for (i, (b1, a1)) in self.entries.iter().enumerate() {
+            for (b2, a2) in &self.entries[i + 1..] {
+                let label = format!("{name}::{}+{}", b1.name, b2.name);
+                let why = |b: &DeclaredBackend, a: &Availability| match (a, b.make) {
+                    (Availability::Available, Some(_)) => None,
+                    (Availability::Unavailable(r), _) => {
+                        Some(format!("{}: unavailable: {}", b.name, r.replace('\n', " ")))
+                    }
+                    _ => Some(format!("{}: not compiled", b.name)),
+                };
+                match (why(b1, a1), why(b2, a2), b1.make, b2.make) {
+                    (None, None, Some(m1), Some(m2)) => out.push(Trial::test(label, move || {
+                        let x = m1().map_err(Failed::from)?;
+                        let y = m2().map_err(Failed::from)?;
+                        test(&*x, &*y)
+                    })),
+                    (r1, r2, _, _) => {
+                        let reasons: Vec<String> = r1.into_iter().chain(r2).collect();
+                        out.push(ignored(format!("{label} [{}]", reasons.join("; "))));
+                    }
+                }
+            }
+        }
+        out
+    }
+}
+
+fn ignored(name: String) -> Trial {
+    Trial::test(name, || Ok(())).with_ignored_flag(true)
 }
 
 /// Converts any displayable error into a test failure.

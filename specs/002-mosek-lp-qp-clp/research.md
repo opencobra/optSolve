@@ -228,3 +228,80 @@ variable is set; the in-gate checks set it.
 The loader's unit test uses `u32::cast_unsigned` (stable from 1.87); replaced by an explicit
 conversion. The benchmark's failure on 1.85 is diagnosed in its task. The in-gate checks add
 `cargo +1.85.0 test --all-targets` (both tiers).
+
+**Finding (T010, 2026-11-15)**: the benchmark has no 1.85 incompatibility of its own: `cargo
++1.85.0 build --all-targets` stopped at the loader unit test's `cast_unsigned` (E0658) and
+abandoned the other targets. With the cast replaced by `u32::from_ne_bytes(p.to_ne_bytes())`,
+`cargo +1.85.0 test --all-targets --features gurobi` builds every target and passes.
+
+## R16. Linking two vendor libraries (T001)
+
+Cargo allows one `links` key per package, and it names the Gurobi library. MOSEK is therefore
+linked by `build.rs` with `cargo:rustc-link-search` (from `MOSEK_BINDIR`) and
+`cargo:rustc-link-lib=dylib=mosek64` only; `rerun-if-env-changed=MOSEK_BINDIR` is declared.
+The cost: Cargo cannot detect a second crate linking `libmosek64`. Splitting the backends into
+`-sys` crates would lift this and is out of scope (single crate, feature 001 decision).
+
+## R17. Behavioural evidence replacing feature 001's observations (T016, 2026-11-15)
+
+Feature 001 (research R17 there; not rewritten, historical record) recorded two Gurobi
+behaviours as observed but uncited: the sign of `FarkasDual` and the thread on which callbacks
+run. Both are now asserted by per-backend contract tests in `tests/common/f002.rs`, run on
+every backend: `t014_certificate_sign` (y_F,1 > 0 and z_F = −y_F < 0 on
+`tests/fixtures/small/infeasible.mps`) and `t015_callback_thread` (four threads, barrier,
+iDopaNeuroC_problem_LP: every progress call on the calling thread, in-flight count never above
+one, at least one call). Both pass on Gurobi 13.0.3; the source comments now cite the tests.
+
+## R18. MOSEK probes (T021, 2026-11-15, MOSEK 11.2.0; `src/mosek/probes.rs`, licensed tests)
+
+1. **Infinite value on a side the key marks infinite**: `MSK_putvarboundslice` accepts
+   `MSK_BK_LO` with u = +∞ and `MSK_BK_FR` with ±∞ (response 0) and the solve is unaffected;
+   `MSK_BK_RA` with l = −∞ is rejected. The loader still copies ±∞ to ±`MSK_INFINITY` when an
+   infinite value is present (research R3 default); since keys are derived from finiteness the
+   copy could be dropped, relying on this probe (not done: within the SC-004 budget).
+2. **Which solution type carries the LP infeasibility certificate**: on
+   `tests/fixtures/small/infeasible.mps` the basic solution carries it
+   (prosta PRIM_INFEAS, solsta PRIM_INFEAS_CER) with the default optimiser, the dual simplex
+   and the interior point (basis identification on); the interior solution, when defined,
+   carries it as well. The backend reads BAS when defined, else ITR.
+3. **Statuses after `MSK_RES_TRM_USER_CALLBACK`**: `MSK_optimizetrm` returns 0 with
+   trmcode 100007; a basic solution is defined with problem and solution status UNKNOWN. The
+   translation's termination rule gives Interrupted (solution status first only for OPTIMAL
+   and certificates).
+4. **Zero-length slices with NULL pointers** (`putconboundslice`, `putcslice`,
+   `putafegslice`): accepted; an empty task optimises to an optimal interior solution. The
+   loader skips zero-length calls anyway.
+
+## R19. Fixture format and verification decisions during implementation (2026-11-15)
+
+- **CLP fixture format: JTASK** (maintainer). MOSEK's CBF writer does not round-trip the linear
+  block and variable bounds (read back, everything lands in f/g with a = 0; values are exact,
+  structure is not). MOSEK JTASK and PTF round-trip bit for bit on all 11 instances; JTASK
+  chosen (JSON, read by the test module's JSON reader, `tests/common/jtask.rs`). Task T008
+  is therefore a JTASK reader; R11's "CBF" reads "JTASK".
+- **Conic complementarity per cone** (maintainer): max over cones K of |s_Kᵀ(Fx + g)_K|, not
+  |sᵀ(Fx + g)| summed over all cones (on iCoreED_problem_4/5 the sum over ~770 cones was
+  1.4e-6 and 4.9e-7 relative; per cone 8.6e-9 and 9.6e-9).
+- **Primal-dual gap the MOSEK way** (maintainer, after reading MOSEK 11.2 C API manual §13.3,
+  conic interior-point termination: |cᵀx − bᵀy| ≤ ε_g · max(1, min(|cᵀx|, |bᵀy|)), ε_g =
+  `INTPNT_CO_TOL_REL_GAP`, default 1e-8): the result gains separate bound multipliers z_l,
+  z_u (σz_l, σz_u ≥ 0, z = z_l − z_u) so the dual objective's bound terms lᵀz_l − uᵀz_u are
+  exact for interior-point solutions; the gap is normalised by max(1, min(|p|, |d|)).
+  MOSEK fills z_l = s_l, z_u = s_u; Gurobi splits its reduced cost by sign. Before: gap
+  2.5e-5 on iCoreED_problem_5 (MOSEK's own 2.8e-8); after: passes.
+- **Per-item complementary slackness required only for basic solutions** (maintainer, after
+  comparing MOSEK §13.3 and Gurobi `BarConvTol`: both test the total complementarity with the
+  gap on their scaled problems, and Gurobi's default crossover then gives exact per-item
+  complementarity). For interior-point solutions it is reported, not required, and does not
+  decide the verdict (status Optimal). iCoreED_problem_4: largest item 1.07e-7, total
+  2.0e-6, exact gap 4e-9.
+- **Reference objective of CLP fixtures**: R10 with the larger of our tolerance and the
+  variational kinetics run's recorded `INTPNT_CO_TOL_REL_GAP` (1e-6), normalised by
+  max(1, min(|p|, |p_ref|)).
+- **Open (Gate 3): iDopaNeuroC_problem_5 (heavy tier) fails verification on MOSEK.** MOSEK
+  reports OPTIMAL; the row-bound violation is 1.97e-7 relative (limit 10 × 1e-8 =
+  `INTPNT_CO_TOL_PFEAS`). It does not change with PFEAS 1e-10 or tighter presolve tolerances;
+  with presolve off MOSEK still reports OPTIMAL at objective 241.45 with violation 4.9e-4; with
+  the variational kinetics parameters it reproduces that run's objective 381.40464759
+  exactly with the same 1.98e-7 violation. The recorded variational kinetics solution
+  therefore violates feasibility by about 20× MOSEK's own tolerance. Not loosened; reported.

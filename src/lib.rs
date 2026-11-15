@@ -1,7 +1,7 @@
 //! optSolver: zero-copy loading of large matrix-form optimisation problems into native
 //! solvers, behind one solver-independent contract (constitution XVI).
 //!
-//! The solver-independent core ([`problem`], [`options`], [`result`], [`verify`],
+//! The solver-independent core ([`problem`], [`conic`], [`options`], [`result`], [`verify`],
 //! [`backend`], [`error`]) never depends on a backend. Backends are modules behind additive
 //! Cargo features (ADR-0001).
 
@@ -14,6 +14,7 @@ const _: () = assert!(
 );
 
 pub mod backend;
+pub mod conic;
 pub mod error;
 pub mod options;
 pub mod problem;
@@ -23,7 +24,11 @@ pub mod verify;
 #[cfg(feature = "gurobi")]
 pub mod gurobi;
 
+#[cfg(feature = "mosek")]
+pub mod mosek;
+
 pub use backend::{Backend, Capabilities, OptionMapping, ProblemClass, ProblemRef};
+pub use conic::{Cone, ConicRef};
 pub use error::Error;
 pub use options::{Method, Options, ParamValue, Presolve, Progress, ProgressPhase};
 pub use problem::{CscRef, Problem, RowBounds, RowIndex, Sense};

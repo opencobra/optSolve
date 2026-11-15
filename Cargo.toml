@@ -11,6 +11,7 @@ build = "build.rs"
 [features]
 default = []
 gurobi = []
+mosek = []
 
 [dependencies]
 log = "0.4"
