@@ -1,7 +1,7 @@
 # Human Loop State
 
 ## Current State
-- Status: Gate 1 passed; Bundle 2 (implementation preparation) in progress
+- Status: Gate 2A passed (APPROVE_WITH_ADR); Bundle 2 steps 3-5 in progress
 - Active feature directory: specs/002-mosek-lp-qp-clp
 - Last completed bundle: Bundle 1 (requirements preparation)
 - Source code modified by this workflow: no
@@ -11,7 +11,7 @@
 - specify:        invoked 2026-11-15 (1 clarification: CLP test problems)
 - clarify:        invoked 2026-11-15 (2 questions: cone types broader set; heavy test tier)
 - checklist:      invoked 2026-11-15 (checklists/contract.md, 23 items: 9 resolved, 14 routed)
-- plan:
+- plan:           invoked 2026-11-15 (plan.md, research.md R1-R15, data-model.md, contracts/public-api.md, quickstart.md, architecture-delta.yaml; two read-only research agents)
 - tasks:
 - analyze:
 - implement:
@@ -20,6 +20,7 @@
 | Date (UTC) | Gate | Option chosen | Consequence |
 |---|---|---|---|
 | 2026-11-15 | (before Bundle 1) | Start feature 002: MOSEK LP, QP, CLP; rename LP fixture and document corpus; verify certificate sign and callback threading as code behaviour; build on Rust 1.85 | Branch 002-mosek-lp-qp-clp from devel |
+| 2026-11-15 | Gate 2A | APPROVE_WITH_ADR; CLP problem = solveCobraCLP input; exclude iDopaNeuroC_problem_4; accept names, notation (2.5.0), extend licence decision to VK CLP data; commit | ADR-0002; constitution 2.5.0; spec FR-014 amended; tasks may be generated |
 | 2026-11-15 | Gate 1 | Continue to Bundle 2; commit authorised | Bundle 1 committed; speckit-plan next |
 | 2026-11-15 | (specify) | CLP test problems: first inner conic problem of each VK corpus instance, iCoreED and iDopaNeuroC | Spec FR-014 |
 
@@ -42,8 +43,8 @@
 
 ## Checklist Routing (constitution VI-B)
 
-checklists/requirements.md 16/16. checklists/contract.md open items, routed to the plan
-(Bundle 2, step 1), closed in research.md or data-model.md before Gate 2A:
+checklists/requirements.md 16/16. checklists/contract.md: the 14 routed items below are all
+resolved in Bundle 2 (23/23); closing artifact named on each item:
 
 | Item | Question | Destination |
 |---|---|---|

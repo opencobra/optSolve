@@ -29,6 +29,10 @@ decisions and closeout record of `specs/001-core-gurobi-lp/` (corpus, research R
 
 - Q: Which variational kinetics conic problems form the CLP test problems? → A: the first inner
   conic problem of each corpus instance, for the small iCoreED model and for iDopaNeuroC.
+- Q (Gate 2A): What exactly is "the first inner conic problem"? → A: the problem
+  `optimizeVKmodel` passes to `solveCobraCLP` (its placeholder objective included), solved once
+  by the single direct route for the expected status; iDopaNeuroC_problem_4 is excluded (it
+  stalls in MOSEK).
 - Q: Which cone types does the solver-independent conic problem support? → A: a broader set:
   quadratic, rotated quadratic, primal and dual exponential, primal and dual power,
   nonnegative and zero domains, and the positive semidefinite cone (in vectorised form).
@@ -234,10 +238,11 @@ with MOSEK to the status recorded for them, and their solutions pass conic verif
 
 - **FR-014**: The corpus MUST gain frozen QP test problems (the QP the variational kinetics
   driver builds from the LP problem, and small hand-built QPs with known optima) and frozen
-  variational kinetics conic test problems — the first inner conic problem of each variational
-  kinetics corpus instance for the small iCoreED model and for iDopaNeuroC, captured from the
-  variational kinetics solver's own conic interface, with the expected status obtained through
-  that solver's single direct MOSEK route — each with provenance including its expected status.
+  variational kinetics conic test problems — for each variational kinetics corpus instance of
+  the small iCoreED model and of iDopaNeuroC (except iDopaNeuroC_problem_4, which stalls), the
+  conic problem the variational kinetics solver passes to its conic interface
+  (`solveCobraCLP`), with the expected status obtained through that interface's single direct
+  MOSEK route — each with provenance including its expected status.
 - **FR-015**: Every test MUST be written once against the contract and run on every backend
   supporting its problem class; cross-solver agreement tests MUST run for every problem class two
   available backends support.

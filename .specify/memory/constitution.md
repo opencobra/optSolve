@@ -744,6 +744,11 @@ scalars Greek letters where practical. In code, a symbol is written as its lette
 | z | Reduced cost vector, length n |
 | γ (`gamma`) | Objective constant |
 | σ (`sigma`) | Objective sense: +1 minimise, −1 maximise |
+| F | Affine conic constraint matrix, k × n |
+| g | Affine conic constraint offset vector, length k |
+| K | Product of cones; the conic constraints require Fx + g ∈ K |
+| s | Conic dual vector, length k (σs ∈ K*, the dual cone) |
+| k | Number of affine conic rows |
 | m | Number of rows of A |
 | n | Number of columns of A |
 
@@ -920,4 +925,4 @@ entry first. `/speckit-constitution` writes its Sync Impact Report there; prepen
 constitution is prohibited. Freshness stamps on observed facts, and rationales citing an incident
 to explain a rule, are not records of change and stay where they are.
 
-**Version**: 2.4.1 | **Ratified**: 2026-11-14 | **Last Amended**: 2026-11-14
+**Version**: 2.5.0 | **Ratified**: 2026-11-14 | **Last Amended**: 2026-11-14

@@ -6,6 +6,16 @@ entry first, sections ordered alphabetically by path.
 
 ## .specify/memory/constitution.md
 
+### 2.5.0 — 2026-11-15
+
+Sync Impact Report.
+
+- Version change: 2.4.1 → 2.5.0 (MINOR: Notation Convention inventory expanded).
+- Trigger: feature 002 Gate 2A (maintainer approval of the symbols in
+  specs/002-mosek-lp-qp-clp/data-model.md).
+- Modified: Notation Convention — added F, g, K, s, k.
+- Companions: templates unchanged.
+
 ### 2.4.1 — 2026-11-14
 
 Sync Impact Report.

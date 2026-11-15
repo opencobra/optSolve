@@ -1,0 +1,106 @@
+# Architecture delta for feature 002 (constitution XIII-C). Model before:
+# docs/architecture/components.yaml (feature 001).
+schema: 1
+feature: 002-mosek-lp-qp-clp
+verdict: APPROVE_WITH_ADR  # Gate 2A, 2026-11-15, maintainer; ADR-0002
+
+adr_required:
+  reason: couples to a second solver (MOSEK) and re-examines the provisional Backend trait (ADR-0001)
+  proposed: docs/architecture/decisions/ADR-0002-mosek-backend-and-backend-trait.md
+
+components_added:
+  - id: core.conic
+    location: src/conic.rs
+    responsibility: cone types, validated conic data (F, g, cones), cone membership measures
+  - id: mosek.ffi
+    location: src/mosek/ffi.rs
+    responsibility: the only MOSEK C declarations and constants
+  - id: mosek.env
+    location: src/mosek/env.rs
+    responsibility: owned MOSEK environment; licence checked out at creation
+  - id: mosek.load
+    location: src/mosek/load.rs
+    responsibility: bulk loading of LP, QP and conic data into a task
+  - id: mosek.params
+    location: src/mosek/params.rs
+    responsibility: the single function applying MOSEK parameters
+  - id: mosek.status
+    location: src/mosek/status.rs
+    responsibility: total translation of MOSEK response, problem and solution statuses
+  - id: mosek.callback
+    location: src/mosek/callback.rs
+    responsibility: progress, cancellation and panic containment
+  - id: mosek.solve
+    location: src/mosek/solve.rs
+    responsibility: Backend for MOSEK; solution and certificate extraction; load report
+  - id: tools.vk_clp_extraction
+    location: tools/corpus/extract_vk_clp_fixtures.m
+    responsibility: capture of variational kinetics conic problems as CBF fixtures
+  - id: docs.test_corpus
+    location: docs/test-corpus.md
+    responsibility: description of every corpus fixture (Tier 3)
+
+components_modified:
+  - id: core.problem
+    change: quadratic term validated (lower triangle); optional conic data
+  - id: core.result
+    change: conic duals s; Farkas certificate gains s
+  - id: core.verify
+    change: QP and conic measures
+  - id: core.backend
+    change: ProblemClass::Conic; provisional trait re-examined with its second implementation
+  - id: core.options
+    change: check_problem rejects conic problems for backends lacking the class
+  - id: test.harness
+    change: CBF reader, heavy tier, two-backend (agreement) trials, certificate-sign and callback-thread tests
+  - id: test.corpus
+    change: LP fixture renamed; QP derived fixture; CLP fixtures
+  - id: tools.corpus_extraction
+    change: maps the source instance to the fixture name iDopaNeuroC_problem_LP
+  - id: bench.load_solve
+    change: MOSEK scenarios
+
+components_removed: []
+
+dependency_edges_added:
+  - from: mosek.*
+    to: core.*
+    reason: implements the solver-independent contract
+  - from: mosek.load
+    to: core.problem (convert::IndexBuffer)
+    reason: reuse of the row-index block conversion
+  - from: core.verify
+    to: core.conic
+    reason: cone membership measures
+
+dependency_edges_forbidden:
+  - from: core.*
+    to: mosek.* or gurobi.*
+    principle: VIII
+  - from: mosek.*
+    to: gurobi.*
+    principle: VIII (backends independent)
+  - from: any module except mosek.params
+    to: MOSEK parameter-setting functions
+    principle: VII-G
+  - from: any module except mosek.ffi
+    to: extern C declarations for MOSEK
+    principle: VII-A
+
+public_interfaces_changed:
+  - contracts/public-api.md
+
+persistent_data_structures_added:
+  - CBF fixtures and provenance records (tests/fixtures/clp/)
+  - derived QP fixture provenance (tests/fixtures/qp/)
+
+naming_decisions_for_maintainer:  # constitution XIII-F
+  - iDopaNeuroC_problem_LP (fixture name)
+  - Cone (enum) and its variant names; ConicRef; Problem::with_conic
+  - Solution::s; ProblemClass::Conic
+  - mosek::Env
+  - tools/corpus/extract_vk_clp_fixtures.m; docs/test-corpus.md
+  - OPTSOLVER_HEAVY_TESTS (heavy tier switch)
+
+required_constitution_amendment:
+  - "Notation Convention: add F, g, K, s, k (data-model.md)"
