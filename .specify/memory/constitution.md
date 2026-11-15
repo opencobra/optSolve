@@ -742,6 +742,7 @@ scalars Greek letters where practical. In code, a symbol is written as its lette
 | b_l, b_u | Lower and upper row bounds, length m, when rows are given as ranges |
 | y | Row dual vector, length m |
 | z | Reduced cost vector, length n |
+| z_l, z_u | Lower- and upper-bound multipliers, length n (σz_l ≥ 0, σz_u ≥ 0, z = z_l − z_u; code `z_l`, `z_u`) |
 | γ (`gamma`) | Objective constant |
 | σ (`sigma`) | Objective sense: +1 minimise, −1 maximise |
 | F | Affine conic constraint matrix, k × n |
@@ -925,4 +926,4 @@ entry first. `/speckit-constitution` writes its Sync Impact Report there; prepen
 constitution is prohibited. Freshness stamps on observed facts, and rationales citing an incident
 to explain a rule, are not records of change and stay where they are.
 
-**Version**: 2.5.0 | **Ratified**: 2026-11-14 | **Last Amended**: 2026-11-14
+**Version**: 2.5.1 | **Ratified**: 2026-11-14 | **Last Amended**: 2026-11-15

@@ -34,7 +34,7 @@ verification decisions, JTASK format decision) and `docs/test-corpus.md`.
   natively); those instances are compared on both solvers; exponential, power and positive
   semidefinite cones remain MOSEK-only and are reported as not comparable.
 - Q: Where does the interface document live? → A: a stand-alone Markdown document for LLMs
-  (`docs/llm-interface.md`) with an `llms.txt` entry point at the repository root pointing to
+  (`docs/llm-interface.md`) with an `llms.txt` entry point in `docs/` pointing to
   it, and the same content as the crate-level Rust documentation, its examples compiled as
   documentation tests.
 - Q: Are the MPS and JTASK readers part of optSolver's public interface? → A: no, test-only;
@@ -179,7 +179,7 @@ instances are compared too.
 - **FR-004**: A test MUST fail when a public item of the solver-independent interface is not
   mentioned in the document.
 - **FR-005**: The document MUST be a stand-alone Markdown file `docs/llm-interface.md`, with an
-  `llms.txt` entry point at the repository root pointing to it, and MUST also be the crate-level
+  `llms.txt` entry point in `docs/` (Gate 2A) pointing to it, and MUST also be the crate-level
   Rust documentation (one source, not two copies), its examples compiled and run as
   documentation tests.
 
@@ -189,12 +189,12 @@ instances are compared too.
   quadratic objective section), conic problems in MOSEK JTASK; each MUST have a provenance record
   stating its construction, its known status and optimal objective (and optimal x where unique),
   and the derivation of that optimum.
-- **FR-007**: The toy set MUST cover: LP (optimal, infeasible, unbounded, ranged rows, free
-  rows, empty column, maximise); QP (convex, with off-diagonal terms, maximise); conic: one
-  instance per supported cone type (quadratic, rotated quadratic, primal and dual exponential,
-  primal and dual power, nonnegative, zero, positive semidefinite) in minimise and maximise
-  form where meaningful, plus one conic infeasible instance. Existing small LP fixtures are
-  reused, not duplicated.
+- **FR-007**: The toy set MUST cover: LP (optimal, infeasible, unbounded, ranged rows, empty
+  column, maximise; free rows, which MPS cannot express portably, stay covered in code); QP
+  (convex, with off-diagonal terms, maximise); conic: one instance per supported cone type
+  (quadratic, rotated quadratic, primal and dual exponential, primal and dual power,
+  nonnegative, zero, positive semidefinite) in minimise and maximise form where meaningful, plus
+  one conic infeasible instance. Existing small LP fixtures are reused, not duplicated.
 - **FR-008**: The tests MUST read the toy instances through the shared readers and run them on
   every backend supporting their class; a backend without the class MUST report "unsupported".
 - **FR-009**: Each toy instance MUST be checked once against an independent solver tool reading

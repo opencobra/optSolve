@@ -6,6 +6,18 @@ entry first, sections ordered alphabetically by path.
 
 ## .specify/memory/constitution.md
 
+### 2.5.1 — 2026-11-15
+
+Sync Impact Report.
+
+- Version change: 2.5.0 → 2.5.1 (PATCH: records symbols already in use; no rule changes).
+- Trigger: feature 003 Gate 2A (maintainer: "Add z_l, z_u"); feature 002 added the bound
+  multipliers to the result (research R19) without an amendment.
+- Modified: Notation Convention — added z_l, z_u. Also corrected the Last Amended date of the
+  version line (2.5.0 was amended on 2026-11-15).
+- Companions: templates unchanged (plan, spec and tasks templates reference the Notation
+  Convention generically).
+
 ### 2.5.0 — 2026-11-15
 
 Sync Impact Report.

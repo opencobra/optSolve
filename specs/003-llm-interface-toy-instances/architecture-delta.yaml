@@ -1,0 +1,84 @@
+# Architecture delta for feature 003 (constitution XIII-C). Model before:
+# docs/architecture/components.yaml (reconciled in feature 002).
+schema: 1
+feature: 003-llm-interface-toy-instances
+verdict: APPROVE_WITH_ADR  # Gate 2A, 2026-11-15, maintainer; ADR-0003
+
+adr_required:
+  reason: >
+    the Gurobi backend adopts a modelling of conic constraints (auxiliary variables + quadratic
+    constraints) that fixes how its duals map onto the contract; per-cone capabilities
+  written: docs/architecture/decisions/ADR-0003-gurobi-conic-and-llm-interface.md
+
+components_added:
+  - id: docs.llm_interface
+    location: docs/llm-interface.md
+    responsibility: the public-interface document for client authors and LLMs; also the crate-level documentation
+  - id: docs.llms_txt
+    location: docs/llms.txt
+    responsibility: llmstxt.org entry point linking the interface document, corpus document and README
+  - id: tools.toy_instances
+    location: tools/corpus/make_toy_instances.m
+    responsibility: definition, writing (Gurobi MPS, MOSEK JTASK), independent two-tool checks and provenance of toy instances
+
+components_modified:
+  - id: core.lib
+    change: crate-level docs included from docs/llm-interface.md (one source)
+  - id: core.conic
+    change: ConeKind and Cone::kind
+  - id: core.backend
+    change: Capabilities::cones
+  - id: core.options
+    change: check_problem rejects cone kinds outside Capabilities::cones
+  - id: gurobi.ffi
+    change: QP and quadratic-constraint declarations and constants (header-checked)
+  - id: gurobi.load
+    change: QP triplets; conic rows stacked under A through the blocked path; auxiliary columns; one quadratic constraint per cone
+  - id: gurobi.params
+    change: NonConvex = 0 with Q, QCPDual = 1 with cones; effective tolerances by class
+  - id: gurobi.solve
+    change: capabilities (Qp, Conic; four cone kinds); conic duals from Pi; auxiliaries hidden
+  - id: mosek.solve
+    change: capabilities list every cone kind
+  - id: test.harness
+    change: MPS QUADOBJ/QSECTION/QMATRIX; JTASK svecpsd and weight normalisation; toy trials; comparison trials and report
+  - id: test.corpus
+    change: toy instances with provenance; project.yml toy_instances
+  - id: docs.test_corpus
+    change: toy instances described
+  - id: bench.load_solve
+    change: QP scenario (both backends)
+
+components_removed: []
+
+dependency_edges_added:
+  - from: core.lib
+    to: docs.llm_interface
+    reason: include_str! of the document as crate docs (build-time text inclusion)
+
+dependency_edges_forbidden:
+  - from: core.*
+    to: gurobi.* or mosek.*
+    principle: VIII
+  - from: any module except gurobi.params
+    to: Gurobi parameter setters (NonConvex, QCPDual included)
+    principle: VII-G
+  - from: optsolver public interface
+    to: tests/common readers
+    principle: V (FR-010a, readers test-only)
+
+public_interfaces_changed:
+  - contracts/public-api.md
+
+persistent_data_structures_added:
+  - toy instance files and provenance (tests/fixtures/small/)
+  - comparison reports (results/, generated)
+
+naming_decisions_for_maintainer:  # constitution XIII-F
+  - ConeKind (enum) and its variant names; Cone::kind; Capabilities::cones
+  - docs/llm-interface.md; docs/llms.txt (maintainer: in docs/, not the root)
+  - toy instance names toy_lp_*, toy_qp_*, toy_clp_* (data-model.md)
+  - tools/corpus/make_toy_instances.m
+
+required_constitution_amendment:
+  - "Notation Convention: add z_l, z_u (bound multipliers, z = z_l − z_u; added in feature 002) — maintainer decision at Gate 2A"
