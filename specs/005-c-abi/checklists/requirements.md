@@ -22,8 +22,9 @@
   recorded with dated vendor evidence in the spec's Clarifications section (closing artifact:
   spec.md, Clarifications, the thread-rule requirement FR-008 and the memory-limit requirement
   FR-011).
-- [x] CHK006 Requirements are testable and unambiguous — re-verified 2026-11-15 after the first
-  Gate 1 review: the output-array rule (wrong length, quantity not returned) and the C-versus-Rust
+- [x] CHK006 Requirements are testable and unambiguous — re-verified 2026-11-15 after the second
+  Gate 1 review (the comparison rule now fixes a deterministic configuration and states its
+  tolerance in words with rationale); after the first review: the output-array rule (wrong length, quantity not returned) and the C-versus-Rust
   comparison rule are now decided in the Clarifications; each functional requirement is checked by
   the header-agreement requirement (FR-013), the C-level test requirement (FR-014), the
   narrowest-check requirement (FR-022) or a success criterion.
@@ -38,15 +39,18 @@
 
 ## Feature Readiness
 
-- [x] CHK013 All functional requirements have clear acceptance criteria — re-verified 2026-11-15:
+- [x] CHK013 All functional requirements have clear acceptance criteria — re-verified 2026-11-15
+  after the second Gate 1 review (deterministic comparison configuration):
   the comparison rule (Clarifications) defines vector agreement; the mixed-integer extension point
   (FR-020) now has an observable check (a caller structure of an earlier, shorter size is
   accepted).
 - [x] CHK014 User scenarios cover primary flows
 - [ ] CHK015 Feature meets measurable outcomes defined in Success Criteria — not checkable before
   implementation; routed to Gate 3 (closeout).
-- [x] CHK016 No implementation details leak into specification (see CHK001)
+- [x] CHK016 No implementation details leak into specification (see the first content-quality item,
+  CHK001)
 
 ## Notes
 
-- CHK015 is routed to Gate 3 (closeout), where the success criteria are measured.
+- The item on meeting the success criteria (CHK015) is routed to Gate 3 (closeout), where the
+  success criteria are measured.

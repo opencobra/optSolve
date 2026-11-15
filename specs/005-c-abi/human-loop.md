@@ -13,7 +13,7 @@
 - specify:        invoked 2026-11-15 (subagent, under 2.5.1)
 - clarify:        2026-11-15 — three questions answered by the feature agent under 3.0.0
                   (spec Clarifications), plus the unit of the memory limit
-- checklist:      requirements checklist 15/16; CHK015 routed to Gate 3
+- checklist:      requirements checklist 15/16; the success-criteria item (CHK015) routed to Gate 3
 - plan:
 - tasks:
 - analyze:
@@ -25,11 +25,19 @@
 | 2026-11-15 | (before Bundle 1) | Start feature 005 from request REQ-001 of the COBRA Toolbox fork, carried by a subagent the maintainer authorised | — | Branch 005-c-abi from devel (32e83ed) in its own worktree, because 004-milp-interface is open |
 | 2026-11-15 | Gate 1 (decisions, first round) | MOSEK memory limit rejected as unsupported (vendor forbids MOSEK calls from the callback); Gurobi maps to SoftMemLimit only; environment handle usable from any thread, one at a time, Gurobi creation/freeing serialised. Rationale and evidence: spec Clarifications | (review below) | Thread-rule and memory-limit requirements (FR-008, FR-011) and the heap, wall-time, environment-reuse and link-demonstration criteria (SC-002, SC-003, SC-004, SC-007) revised |
 
-| 2026-11-15 | Gate 1 review 1 | FAIL, seven findings: evidence not recorded; output-array rule deferred; comparison rule undefined; earlier non-Send ruling superseded silently; codes in place of names; M and N symbols; uncommitted work | gate-reviews/gate-1-20261115T232223Z.md | Repairs: dated vendor evidence in Clarifications; output-array and comparison rules decided; Env becomes Send (not Sync) with Gurobi creation lock, superseding feature 001 R15 and feature 002 R2 (recorded); names beside codes; version rule without symbols; work committed (710ae9a, 2f62cce) |
+| 2026-11-15 | Gate 1 review 1 | FAIL, seven findings: evidence not recorded; output-array rule deferred; comparison rule undefined; earlier non-Send ruling superseded silently; codes in place of names; M and N symbols; uncommitted work | gate-reviews/gate-1-20261115T232223Z.md | Repairs: dated vendor evidence in Clarifications; output-array and comparison rules decided; Env becomes Send (not Sync) with Gurobi creation lock, superseding the deferred-Send rulings of feature 001 research (R15) and feature 002 research (R2) (recorded); names beside codes; version rule without symbols; work committed (710ae9a, 2f62cce) |
+| 2026-11-15 | Gate 1 review 2 | FAIL, six findings: comparison and reuse criteria assumed deterministic Gurobi runs; comparison rule used symbols outside the inventory; codes without names; commit 710ae9a omitted the in-flight governance changes; missing rationale for the structure-size mechanism and the factor ten; stale record of the constitution's commit state | gate-reviews/gate-1-20261115T232922Z.md | Repairs: deterministic comparison configuration with vendor rationale; rule stated in words; names beside codes; deviation recorded below; rationales added; record corrected |
+
+**Recorded deviation (Governance, "Commits Carry In-Flight Manual Work")**: commit 710ae9a
+(feature artefacts) did not include or list the eleven tracked governance changes then in the
+working tree (constitution 3.0.0 and its companions); they were committed 14 seconds later in
+2f62cce, whose message lists them. The feature branch is not shared; the history is left as is
+rather than rewritten.
 
 ## Human-Reserved Decisions Pending (constitution VI-A)
 - Committing constitution 3.0.0 to the integration branch `devel` (it is written, uncommitted, in
-  the worktree `../optSolver-devel`; carried, uncommitted, into this worktree).
+  the worktree `../optSolver-devel`). It is committed on this feature branch (2f62cce); committing
+  it to `devel` remains a human decision.
 - After Gate 3, integrating this feature into `devel`.
 
 ## Approved Implementation Scope
@@ -54,4 +62,4 @@
   `runmat mex` build is demonstrated by the COBRA consumer (SC-007).
 
 ## Checklist Routing (constitution VI-B)
-- requirements.md CHK015 (meets success criteria) → Gate 3 (closeout).
+- requirements.md, the success-criteria item (CHK015) → Gate 3 (closeout).

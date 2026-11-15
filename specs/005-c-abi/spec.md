@@ -93,15 +93,28 @@ preferences as input. Each vendor fact below was checked on 2026-11-15 against t
   entry the backend does not write stays NaN, and the result's solution-returned value says whether
   a primal solution exists. Undefined content is never presented as data.
 - Q: How are vectors compared between the C interface and the Rust API? → A: Both solves use the
-  same backend, instance and options. Status, limit reason, solution-returned value, verification
-  verdict and the names of failed measures must be identical; the objective, the bound and every
-  entry of every returned vector must satisfy |a − b| ≤ 10 τ max(1, |b|), where b is the Rust API's
-  value and τ is the effective tolerance the Rust API's verification report records — the
-  row-bound measure's tolerance for x, row activity and the objective, the reduced-cost
-  consistency measure's tolerance for y, z, z_l, z_u, s and the bound (10⁻⁶ when the report lacks
-  that measure). Whether the two runs were bit-identical is reported, not required (Gurobi's
-  default LP method may run concurrent algorithms, which the vendor documents as possibly
-  non-deterministic). Missing arrays must be missing in both.
+  same backend, instance and options, and that configuration is deterministic: one solver thread,
+  dual simplex for linear programmes and the barrier (interior-point) method for quadratic and
+  conic programmes, set through the solver-independent options on both paths. Rationale: the
+  Gurobi 13.0 `Method` parameter reference states that the default "will typically choose
+  non-deterministic concurrent (Method=3) for an LP", which "can produce different optimal bases";
+  Gurobi documents its runs as deterministic for the same model, parameters, machine and version
+  with a fixed algorithm (feature 001 research R17, item 5), and a single-threaded MOSEK run
+  executes one algorithm path. Status, limit reason, solution-returned value, verification verdict
+  and the names of failed measures must be identical. For the objective, the bound and every entry
+  of every returned vector, the absolute difference between the C interface's value and the Rust
+  API's value must not exceed ten times the effective solver tolerance multiplied by the larger of
+  one and the magnitude of the Rust API's value. The effective solver tolerance is the one the
+  Rust API's verification report records: that of the row-bound violation measure for the primal
+  solution, the row activity and the objective; that of the reduced-cost consistency measure for
+  the row duals, reduced costs, bound multipliers, conic duals and the bound. The factor ten is the
+  factor the library's verification already applies to the solver tolerance
+  (`VERIFICATION_FACTOR` in `src/options.rs`), so the comparison is exactly as strict as the
+  verification a caller relies on; where the report lacks the measure, the tolerance is 10⁻⁶, the
+  default primal and dual feasibility tolerance of Gurobi 13.0 (`FeasibilityTol`,
+  `OptimalityTol`), the looser of the two supported solvers' defaults. Under the deterministic
+  configuration the runs are expected to be bit-identical; bit-identity is reported, and a
+  difference within the bound is accepted but recorded. Missing arrays must be missing in both.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -396,7 +409,9 @@ checker free every library-owned object.
 - **FR-020**: Mixed-integer problems are out of scope while feature 004 is unmerged. The interface
   MUST leave a compatible extension point (adding variable types and mixed-integer options later
   is a minor version change under the versioning requirement, FR-015). The extension mechanism
-  is that input structures begin with their own size, so a later minor version appends fields; a
+  is that input structures begin with their own size, so a later minor version appends fields;
+  rationale: a library can then tell an older caller's shorter structure from a newer one without a
+  new function per version, the convention of widely used C interfaces that evolve compatibly; a
   test shows that a caller structure of an earlier, shorter size is accepted.
 - **FR-021**: The system MUST preserve the documented Rust public interface and its status and
   error semantics. The Rust-API changes are: the memory-limit option of the memory-limit
@@ -450,7 +465,8 @@ checker free every library-owned object.
   handle creates the environment once (checked by the library's environment-creation count) and
   gives, per instance, the same status, solution-returned value and verification verdict as a
   one-shot solve, with objective and vectors equal within the comparison tolerance; per backend,
-  N = 1 sequence (deterministic solves). Wall time of the sequence and of the one-shot solves is
+  N = 1 sequence, under the deterministic configuration of the comparison rule (Clarifications).
+  Wall time of the sequence and of the one-shot solves is
   recorded (informational, N = 1).
 - **SC-005**: On Gurobi, a solve with a memory limit below the instance's requirement returns the
   memory-limit outcome (status "stopped at a limit", limit reason "memory") and the test process
