@@ -68,6 +68,18 @@ Gurobi 13.0.3 header (`$GUROBI_HOME/include/gurobi_c.h`), the Gurobi Optimizer R
   whose consumer creates environments one at a time). Not `Sync`: "Multiple threads cannot work
   simultaneously within the same environment". A compile-time test asserts `Send` and a
   doc-test-style compile-fail note records `!Sync`.
+- **Inference, unverified** (Gate 2A review 2): the Gurobi article says "create and delete
+  environments in the main thread" and gives no reason. The design reads the instruction as
+  "never concurrently with another creation or deletion", which a process-wide lock guarantees, and
+  allows creation and freeing on any thread under that lock. The vendor does not say a lock
+  suffices; this is recorded as an accepted risk in the `SAFETY` comment of `unsafe impl Send for
+  gurobi::Env`, and a licensed test creates, uses and frees environments on several threads
+  concurrently (task list) — evidence of absence of a fault in that run only, not proof. Whether
+  the model's own environment copy (made when `GRBXloadmodel` creates a model, freed by
+  `GRBfreemodel`) counts as environment creation is not stated by the vendor; the same lock is
+  therefore also held around model creation and model freeing in `gurobi::load` and in the test
+  helper model of `gurobi::callback` (no lock around optimisation, so concurrent solves on
+  different environments still run in parallel).
 - **C handle**: a `Box` of an enum holding one of the two `Env`s; the C caller may move the
   pointer between threads under the same rule.
 
@@ -111,10 +123,13 @@ Gurobi 13.0.3 header (`$GUROBI_HOME/include/gurobi_c.h`), the Gurobi Optimizer R
   linear in the number of cones (`num_cones`).
 - Owned results stay as the Rust `Solution` inside an opaque `optsolver_result`; arrays are
   returned as pointers into its `Vec`s (no copy). Strings the Rust result holds as `String`
-  (solver name and version, raw status names, attribute and parameter names) are converted once
-  to NUL-terminated copies at result construction: O(number of names), independent of m, n and
-  nnz. Basis statuses are read per index (no converted array).
-- Caller buffers: the C layer fills each supplied buffer with NaN (O(m + n) writes, no
+  (solver name and version, raw status names, attribute and parameter names) are converted to
+  NUL-terminated copies lazily, on the first accessor call that needs them (a once-initialised
+  cell in the result object), so they cost nothing unless read (constitution I): O(number of
+  names), independent of m, n and nnz. Cone-kind names come from the existing `ConeKind::name`
+  (with a static NUL-terminated table derived from it and checked against it by a unit test), not
+  a second list. Basis statuses are read per index (no converted array).
+- Caller buffers: the C layer fills each supplied buffer with NaN (O(m + n + k) writes, no
   allocation) and then calls `Backend::solve_into`; an entry the backend did not write is NaN, so
   undefined content is never presented as data (spec Edge Cases).
 - Errors: the entry point returns a code; the message is stored per thread (thread-local) and

@@ -49,17 +49,21 @@ components_modified:
     change: Env is Send (not Sync), vendor-cited; process-wide lock serialising environment creation and freeing
   - id: mosek.env
     change: Env is Send (not Sync), vendor-cited
+  - id: gurobi.load
+    change: model creation (GRBXloadmodel) and freeing (GRBfreemodel) under the gurobi::env lock
+  - id: gurobi.callback
+    change: test-helper model creation and freeing under the gurobi::env lock
   - id: gurobi.solve
     change: solve_into checks the conic-dual buffer length (closing a validation gap; MOSEK already checks)
   - id: test.harness
     change: toy-instance binary writer and C-result reader for the C driver; comparison reused unchanged
   - id: docs.llm_interface
     change: C interface section (every function, type and constant); memory_limit_gb; Threading section (Env is Send, not Sync)
-  - id: docs.repo_folder_organisation
+  - id: docs.repo_folder_organisation  # Tier 1 placement document, not a component id; listed for completeness
     change: roles public C header (src/capi/), C test sources (tests/c/), incoming cross-repository requests (specs/<feature>/requests/); no project.yml change
-  - id: manifest
+  - id: manifest  # not a component id in components.yaml; listed for completeness
     change: Cargo.toml crate-type lib + staticlib + cdylib; feature capi; [[test]] c_interface; [[bench]] c_interface
-  - id: test.standards
+  - id: test.standards  # not a component id in components.yaml (tests/standards.rs); listed for completeness
     change: src/capi/ admitted as an FFI module for unsafe and extern "C" definitions; drift test covers the header's names
 
 components_removed: []

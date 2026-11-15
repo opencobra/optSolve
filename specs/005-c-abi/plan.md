@@ -49,10 +49,12 @@ NaN writes on the caller-buffer path only; no printing (III)
 - **Performance and memory** (I): input path — no copy; the C layer allocates only the cone
   descriptor vector (linear in the number of cones, `num_cones`, with power-cone exponents) and the raw-parameter name
   strings (O(number of raw parameters)). Result path — owned arrays are read in place; per-result
-  NUL-terminated copies of names only (O(number of names)); caller buffers are NaN-filled
+  NUL-terminated copies of names only, made lazily on first read (O(number of names), nothing
+  unless read); caller buffers are NaN-filled
   (O(m + n + k) writes, no allocation). No allocation proportional to nnz. Environment reuse is
   the point of the handle (US2); model modification without reload does not exist in the Rust API
-  yet (spec Assumptions) and is not touched. Validation is not removed. Targets SC-002, SC-003.
+  yet (spec Assumptions) and is not touched. Validation is not removed. Targets: the heap criterion (SC-002) and the wall-time criterion
+  (SC-003).
 - **Solver configuration audit** (I): research R8 — the only new parameter is `SoftMemLimit`,
   unset by default (vendor default Infinity, 13.0 parameter reference); the problem data passed is
   unchanged, so feature 001–003 audits stand.
@@ -78,7 +80,9 @@ NaN writes on the caller-buffer path only; no printing (III)
   `Box`ed Rust values behind opaque pointers, freed only by their free function; `Env` lifetimes
   unchanged; `unsafe impl Send` (not `Sync`) for `gurobi::Env` and `mosek::Env`, each citing the
   vendor documentation (research R3, superseding feature 001 R15 and feature 002 R2 as recorded
-  in the spec's Clarifications); Gurobi creation and freeing under one lock in `gurobi::env` (`Env::new`, `Drop`); errors as codes, panics contained with
+  in the spec's Clarifications); Gurobi environment and model creation and freeing under one lock in `gurobi::env`
+  (`Env::new`, `Drop`, used by `gurobi::load`), the lock's sufficiency an accepted, recorded risk
+  (research R3); errors as codes, panics contained with
   `catch_unwind` at every entry point (VII-C); validation before the first FFI call is the Rust
   API's, plus the C layer's null and length checks before building slices (VII-D); no vendor
   declaration added (VII-E); lints unchanged, `links` unchanged, no new build-script variable
@@ -114,15 +118,17 @@ NaN writes on the caller-buffer path only; no printing (III)
   profile.
 - **Benchmarks and evidentiary preconditions** (XIV): (a) `iDopaNeuroC_problem_LP` (LP,
   m = 1344, n = 2942, nnz = 13748, provenance `tests/fixtures/` record, feature 001), seeded
-  objective; criteria SC-002, SC-003 per backend. (b) Each run bundle records the effective
+  objective; criteria: the heap and wall-time criteria (SC-002, SC-003) per backend. (b) Each run bundle records the effective
   parameters, solver versions, optSolver tree state (commit plus content hash of the uncommitted
   tree), machine and profile. Both paths use identical instances and options. (c) Environment
   creation outside the timed region; the result's load, solve, extraction timings recorded for both
   paths; warm runs only for SC-003 (first run discarded); heap measured with `dhat` in a process
   per scenario. (d) Positive control: the pointer-identity test (task list) and a dhat check that
   the C path's allocation count differs from the Rust path's by the expected small constant.
-- **Version mapping for the consumer** (FR-015; Gate 1 observation): research R10.
-- **Reporting discipline** (XV): N and spread stated per figure (SC-002 N = 3, SC-003 N = 5);
+- **Version mapping for the consumer** (versioning requirement FR-015; Gate 1 observation): the
+  research record's points carried from Gate 1 (R10).
+- **Reporting discipline** (XV): N and spread stated per figure (heap criterion SC-002: N = 3; wall-time criterion SC-003:
+  N = 5);
   the agreement test is exercised against an altered header and the comparison against an
   "everything failed" case (a C result file reporting no results is reported as uninterpretable,
   not agreement); run output to `results/005-c-abi/runs/<UTC>-<label>/` with its log. No
@@ -205,7 +211,8 @@ conforming alternative is the plan itself: a translation module and a hand heade
     Adoption by the real consumer (the COBRA gateway built with `runmat mex`) cannot be shown in
     this repository (the RunMat binary does not start on the reference machine, and the gateway
     lives in the consumer repository); it is routed to the COBRA feature
-    20261115-173718-runmat-testall-optsolver (its tasks T032–T034, success criterion SC-008), and
+    20261115-173718-runmat-testall-optsolver (its gateway build and test tasks, T032–T034, and its optSolver-interface success
+    criterion, SC-008), and
     the hand-back to the COBRA session names the header, libraries and flags.
   - *Disposition of replaced implementations*: the founding design's RunMat adapter (never
     created) is superseded; recorded in ADR-0004.
@@ -247,6 +254,8 @@ src/capi/env.rs               # new: environment handle, capabilities
 src/capi/result.rs            # new: solve entry points and result accessors
 src/options.rs                # memory_limit_gb
 src/gurobi/env.rs             # Send; creation/freeing lock
+src/gurobi/load.rs            # model creation and freeing under the lock
+src/gurobi/callback.rs        # test-helper model creation and freeing under the lock
 src/mosek/env.rs              # Send
 src/gurobi/params.rs          # SoftMemLimit
 src/gurobi/solve.rs           # solve_into checks the conic-dual buffer length (as MOSEK does)

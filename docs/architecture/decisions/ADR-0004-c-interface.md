@@ -19,7 +19,8 @@ still outside this repository (VIII).
 
 1. One crate still (Technical Constraints): `crate-type = ["lib", "staticlib", "cdylib"]`; the C
    entry points live in `src/capi/` behind an additive feature `capi`. The Rust API is unchanged
-   except the additive `Options::memory_limit_gb`.
+   except two additive changes: `Options::memory_limit_gb`, and `Send` (not `Sync`) for
+   `gurobi::Env` and `mosek::Env`.
 2. The C layer is a translation only: it builds the Rust `Problem` and `Options` from caller
    structures that borrow the caller's arrays in place, calls `Backend::solve` or `solve_into`,
    and exposes the Rust `Solution` through an opaque object read in place. Validation, status
@@ -29,9 +30,13 @@ still outside this repository (VIII).
    major.minor, with input structures carrying `struct_size` so minor versions can append fields.
 4. Errors cross as codes with a per-thread message; panics are contained at every entry point.
 5. Environment handles may move between threads (one user at a time), on vendor evidence
-   (feature 005 research R3); Gurobi creation and freeing are serialised by one lock in `gurobi::env`
-   (`Env::new` and `Drop`), protecting Rust callers too. The
-   Rust `Env` types stay `!Send`.
+   (feature 005 research R3): the Rust `gurobi::Env` and `mosek::Env` become `Send`, not `Sync`,
+   superseding feature 001 research R15 and feature 002 research R2, which deferred `Send` to
+   that check. Gurobi environment creation and freeing, and model creation and freeing (which
+   copy and free a model environment), are serialised by one lock in `gurobi::env`, protecting
+   Rust callers too. Gurobi's article advises creating and deleting environments in the main
+   thread; that a lock suffices instead is an inference, unverified, recorded as an accepted
+   risk and exercised by a licensed concurrency test (research R3).
 6. The memory limit is a solver-independent option: Gurobi `SoftMemLimit`; unsupported on MOSEK.
 
 ## Consequences
