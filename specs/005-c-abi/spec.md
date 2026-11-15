@@ -209,7 +209,7 @@ needs returns the memory-limit outcome; without the limit the same problem solve
 
 **Acceptance Scenarios**:
 
-1. **Given** a memory limit the solve exceeds on Gurobi, **When** solved, **Then** the result
+1. **Given** a memory limit far below what the solve needs on Gurobi, with one solver thread, **When** solved, **Then** the result
    reports "stopped at a limit" with the limit reason "memory", and the process continues.
 2. **Given** a memory limit on MOSEK, **When** solved, **Then** the call fails with the
    "unsupported" error naming the memory-limit field and the MOSEK backend, before any solver
@@ -447,7 +447,7 @@ checker free every library-owned object.
 - **SC-001**: For every LP, QP and conic toy instance that a backend supports, the C interface's
   result on that backend agrees with the Rust API's by the comparison rule in the Clarifications
   (identical status, limit reason, solution returned, verification verdict and failed-measure
-  names; objective, bound and every returned vector within 10 τ relative), on the owned-result and
+  names; objective, bound and every returned vector within the comparison tolerance of the Clarifications), on the owned-result and
   the caller-buffer paths. Checked on every run of the licensed tier (N = 1 per instance, path and
   backend); bit-identity reported.
 - **SC-002**: The C layer adds no allocation proportional to m, n or the number of nonzeros on the
@@ -468,10 +468,16 @@ checker free every library-owned object.
   N = 1 sequence, under the deterministic configuration of the comparison rule (Clarifications).
   Wall time of the sequence and of the one-shot solves is
   recorded (informational, N = 1).
-- **SC-005**: On Gurobi, a solve with a memory limit below the instance's requirement returns the
-  memory-limit outcome (status "stopped at a limit", limit reason "memory") and the test process
-  continues; on MOSEK the memory limit gives the "unsupported" error naming the field, shown by a
-  test (N = 1, deterministic outcome).
+- **SC-005**: On Gurobi, a solve of `iDopaNeuroC_problem_LP` with one solver thread and a memory
+  limit of 10⁻⁶ GB (1000 bytes, far below the memory any Gurobi model occupies, so the first
+  graceful check point already exceeds it) returns the memory-limit outcome (status "stopped at a
+  limit", limit reason "memory") and the test process continues, in each of N = 3 repetitions in
+  separate solves. One thread is fixed because the Gurobi 13.0 `SoftMemLimit` reference says
+  "termination may be non-deterministic for multi-threaded runs" and that the limit is "only
+  checked at places where optimization can be terminated gracefully"; three repetitions show the
+  outcome does not depend on where the first check falls. The same limit without the memory
+  option solves to optimality. On MOSEK the memory limit gives the "unsupported" error naming the
+  field, before any solver call (N = 1; no solver runs, so the outcome is deterministic).
 - **SC-006**: Every invalid-input case of the existing Rust failing-input tests that a C caller can
   express returns the "invalid input" (or "too large") code with a message naming the input, before
   any solver call; a forced panic returns the "internal error" code; zero leaks are reported by a

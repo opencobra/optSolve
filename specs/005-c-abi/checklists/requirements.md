@@ -22,9 +22,11 @@
   recorded with dated vendor evidence in the spec's Clarifications section (closing artifact:
   spec.md, Clarifications, the thread-rule requirement FR-008 and the memory-limit requirement
   FR-011).
-- [x] CHK006 Requirements are testable and unambiguous — re-verified 2026-11-15 after the second
-  Gate 1 review (the comparison rule now fixes a deterministic configuration and states its
-  tolerance in words with rationale); after the first review: the output-array rule (wrong length, quantity not returned) and the C-versus-Rust
+- [x] CHK006 Requirements are testable and unambiguous — re-verified 2026-11-15 after the third
+  Gate 1 review (the agreement criterion SC-001 now refers to the comparison tolerance in words; the
+  memory-limit criterion SC-005 fixes one thread, a limit far below need, the instance and N = 3);
+  after the second (the comparison rule fixes a deterministic configuration and states its
+  tolerance in words with rationale); after the first: the output-array rule (wrong length, quantity not returned) and the C-versus-Rust
   comparison rule are now decided in the Clarifications; each functional requirement is checked by
   the header-agreement requirement (FR-013), the C-level test requirement (FR-014), the
   narrowest-check requirement (FR-022) or a success criterion.
@@ -40,7 +42,8 @@
 ## Feature Readiness
 
 - [x] CHK013 All functional requirements have clear acceptance criteria — re-verified 2026-11-15
-  after the second Gate 1 review (deterministic comparison configuration):
+  after the second and third Gate 1 reviews (deterministic comparison configuration; the
+  memory-limit criterion made reliably testable):
   the comparison rule (Clarifications) defines vector agreement; the mixed-integer extension point
   (FR-020) now has an observable check (a caller structure of an earlier, shorter size is
   accepted).

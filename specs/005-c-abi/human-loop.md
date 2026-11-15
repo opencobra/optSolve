@@ -1,7 +1,7 @@
 # Human Loop State
 
 ## Current State
-- Status: Bundle 1 complete; Gate 1 review 1 FAIL repaired; Gate 1 review 2 requested.
+- Status: Bundle 1 complete; Gate 1 reviews 1 to 3 FAIL, each repaired; Gate 1 review 4 requested.
 - Active feature directory: specs/005-c-abi (worktree `../optSolver-005-c-abi`, branch `005-c-abi`)
 - Last completed bundle: Bundle 1 (requirements preparation)
 - Source code modified by this workflow: no
@@ -27,6 +27,7 @@
 
 | 2026-11-15 | Gate 1 review 1 | FAIL, seven findings: evidence not recorded; output-array rule deferred; comparison rule undefined; earlier non-Send ruling superseded silently; codes in place of names; M and N symbols; uncommitted work | gate-reviews/gate-1-20261115T232223Z.md | Repairs: dated vendor evidence in Clarifications; output-array and comparison rules decided; Env becomes Send (not Sync) with Gurobi creation lock, superseding the deferred-Send rulings of feature 001 research (R15) and feature 002 research (R2) (recorded); names beside codes; version rule without symbols; work committed (710ae9a, 2f62cce) |
 | 2026-11-15 | Gate 1 review 2 | FAIL, six findings: comparison and reuse criteria assumed deterministic Gurobi runs; comparison rule used symbols outside the inventory; codes without names; commit 710ae9a omitted the in-flight governance changes; missing rationale for the structure-size mechanism and the factor ten; stale record of the constitution's commit state | gate-reviews/gate-1-20261115T232922Z.md | Repairs: deterministic comparison configuration with vendor rationale; rule stated in words; names beside codes; deviation recorded below; rationales added; record corrected |
+| 2026-11-15 | Gate 1 review 3 | FAIL, three findings: a symbol outside the inventory left in the agreement criterion (SC-001); the memory-limit criterion (SC-005) not reliably testable; stale current-state record | gate-reviews/gate-1-20261115T233404Z.md | Repairs: criterion in words; memory-limit criterion fixes instance, one thread, a limit far below need and N = 3 with vendor rationale; state record updated |
 
 **Recorded deviation (Governance, "Commits Carry In-Flight Manual Work")**: commit 710ae9a
 (feature artefacts) did not include or list the eleven tracked governance changes then in the
