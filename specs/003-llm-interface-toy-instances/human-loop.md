@@ -1,7 +1,7 @@
 # Human Loop State
 
 ## Current State
-- Status: Bundle 3 complete (25 of 26; T024 deferred as debt); committed; awaiting Gate 3
+- Status: closed; Gate 3 passed (close as is, integrate). Open debt: T024 LLM trial (maintainer); toy provenance names 89776f4 with a dirty worktree (not re-extracted, maintainer decision)
 - Active feature directory: specs/003-llm-interface-toy-instances
 - Last completed bundle: Bundle 2 (implementation preparation)
 - Source code modified by this workflow: yes (committed)
@@ -19,6 +19,7 @@
 ## Human Decisions
 | Date (UTC) | Gate | Option chosen | Consequence |
 |---|---|---|---|
+| 2026-11-15 | Gate 3 | Close as is, integrate | devel fast-forwarded; T024 remains maintainer debt; toy provenance not re-extracted |
 | 2026-11-15 | (implementation) | "commit" | Bundle 3 committed |
 | 2026-11-15 | (implementation) | "complete remaining tasks, will do LLM trial manually so leave as debt for now" | T024 deferred as debt (SC-002 unverified); llm-trial.md protocol |
 | 2026-11-15 | (implementation) | LLM trial as a nine-agent workflow: rejected (tool use declined) | not run |
