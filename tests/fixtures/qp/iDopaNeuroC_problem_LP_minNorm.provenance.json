@@ -20,8 +20,8 @@
   "source_repository": "variationalKinetics",
   "source_commit": "f164a3ac37be84bccc255e334f1a6e2ca6379ab2",
   "extracting_script": "none: built in the test module from the LP fixture (tests/common/f002.rs)",
-  "optsolver_commit": "2b3be466a4d9b568b443578b776cae401cb4662e",
-  "optsolver_worktree_clean": false,
+  "optsolver_commit": "32c29b49fa42cfd3e284cd4021f22cf0757af4be",
+  "optsolver_worktree_clean": true,
   "citation": "Brunk et al, Nat Biotech, 2018; doi:10.1038/nbt.4072",
   "licence": "not verified (maintainer decision 2026-11-14)"
 }

@@ -1,7 +1,7 @@
 # Human Loop State
 
 ## Current State
-- Status: Gate 3 passed (commit, demote iDopaNeuroC_problem_5); feature 002 implemented and committed
+- Status: closed; Gate 3 passed (commit, demote iDopaNeuroC_problem_5); fixtures re-extracted from clean commit 32c29b4
 - Active feature directory: specs/002-mosek-lp-qp-clp
 - Last completed bundle: Bundle 2 (implementation preparation)
 - Source code modified by this workflow: yes (uncommitted)

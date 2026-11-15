@@ -94,3 +94,12 @@ Optimal and that the verifier fails exactly the row-bound measure. docs/test-cor
 records the finding. Final gate run results/002-mosek-lp-qp-clp/runs/20261115T105344Z-gate:
 every check passes (heavy tier 12 of 12). Fixture provenance still names commit 2b3be46 with
 a dirty worktree; re-extraction from a clean commit was not requested.
+
+## Re-extraction from the clean commit (2026-11-15, maintainer request)
+
+All 13 provenance records (LP, derived QP, 11 CLP) now name 32c29b4 with a clean worktree.
+LP from a clean tree; the CLP script was then re-run on a clean tree (the LP record stashed)
+because it reads the worktree state before writing. Every MPS and JTASK file is bit-identical
+to the committed one (round trips bit-for-bit); only provenance (commit, clean flag, timings)
+changed. Log: results/002-mosek-lp-qp-clp/runs/20261115T110608Z-reextract-clean/. Corpus
+tests: 133 passed, 12 heavy ignored.
