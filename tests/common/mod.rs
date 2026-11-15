@@ -6,12 +6,14 @@
 
 #![allow(dead_code, missing_docs)]
 
+pub mod compare;
 pub mod f002;
 pub mod fake_backend;
 pub mod fixtures;
 pub mod jtask;
 pub mod mps;
 pub mod objectives;
+pub mod toy;
 pub mod us3;
 
 pub use libtest_mimic::{Arguments, Failed, Trial};

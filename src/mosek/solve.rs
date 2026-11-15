@@ -34,6 +34,7 @@ impl Backend for Env {
         Capabilities {
             backend: "mosek",
             problem_classes: vec![ProblemClass::Lp, ProblemClass::Qp, ProblemClass::Conic],
+            cones: crate::conic::ConeKind::ALL.to_vec(),
             options: params::MAPPINGS.to_vec(),
             certificates: true,
             basis: true,
@@ -115,6 +116,17 @@ fn run(
     // outlives the call and is not moved until `uninstall` below.
     let rc = unsafe { ffi::MSK_optimizetrm(loaded.task.raw(), &mut trm) };
     let solve_seconds = t_solve.elapsed().as_secs_f64();
+    // A response code that is an error (not OK, a warning or a termination code) is an
+    // error; termination codes go to the status translation (research R6). Its message is read
+    // before any other task call (constitution III).
+    let mut class = ffi::MSK_RESPONSE_UNK;
+    // SAFETY: `class` is a writable local; MSK_getresponseclass only classifies the code.
+    unsafe { ffi::MSK_getresponseclass(rc, &mut class) };
+    let optimize_error = (!matches!(
+        class,
+        ffi::MSK_RESPONSE_OK | ffi::MSK_RESPONSE_WRN | ffi::MSK_RESPONSE_TRM
+    ))
+    .then(|| super::env::task_error(loaded.task.raw(), rc));
     callback::uninstall(&loaded.task)?;
     let panic = state.take_panic();
     options.progress = state.into_progress();
@@ -122,16 +134,8 @@ fn run(
         drop(loaded);
         std::panic::resume_unwind(payload);
     }
-    // A response code that is an error (not OK, a warning or a termination code) is an
-    // error; termination codes go to the status translation (research R6).
-    let mut class = ffi::MSK_RESPONSE_UNK;
-    // SAFETY: `class` is a writable local; MSK_getresponseclass only classifies the code.
-    unsafe { ffi::MSK_getresponseclass(rc, &mut class) };
-    if !matches!(
-        class,
-        ffi::MSK_RESPONSE_OK | ffi::MSK_RESPONSE_WRN | ffi::MSK_RESPONSE_TRM
-    ) {
-        return Err(super::env::task_error(loaded.task.raw(), rc));
+    if let Some(err) = optimize_error {
+        return Err(err);
     }
     let trm = if class == ffi::MSK_RESPONSE_TRM {
         rc
@@ -428,6 +432,8 @@ pub struct LoadReport {
     pub buffer_high_water: usize,
     /// Bytes of bound keys and bound-value copies.
     pub bound_bytes: usize,
+    /// Quadratic objective terms passed to the solver (positive control of the QP path).
+    pub q_terms: usize,
     /// Seconds spent inside MOSEK's load calls.
     pub vendor_seconds: f64,
     /// Seconds of the whole load; the difference is optSolver's own loading work.
@@ -448,6 +454,7 @@ impl Env {
             path,
             blocks,
             buffer_high_water: loaded.buffer_high_water,
+            q_terms: loaded.q_terms,
             bound_bytes: loaded.bound_bytes,
             vendor_seconds: loaded.vendor_seconds,
             total_seconds: loaded.total_seconds,

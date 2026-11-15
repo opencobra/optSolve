@@ -1,0 +1,44 @@
+{
+  "instance": "toy_clp_dpow",
+  "class": "Conic",
+  "format": "jtask",
+  "file_sha256": "05281c2b8e7f87d96dcac5ede0a60301f334a638c38b8df84369b91020c83513",
+  "construction": "Defined in tools/corpus/make_toy_instances.m and written by MOSEK (mosekopt write, JTASK) from prob.a, c, blc, buc, blx, bux, f, g, accs; read back by mosekopt read, bit-for-bit equal to the written arrays.",
+  "sense": "min",
+  "m": 2,
+  "n": 3,
+  "nnz": 2,
+  "k": 3,
+  "nnz_F": 3,
+  "cones": [
+    {
+      "kind": "dual power",
+      "dimension": 3,
+      "alpha": [
+        1,
+        1
+      ]
+    }
+  ],
+  "expected_status": "Optimal",
+  "expected_objective": 4,
+  "expected_x": [
+    4,
+    1,
+    4
+  ],
+  "derivation": "Dual power cone of dimension 3 with exponents (1, 1), normalised to alpha = (1/2, 1/2), on (x0, x1, x2): (x0 / alpha1)^alpha1 (x1 / alpha2)^alpha2 >= |x2|, i.e. 2 sqrt(x0 x1) >= |x2|, x0, x1 >= 0. With x1 = 1 and x2 = 4 fixed, 2 sqrt(x0) >= 4, so x0 >= 4; the minimum 4 is unique; objective 4.",
+  "independent_checks": [
+    {
+      "tool": "MOSEK",
+      "version": "11.2.0",
+      "how": "file",
+      "status": "Optimal",
+      "objective": 3.9999999999999991
+    }
+  ],
+  "extracting_script": "tools/corpus/make_toy_instances.m",
+  "optsolver_commit": "89776f4fe3ad524e9df610f7e20b24d6b3b2a6a3",
+  "optsolver_worktree_clean": false,
+  "licence": "MIT OR Apache-2.0, project-authored"
+}

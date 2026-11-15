@@ -1,0 +1,16 @@
+# optSolver
+
+> Rust library (crate `optsolver`) that solves linear, convex quadratic and conic optimisation
+> problems held in matrix form (compressed sparse column) through Gurobi and MOSEK, borrowing
+> the caller's arrays without copying, with one solver-independent problem, options and result
+> type and independent verification of every solution.
+
+## Docs
+
+- [Interface document](llm-interface.md): everything needed to add the dependency and write
+  correct client code (problem model, zero-copy input rules, backends and capabilities,
+  options, statuses, solution sign conventions, certificates, verification, errors, threading,
+  complete compiled examples). Start here.
+- [Test corpus](test-corpus.md): the committed test problems, including small self-contained
+  toy instances for every problem class and cone type.
+- [README](../README.md): build commands, features, test tiers.

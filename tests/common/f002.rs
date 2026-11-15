@@ -182,9 +182,51 @@ fn supports(b: &dyn Backend, class: optsolver::ProblemClass) -> bool {
 /// 10 · τ · (1 + |p_ref|) of one of the recorded reference objectives. A backend without QP
 /// reports Unsupported.
 pub fn t029_corpus_qp(b: &dyn Backend) -> Result<(), Failed> {
+    use super::fixtures::Json;
+    let name = DERIVED_QP;
+    let (prov, n, r) = solve_derived_qp(b)?;
+    if !supports(b, optsolver::ProblemClass::Qp) {
+        return expect_unsupported(r, "Q");
+    }
+    let sol = r.map_err(fail)?;
+    super::us3::expect_optimal_verified(&sol, n, name)?;
+    let obj = sol.objective.ok_or_else(|| fail("no objective"))?;
+    let tau = dual_tolerance(&sol)?;
+    let refs: Vec<f64> = match prov.fields.get("reference_objectives") {
+        Some(Json::Object(m)) => m
+            .values()
+            .filter_map(|v| match v {
+                Json::Number(x) => Some(*x),
+                _ => None,
+            })
+            .collect(),
+        other => return Err(fail(format!("reference_objectives is {other:?}"))),
+    };
+    ensure(
+        refs.iter()
+            .any(|r| (obj - r).abs() <= 10.0 * tau * (1.0 + r.abs())),
+        format!("objective {obj:e} not within 10·{tau:e}·(1+|p_ref|) of {refs:?}"),
+    )
+}
+
+/// Name of the derived QP fixture (feature 002 research R12).
+pub const DERIVED_QP: &str = "iDopaNeuroC_problem_LP_minNorm";
+
+/// Builds the derived QP (minimise ½·q·‖x‖² over the LP fixture's feasible set, research R12
+/// of feature 002) and solves it on `b` with default options; returns its provenance record,
+/// n and the solve result (shared with the feature 003 comparison).
+pub fn solve_derived_qp(
+    b: &dyn Backend,
+) -> Result<
+    (
+        super::fixtures::Provenance,
+        usize,
+        optsolver::error::Result<optsolver::Solution>,
+    ),
+    Failed,
+> {
     use super::fixtures::{Json, Provenance, qp_provenance_path};
-    let name = "iDopaNeuroC_problem_LP_minNorm";
-    let prov = Provenance::load(&qp_provenance_path(name).map_err(fail)?).map_err(fail)?;
+    let prov = Provenance::load(&qp_provenance_path(DERIVED_QP).map_err(fail)?).map_err(fail)?;
     let base = prov.str("derived_from").map_err(fail)?.to_string();
     let f = super::fixtures::load_corpus_fixture(&base).map_err(fail)?;
     ensure(
@@ -216,30 +258,8 @@ pub fn t029_corpus_qp(b: &dyn Backend) -> Result<(), Failed> {
     )
     .and_then(|p| p.with_Q(q))
     .map_err(fail)?;
-    if !supports(b, optsolver::ProblemClass::Qp) {
-        return expect_unsupported(b.solve((&p).into(), &mut Options::default()), "Q");
-    }
-    let sol = b
-        .solve((&p).into(), &mut Options::default())
-        .map_err(fail)?;
-    super::us3::expect_optimal_verified(&sol, n, name)?;
-    let obj = sol.objective.ok_or_else(|| fail("no objective"))?;
-    let tau = dual_tolerance(&sol)?;
-    let refs: Vec<f64> = match prov.fields.get("reference_objectives") {
-        Some(Json::Object(m)) => m
-            .values()
-            .filter_map(|v| match v {
-                Json::Number(x) => Some(*x),
-                _ => None,
-            })
-            .collect(),
-        other => return Err(fail(format!("reference_objectives is {other:?}"))),
-    };
-    ensure(
-        refs.iter()
-            .any(|r| (obj - r).abs() <= 10.0 * tau * (1.0 + r.abs())),
-        format!("objective {obj:e} not within 10·{tau:e}·(1+|p_ref|) of {refs:?}"),
-    )
+    let r = b.solve((&p).into(), &mut Options::default());
+    Ok((prov, n, r))
 }
 
 /// minimise or maximise ½ xᵀQx + cᵀx subject to x₁ + x₂ = 2, x ≥ 0 (Q by lower triangle).
@@ -512,12 +532,21 @@ fn solve_conic_case(
 /// checks the conic duals' sign convention against data-model.md). Unsupported without the
 /// conic class.
 pub fn t034_conic_cases(b: &dyn Backend) -> Result<(), Failed> {
-    let conic = supports(b, optsolver::ProblemClass::Conic);
+    let caps = b.capabilities();
+    let conic = caps
+        .problem_classes
+        .contains(&optsolver::ProblemClass::Conic);
     for case in conic_cases() {
+        let kind = case.cone.kind();
         for sense in [optsolver::Sense::Minimise, optsolver::Sense::Maximise] {
             let r = solve_conic_case(b, &case, sense, false)?;
             if !conic {
                 expect_unsupported(r, "conic")?;
+                continue;
+            }
+            // Per-kind capability (feature 003): an undeclared kind is rejected by name.
+            if !caps.cones.contains(&kind) {
+                expect_unsupported(r, kind.name())?;
                 continue;
             }
             let sol = r.map_err(fail)?;
@@ -545,7 +574,9 @@ pub fn t034_conic_cases(b: &dyn Backend) -> Result<(), Failed> {
 }
 
 /// T034: x0 ≤ 4 with (x0, 3, 4) in the quadratic cone is infeasible; with certificates the
-/// result is Infeasible with a Farkas certificate including s, Verified.
+/// result is Infeasible, and a backend that returns a certificate returns a Farkas certificate
+/// including s that verifies. A backend that documents none for conic problems (Gurobi,
+/// feature 003 research R4) still reports Infeasible; its report is then PartiallyVerified.
 pub fn t034_conic_infeasible(b: &dyn Backend) -> Result<(), Failed> {
     let case = ConicCase {
         name: "infeasible quadratic",
@@ -567,21 +598,42 @@ pub fn t034_conic_infeasible(b: &dyn Backend) -> Result<(), Failed> {
             sol.status == Status::Infeasible,
             format!("{sense:?}: expected Infeasible; {}", describe(&sol)),
         )?;
-        ensure(
-            matches!(&sol.certificate, Some(Certificate::Farkas { s, .. }) if s.len() == 3),
-            format!("{sense:?}: certificate {:?}", sol.certificate),
-        )?;
-        expect_overall(
-            &sol,
-            Overall::Verified,
-            &format!("{sense:?} conic certificate"),
-        )?;
+        match &sol.certificate {
+            Some(Certificate::Farkas { s, .. }) if s.len() == 3 => expect_overall(
+                &sol,
+                Overall::Verified,
+                &format!("{sense:?} conic certificate"),
+            )?,
+            None => expect_overall(
+                &sol,
+                Overall::PartiallyVerified,
+                &format!("{sense:?} conic infeasibility without a certificate"),
+            )?,
+            other => return Err(fail(format!("{sense:?}: certificate {other:?}"))),
+        }
     }
     Ok(())
 }
 
 // ---------------------------------------------------------------------------------------------
 // User Story 5: variational kinetics CLP fixtures (T033)
+
+/// The field `b` reports as unsupported for a conic problem with `cones`, if any: `"conic"`
+/// without the class, else the name of the first undeclared cone kind (feature 003).
+fn conic_unsupported(b: &dyn Backend, cones: &[optsolver::Cone]) -> Option<&'static str> {
+    let caps = b.capabilities();
+    if !caps
+        .problem_classes
+        .contains(&optsolver::ProblemClass::Conic)
+    {
+        return Some("conic");
+    }
+    cones
+        .iter()
+        .map(|c| c.kind())
+        .find(|k| !caps.cones.contains(k))
+        .map(|k| k.name())
+}
 
 /// Options for CLP fixture solves: solver defaults plus one thread, for determinism (plan,
 /// Solver configuration audit).
@@ -601,8 +653,8 @@ pub fn t033_clp_fixture(b: &dyn Backend, instance: &str) -> Result<(), Failed> {
     let jt = super::jtask::read_jtask_file(&super::jtask::jtask_path(instance).map_err(fail)?)
         .map_err(fail)?;
     let p = jt.problem().map_err(fail)?;
-    if !supports(b, optsolver::ProblemClass::Conic) {
-        return expect_unsupported(b.solve((&p).into(), &mut clp_options()), "conic");
+    if let Some(field) = conic_unsupported(b, &jt.cones) {
+        return expect_unsupported(b.solve((&p).into(), &mut clp_options()), field);
     }
     let stat = match prov.fields.get("expected_stat") {
         Some(Json::Number(v)) => *v,
@@ -678,8 +730,8 @@ pub fn t033_clp_solve_into(b: &dyn Backend) -> Result<(), Failed> {
     let jt = super::jtask::read_jtask_file(&super::jtask::jtask_path(&instance).map_err(fail)?)
         .map_err(fail)?;
     let p = jt.problem().map_err(fail)?;
-    if !supports(b, optsolver::ProblemClass::Conic) {
-        return expect_unsupported(b.solve((&p).into(), &mut clp_options()), "conic");
+    if let Some(field) = conic_unsupported(b, &jt.cones) {
+        return expect_unsupported(b.solve((&p).into(), &mut clp_options()), field);
     }
     let owned = b.solve((&p).into(), &mut clp_options()).map_err(fail)?;
     let (mut x, mut y, mut z, mut s, mut ra) = (
@@ -720,4 +772,39 @@ pub fn t033_clp_solve_into(b: &dyn Backend) -> Result<(), Failed> {
         )?;
     }
     Ok(())
+}
+
+/// Feature 003 T018: a non-convex Q (minimise −x₁² over 0 ≤ x ≤ 1, one row x₁ + x₂ ≤ 2) is an
+/// `Error::Solver` from every backend with the QP class (Gurobi 10020 with `NonConvex` = 0,
+/// MOSEK 1295), never a silent change of problem class.
+pub fn t018_nonconvex_q_is_an_error(b: &dyn Backend) -> Result<(), Failed> {
+    let a = optsolver::CscRef::new(1, 2, &[0, 1, 2], &[0usize, 0], &[1.0, 1.0]).map_err(fail)?;
+    let q = optsolver::CscRef::new(2, 2, &[0, 1, 1], &[0usize], &[-1.0]).map_err(fail)?;
+    let p = optsolver::Problem::new(
+        a,
+        &[0.0, 0.0],
+        optsolver::Sense::Minimise,
+        optsolver::RowBounds::SenseRhs {
+            sense: b"<",
+            b: &[2.0],
+        },
+        &[0.0, 0.0],
+        &[1.0, 1.0],
+    )
+    .and_then(|p| p.with_Q(q))
+    .map_err(fail)?;
+    let r = b.solve((&p).into(), &mut Options::default());
+    if !supports(b, optsolver::ProblemClass::Qp) {
+        return expect_unsupported(r, "Q");
+    }
+    match r {
+        Err(optsolver::Error::Solver { code, message }) => ensure(
+            code != 0 && !message.is_empty(),
+            format!("vendor code and message: {code} {message:?}"),
+        ),
+        other => Err(fail(format!(
+            "non-convex Q: expected Error::Solver, got {:?}",
+            other.map(|s| describe(&s))
+        ))),
+    }
 }

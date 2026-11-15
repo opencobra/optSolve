@@ -1,0 +1,41 @@
+{
+  "instance": "toy_clp_dexp",
+  "class": "Conic",
+  "format": "jtask",
+  "file_sha256": "cd61137ca20804c6b523cc2d2832e9e69117c086d9c2219262f5bc587c62cd7b",
+  "construction": "Defined in tools/corpus/make_toy_instances.m and written by MOSEK (mosekopt write, JTASK) from prob.a, c, blc, buc, blx, bux, f, g, accs; read back by mosekopt read, bit-for-bit equal to the written arrays.",
+  "sense": "min",
+  "m": 2,
+  "n": 3,
+  "nnz": 2,
+  "k": 3,
+  "nnz_F": 3,
+  "cones": [
+    {
+      "kind": "dual exponential",
+      "dimension": 3,
+      "alpha": null
+    }
+  ],
+  "expected_status": "Optimal",
+  "expected_objective": 0.36787944117144233,
+  "expected_x": [
+    0.36787944117144233,
+    0,
+    -1
+  ],
+  "derivation": "Dual exponential cone on (x0, x1, x2): x0 >= -x2 exp(x1 / x2 - 1), x0 > 0, x2 < 0. With x1 = 0 and x2 = -1 fixed, x0 >= 1 * exp(0 - 1) = 1/e, so the minimum is 1/e, attained only at x0 = 1/e; objective 1/e.",
+  "independent_checks": [
+    {
+      "tool": "MOSEK",
+      "version": "11.2.0",
+      "how": "file",
+      "status": "Optimal",
+      "objective": 0.3678794401066674
+    }
+  ],
+  "extracting_script": "tools/corpus/make_toy_instances.m",
+  "optsolver_commit": "89776f4fe3ad524e9df610f7e20b24d6b3b2a6a3",
+  "optsolver_worktree_clean": false,
+  "licence": "MIT OR Apache-2.0, project-authored"
+}

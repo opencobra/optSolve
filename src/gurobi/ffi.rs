@@ -93,6 +93,14 @@ pub const GRB_LOCALLY_INFEASIBLE: c_int = 19;
 
 /// `GRB_INFINITY` (`1e100`): Gurobi's representation of an infinite bound.
 pub const GRB_INFINITY: c_double = 1e100;
+/// `GRB_ERROR_DATA_NOT_AVAILABLE`: the requested attribute is not available.
+pub const GRB_ERROR_DATA_NOT_AVAILABLE: c_int = 10005;
+/// `GRB_ERROR_Q_NOT_PSD`: the quadratic objective is not convex (with `NonConvex` = 0).
+pub const GRB_ERROR_Q_NOT_PSD: c_int = 10020;
+/// `GRB_ERROR_QCP_EQUALITY_CONSTRAINT`: a quadratic equality constraint.
+pub const GRB_ERROR_QCP_EQUALITY_CONSTRAINT: c_int = 10021;
+/// `GRB_ERROR_NOT_SUPPORTED`: the operation is not supported.
+pub const GRB_ERROR_NOT_SUPPORTED: c_int = 10024;
 /// `GRB_MINIMIZE`: objective sense argument of `GRBXloadmodel` for minimisation.
 pub const GRB_MINIMIZE: c_int = 1;
 /// `GRB_MAXIMIZE`: objective sense argument of `GRBXloadmodel` for maximisation.
@@ -222,6 +230,59 @@ unsafe extern "C" {
         ub: *mut c_double,
         vtype: *mut c_char,
         varnames: *mut *mut c_char,
+    ) -> c_int;
+
+    /// `int GRBaddqpterms(GRBmodel *model, int numqnz, int *qrow, int *qcol, double *qval)`:
+    /// adds quadratic objective terms qval·x_qrow·x_qcol (objective xᵀQx form, no ½; terms
+    /// are summed and (i, j) is the same term as (j, i); feature 003 research R1).
+    pub fn GRBaddqpterms(
+        model: *mut GRBmodel,
+        numqnz: c_int,
+        qrow: *mut c_int,
+        qcol: *mut c_int,
+        qval: *mut c_double,
+    ) -> c_int;
+
+    /// `int GRBaddqconstr(GRBmodel *model, int numlnz, int *lind, double *lval, int numqnz,
+    /// int *qrow, int *qcol, double *qval, char sense, double rhs, const char *QCname)`: adds
+    /// one quadratic constraint (feature 003 research R2).
+    pub fn GRBaddqconstr(
+        model: *mut GRBmodel,
+        numlnz: c_int,
+        lind: *mut c_int,
+        lval: *mut c_double,
+        numqnz: c_int,
+        qrow: *mut c_int,
+        qcol: *mut c_int,
+        qval: *mut c_double,
+        sense: c_char,
+        rhs: c_double,
+        QCname: *const c_char,
+    ) -> c_int;
+
+    /// `int GRBXaddconstrs(GRBmodel *model, int numconstrs, size_t numnz, size_t *cbeg,
+    /// int *cind, double *cval, char *sense, double *rhs, char **constrnames)`: appends linear
+    /// rows.
+    pub fn GRBXaddconstrs(
+        model: *mut GRBmodel,
+        numconstrs: c_int,
+        numnz: usize,
+        cbeg: *mut usize,
+        cind: *mut c_int,
+        cval: *mut c_double,
+        sense: *mut c_char,
+        rhs: *mut c_double,
+        constrnames: *mut *mut c_char,
+    ) -> c_int;
+
+    /// `int GRBXchgcoeffs(GRBmodel *model, size_t cnt, int *cind, int *vind, double *val)`:
+    /// sets matrix coefficients (row cind[t], column vind[t]) to val[t].
+    pub fn GRBXchgcoeffs(
+        model: *mut GRBmodel,
+        cnt: usize,
+        cind: *mut c_int,
+        vind: *mut c_int,
+        val: *mut c_double,
     ) -> c_int;
 
     /// `int GRBupdatemodel(GRBmodel *model)`: applies pending modifications.

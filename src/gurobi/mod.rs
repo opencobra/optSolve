@@ -7,6 +7,7 @@ pub(crate) mod callback;
 pub(crate) mod env;
 pub(crate) mod ffi;
 pub(crate) mod load;
+pub(crate) mod load_qc;
 pub(crate) mod params;
 pub(crate) mod solve;
 pub mod status;

@@ -1,0 +1,41 @@
+{
+  "instance": "toy_qp_max",
+  "class": "QP",
+  "format": "mps",
+  "file_sha256": "7027a06ff2bbe7288d2b329cae8c72aa3326446dbde3682ccfa54559d66663f8",
+  "construction": "Defined in tools/corpus/make_toy_instances.m and written by Gurobi (gurobi_write, MPS), then its one-line \"OBJSENSE MAX\" rewritten as the two-line form \"OBJSENSE\" / \"    MAX\" (MOSEK 11.2 rejects the one-line form with error 1100 at the next line); read back by gurobi_read and by MOSEK (mosekopt read), both equal to the definition. Gurobi model.Q = Q/2 (Gurobi's objective is x'Qx); the QUADOBJ section holds the upper triangle of Q (objective 1/2 x'Qx).",
+  "sense": "max",
+  "m": 1,
+  "n": 2,
+  "nnz": 2,
+  "k": 0,
+  "nnz_F": 0,
+  "cones": [],
+  "expected_status": "Optimal",
+  "expected_objective": -1.75,
+  "expected_x": [
+    0.5,
+    1.5
+  ],
+  "derivation": "Maximise -1/2 (x1^2 + x2^2) - x1 subject to x1 + x2 = 2, x >= 0 (Q = -I, c = (-1, 0); the objective is strictly concave, so the optimum is unique). Substituting x2 = 2 - x1: -1/2 x1^2 - 1/2 (2 - x1)^2 - x1, derivative -2 x1 + 1 = 0, so x1 = 1/2, x2 = 3/2 (bounds inactive); objective -1/2 (1/4 + 9/4) - 1/2 = -7/4.",
+  "independent_checks": [
+    {
+      "tool": "MOSEK",
+      "version": "11.2.0",
+      "how": "file",
+      "status": "Optimal",
+      "objective": -1.7499999998509195
+    },
+    {
+      "tool": "Gurobi",
+      "version": "13.0.3",
+      "how": "file",
+      "status": "Optimal",
+      "objective": -1.75
+    }
+  ],
+  "extracting_script": "tools/corpus/make_toy_instances.m",
+  "optsolver_commit": "89776f4fe3ad524e9df610f7e20b24d6b3b2a6a3",
+  "optsolver_worktree_clean": false,
+  "licence": "MIT OR Apache-2.0, project-authored"
+}

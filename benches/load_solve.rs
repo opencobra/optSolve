@@ -55,6 +55,7 @@ struct Record {
     gurobi_max_mem_used_gb: Option<f64>,
     // positive control
     load_path: String,
+    q_terms: usize,
     buffer_high_water: usize,
     // configuration
     effective_parameters: String,
@@ -145,7 +146,7 @@ impl Record {
         let opt_f = |v: Option<f64>| v.map_or("null".to_string(), |x| format!("{x:e}"));
         let esc = |s: &str| s.replace('\\', "\\\\").replace('"', "\\\"");
         format!(
-            "{{\"solver\":\"{}\",\"instance\":\"{}\",\"index_type\":\"{}\",\"kind\":\"{}\",\"m\":{},\"n\":{},\"nnz\":{},\"n_repetitions\":{},\"env_creation\":{},\"load\":{},\"solve\":{},\"extraction\":{},\"verification\":{},\"validation\":{},\"load_optsolver\":{},\"load_vendor\":{},\"heap_peak_during_load_bytes\":{},\"vmhwm_rise_kib\":{},\"gurobi_max_mem_used_gb\":{},\"load_path\":\"{}\",\"buffer_high_water\":{},\"effective_parameters\":\"{}\",\"solver_version\":\"{}\",\"optsolver_commit\":\"{}\",\"machine\":\"{}\",\"profile\":\"{}\"}}",
+            "{{\"solver\":\"{}\",\"instance\":\"{}\",\"index_type\":\"{}\",\"kind\":\"{}\",\"m\":{},\"n\":{},\"nnz\":{},\"n_repetitions\":{},\"env_creation\":{},\"load\":{},\"solve\":{},\"extraction\":{},\"verification\":{},\"validation\":{},\"load_optsolver\":{},\"load_vendor\":{},\"heap_peak_during_load_bytes\":{},\"vmhwm_rise_kib\":{},\"gurobi_max_mem_used_gb\":{},\"load_path\":\"{}\",\"buffer_high_water\":{},\"q_terms\":{},\"effective_parameters\":\"{}\",\"solver_version\":\"{}\",\"optsolver_commit\":\"{}\",\"machine\":\"{}\",\"profile\":\"{}\"}}",
             self.solver,
             esc(&self.instance),
             self.index_type,
@@ -167,6 +168,7 @@ impl Record {
             opt_f(self.gurobi_max_mem_used_gb),
             self.load_path,
             self.buffer_high_water,
+            self.q_terms,
             esc(&self.effective_parameters),
             esc(&self.solver_version),
             esc(&self.optsolver_commit),
@@ -217,6 +219,7 @@ impl Record {
             gurobi_max_mem_used_gb: field("gurobi_max_mem_used_gb").parse().ok(),
             load_path: field("load_path"),
             buffer_high_water: field("buffer_high_water").parse().unwrap_or(0),
+            q_terms: field("q_terms").parse().unwrap_or(0),
             effective_parameters: field("effective_parameters"),
             solver_version: field("solver_version"),
             optsolver_commit: field("optsolver_commit"),
@@ -289,9 +292,11 @@ fn profile() -> String {
     }
 }
 
-fn deterministic_options<'a>(solver: &str) -> Options<'a> {
+fn deterministic_options<'a>(solver: &str, qp: bool) -> Options<'a> {
     let mut o = Options::default();
-    o.method = Some(Method::DualSimplex);
+    if !qp {
+        o.method = Some(Method::DualSimplex); // QP: each solver's default (barrier)
+    }
     o.threads = Some(1);
     if solver == "gurobi" {
         o.random_seed = Some(0); // MOSEK maps no seed (feature 002 research R9)
@@ -315,8 +320,9 @@ enum Solver {
     Mosek(optsolver::mosek::Env),
 }
 
-/// (path, blocks, buffer high-water, vendor seconds, total seconds) of a load-only call.
-type LoadFigures = (&'static str, usize, usize, f64, f64);
+/// (path, blocks, buffer high-water, vendor seconds, total seconds, Q terms) of a load-only
+/// call.
+type LoadFigures = (&'static str, usize, usize, f64, f64, usize);
 
 impl Solver {
     fn new(name: &str) -> Result<Self, String> {
@@ -347,6 +353,7 @@ impl Solver {
                     r.buffer_high_water,
                     r.vendor_seconds,
                     r.total_seconds,
+                    r.q_terms,
                 )
             }),
             #[cfg(feature = "mosek")]
@@ -357,6 +364,7 @@ impl Solver {
                     r.buffer_high_water,
                     r.vendor_seconds,
                     r.total_seconds,
+                    r.q_terms,
                 )
             }),
         }
@@ -373,10 +381,37 @@ fn child(spec: &str) -> Result<Record, String> {
         parts.next().unwrap_or(""),
         parts.next().unwrap_or(""),
     );
-    let f = common::fixtures::load_corpus_fixture(instance)?;
+    // The derived QP (feature 003, T021) is its LP fixture with c = 0, minimise and
+    // Q = q·I (feature 002 research R12); every other instance is an LP with seed 1.
+    let qp = common::fixtures::qp_instances()?
+        .iter()
+        .any(|q| q == instance);
+    let (base, q_diag) = if qp {
+        let prov =
+            common::fixtures::Provenance::load(&common::fixtures::qp_provenance_path(instance)?)?;
+        let d = match prov.fields.get("q_diagonal") {
+            Some(common::fixtures::Json::Number(v)) => *v,
+            other => return Err(format!("q_diagonal is {other:?}")),
+        };
+        (prov.str("derived_from")?.to_string(), d)
+    } else {
+        (instance.to_string(), 0.0)
+    };
+    let f = common::fixtures::load_corpus_fixture(&base)?;
     let mp = &f.problem;
-    let seed = f.provenance.seeds()?[0];
-    let c = common::objectives::seeded_objective(seed, mp.n);
+    let c = if qp {
+        vec![0.0; mp.n]
+    } else {
+        common::objectives::seeded_objective(f.provenance.seeds()?[0], mp.n)
+    };
+    let sense = if qp {
+        optsolver::Sense::Minimise
+    } else {
+        mp.objective_sense
+    };
+    let q_cp: Vec<usize> = (0..=mp.n).collect();
+    let q_ri: Vec<usize> = (0..mp.n).collect();
+    let q_va = vec![q_diag; mp.n];
     let rows_i32: Vec<i32> = mp
         .row_indices
         .iter()
@@ -405,8 +440,12 @@ fn child(spec: &str) -> Result<Record, String> {
         ($rows:expr, |$p:ident| $body:block) => {{
             let A = CscRef::new(mp.m, mp.n, &mp.col_ptrs, $rows, &mp.values)
                 .map_err(|e| e.to_string())?;
-            let $p = Problem::new(A, &c, mp.objective_sense, rows, &mp.l, &mp.u)
-                .map_err(|e| e.to_string())?;
+            let mut $p =
+                Problem::new(A, &c, sense, rows, &mp.l, &mp.u).map_err(|e| e.to_string())?;
+            if qp {
+                let q = CscRef::new(mp.n, mp.n, &q_cp, &q_ri, &q_va).map_err(|e| e.to_string())?;
+                $p = $p.with_Q(q).map_err(|e| e.to_string())?;
+            }
             $body
         }};
     }
@@ -416,7 +455,8 @@ fn child(spec: &str) -> Result<Record, String> {
                 |problem: optsolver::ProblemRef<'_, '_>, r: &mut Record| -> Result<(), String> {
                     let _profiler = dhat::Profiler::builder().testing().build();
                     let before = dhat::HeapStats::get();
-                    let (path, blocks, high_water, _, _) = env.load_report(problem)?;
+                    let (path, blocks, high_water, _, _, q_terms) = env.load_report(problem)?;
+                    r.q_terms = q_terms;
                     let after = dhat::HeapStats::get();
                     r.heap_peak_during_load_bytes =
                         Some((after.max_bytes.saturating_sub(before.curr_bytes)) as u64);
@@ -452,11 +492,12 @@ fn child(spec: &str) -> Result<Record, String> {
             }
             let run =
                 |problem: optsolver::ProblemRef<'_, '_>, r: &mut Record| -> Result<(), String> {
-                    let (path, blocks, _, _, _) = env.load_report(problem)?;
+                    let (path, blocks, _, _, _, q_terms) = env.load_report(problem)?;
+                    r.q_terms = q_terms;
                     r.load_path = format!("{path} (blocks {blocks})");
                     // Load split (task T055), N repetitions of a load-only call.
                     for _ in 0..N_REPETITIONS {
-                        let (_, _, _, vendor, total) = env.load_report(problem)?;
+                        let (_, _, _, vendor, total, _) = env.load_report(problem)?;
                         r.load_vendor.push(vendor);
                         r.load_optsolver.push((total - vendor).max(0.0));
                     }
@@ -464,7 +505,7 @@ fn child(spec: &str) -> Result<Record, String> {
                         let t = Instant::now();
                         let e = Solver::new(solver)?;
                         r.env_creation.push(t.elapsed().as_secs_f64());
-                        let mut o = deterministic_options(solver);
+                        let mut o = deterministic_options(solver, qp);
                         let s = e
                             .backend()
                             .solve(problem, &mut o)
@@ -574,7 +615,10 @@ fn main() {
         return;
     }
     record_writer_self_test();
-    let instances = common::fixtures::lp_instances().expect("corpus instances from project.yml");
+    let mut instances =
+        common::fixtures::lp_instances().expect("corpus instances from project.yml");
+    // Feature 003 T021: the derived corpus QP as well.
+    instances.extend(common::fixtures::qp_instances().expect("QP instances from project.yml"));
     let stamp = {
         let out = Command::new("date")
             .args(["-u", "+%Y%m%dT%H%M%SZ"])
@@ -583,7 +627,7 @@ fn main() {
         String::from_utf8_lossy(&out.stdout).trim().to_string()
     };
     let dir = common::fixtures::repo_root()
-        .join("results/002-mosek-lp-qp-clp/runs")
+        .join("results/003-llm-interface-toy-instances/runs")
         .join(format!("{stamp}-bench"));
     std::fs::create_dir_all(&dir).expect("run bundle directory");
     let exe = std::env::current_exe().expect("benchmark executable");
@@ -648,7 +692,10 @@ fn main() {
                     .max()
                     .unwrap_or(0);
                 let (mm, mlo, mhi) = median_and_spread(&mem);
-                let limit = 32.0 * (t.m + t.n) as f64 + 1_048_576.0;
+                // SC-004 rule plus the documented O(nnz(Q)) triplets: 12 B per term (two i32
+                // index arrays and the halved values, Gurobi); MOSEK needs 8 B (feature 003
+                // plan, Complexity Tracking).
+                let limit = 32.0 * (t.m + t.n) as f64 + 1_048_576.0 + 12.0 * t.q_terms as f64;
                 let added: Vec<f64> = (0..t.load.len())
                     .map(|k| {
                         (t.validation[k]
@@ -665,8 +712,8 @@ fn main() {
                 };
                 summary += &format!(
                     "## {solver}: {instance}, {index_type} row indices (m = {}, n = {}, nnz = {})\n\n\
-                 - Positive control (load path, every memory run): {:?}; buffer high-water {} entries\n\
-                 - SC-004 heap peak during load: median {mm:.0} B (min {mlo:.0}, max {mhi:.0}), N = {}; limit 32 B × (m + n) + 1 MiB = {limit:.0} B → {}\n\
+                 - Positive control (load path, every memory run): {:?}; buffer high-water {} entries; Q terms {}\n\
+                 - SC-004 heap peak during load: median {mm:.0} B (min {mlo:.0}, max {mhi:.0}), N = {}; limit 32 B × (m + n) + 1 MiB + 12 B × Q terms = {limit:.0} B → {}\n\
                  - SC-005 (validation + optSolver load + extraction + verification) / solve: median {am:.3} (min {alo:.3}, max {ahi:.3}), N = {}; limit 0.05 → {} (validation + optSolver's own load work + extraction + verification; the solver's load calls excluded)\n\
                  - Validation: {}\n- Load, optSolver's own work: {}\n- Load, inside the solver's calls: {}\n\
                  - Environment creation: {}\n- Load: {}\n- Solve: {}\n- Extraction: {}\n- Verification: {}\n\
@@ -678,6 +725,7 @@ fn main() {
                     t.nnz,
                     paths,
                     high_water,
+                    t.q_terms,
                     mem.len(),
                     if mm <= limit { "PASS" } else { "FAIL" },
                     added.len(),

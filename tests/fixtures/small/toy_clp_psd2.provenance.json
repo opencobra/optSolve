@@ -1,0 +1,41 @@
+{
+  "instance": "toy_clp_psd2",
+  "class": "Conic",
+  "format": "jtask",
+  "file_sha256": "3ffa32e016b1278c0bdf37757ce84ddf0ff2bb67037d8e065737a8c0d614c90b",
+  "construction": "Defined in tools/corpus/make_toy_instances.m and written by MOSEK (mosekopt write, JTASK) from prob.a, c, blc, buc, blx, bux, f, g, accs; read back by mosekopt read, bit-for-bit equal to the written arrays.",
+  "sense": "min",
+  "m": 1,
+  "n": 3,
+  "nnz": 1,
+  "k": 3,
+  "nnz_F": 3,
+  "cones": [
+    {
+      "kind": "positive semidefinite",
+      "dimension": 3,
+      "alpha": null
+    }
+  ],
+  "expected_status": "Optimal",
+  "expected_objective": 2,
+  "expected_x": [
+    1,
+    1,
+    1
+  ],
+  "derivation": "Positive semidefinite cone of order 2 in svec form (lower triangle column by column, off-diagonal scaled by sqrt(2)): F x = (x0, sqrt(2) x1, x2) is svec of X = [x0 x1; x1 x2]. With x1 = 1 fixed, X is PSD iff x0, x2 >= 0 and x0 x2 >= 1; minimising x0 + x2 = trace(X): by the arithmetic-geometric mean inequality x0 + x2 >= 2 sqrt(x0 x2) >= 2, with equality only at x0 = x2 = 1; objective 2.",
+  "independent_checks": [
+    {
+      "tool": "MOSEK",
+      "version": "11.2.0",
+      "how": "file",
+      "status": "Optimal",
+      "objective": 1.99999999999482
+    }
+  ],
+  "extracting_script": "tools/corpus/make_toy_instances.m",
+  "optsolver_commit": "89776f4fe3ad524e9df610f7e20b24d6b3b2a6a3",
+  "optsolver_worktree_clean": false,
+  "licence": "MIT OR Apache-2.0, project-authored"
+}

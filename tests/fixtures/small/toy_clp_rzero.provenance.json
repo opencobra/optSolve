@@ -1,0 +1,47 @@
+{
+  "instance": "toy_clp_rzero",
+  "class": "Conic",
+  "format": "jtask",
+  "file_sha256": "e6f21f22bac7553a6112334acec70d37e6f74e51e29e4518f0697385893c509d",
+  "construction": "Defined in tools/corpus/make_toy_instances.m and written by MOSEK (mosekopt write, JTASK) from prob.a, c, blc, buc, blx, bux, f, g, accs; read back by mosekopt read, bit-for-bit equal to the written arrays.",
+  "sense": "min",
+  "m": 0,
+  "n": 2,
+  "nnz": 0,
+  "k": 2,
+  "nnz_F": 2,
+  "cones": [
+    {
+      "kind": "zero",
+      "dimension": 2,
+      "alpha": null
+    }
+  ],
+  "expected_status": "Optimal",
+  "expected_objective": 3,
+  "expected_x": [
+    1,
+    2
+  ],
+  "derivation": "Zero cone of dimension 2: x + g = 0 with g = (-1, -2), so x = (1, 2) is the only feasible point (no linear rows); objective 1 + 2 = 3.",
+  "independent_checks": [
+    {
+      "tool": "MOSEK",
+      "version": "11.2.0",
+      "how": "file",
+      "status": "Optimal",
+      "objective": 3
+    },
+    {
+      "tool": "Gurobi",
+      "version": "13.0.3",
+      "how": "built from definition",
+      "status": "Optimal",
+      "objective": 3
+    }
+  ],
+  "extracting_script": "tools/corpus/make_toy_instances.m",
+  "optsolver_commit": "89776f4fe3ad524e9df610f7e20b24d6b3b2a6a3",
+  "optsolver_worktree_clean": false,
+  "licence": "MIT OR Apache-2.0, project-authored"
+}

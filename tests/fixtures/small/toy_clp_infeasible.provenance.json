@@ -1,0 +1,44 @@
+{
+  "instance": "toy_clp_infeasible",
+  "class": "Conic",
+  "format": "jtask",
+  "file_sha256": "5cd949cd2f3f9aba962c44b60d9c12c4dc555a05b5548fafc50a57695c43a761",
+  "construction": "Defined in tools/corpus/make_toy_instances.m and written by MOSEK (mosekopt write, JTASK) from prob.a, c, blc, buc, blx, bux, f, g, accs; read back by mosekopt read, bit-for-bit equal to the written arrays.",
+  "sense": "min",
+  "m": 2,
+  "n": 3,
+  "nnz": 2,
+  "k": 3,
+  "nnz_F": 3,
+  "cones": [
+    {
+      "kind": "quadratic",
+      "dimension": 3,
+      "alpha": null
+    }
+  ],
+  "expected_status": "Infeasible",
+  "expected_objective": null,
+  "expected_x": null,
+  "derivation": "Quadratic cone of dimension 3 on (x0, x1, x2) with x1 = 3 and x2 = 4 fixed requires x0 >= 5, contradicting the upper bound x0 <= 4: no feasible point.",
+  "independent_checks": [
+    {
+      "tool": "MOSEK",
+      "version": "11.2.0",
+      "how": "file",
+      "status": "Infeasible",
+      "objective": null
+    },
+    {
+      "tool": "Gurobi",
+      "version": "13.0.3",
+      "how": "built from definition",
+      "status": "Infeasible",
+      "objective": null
+    }
+  ],
+  "extracting_script": "tools/corpus/make_toy_instances.m",
+  "optsolver_commit": "89776f4fe3ad524e9df610f7e20b24d6b3b2a6a3",
+  "optsolver_worktree_clean": false,
+  "licence": "MIT OR Apache-2.0, project-authored"
+}

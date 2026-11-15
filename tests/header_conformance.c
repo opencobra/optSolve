@@ -34,6 +34,12 @@ int (__stdcall *const p_GRBXloadmodel)(GRBenv *, GRBmodel **, const char *, int,
                                         char **) = GRBXloadmodel;
 int (__stdcall *const p_GRBXaddvars)(GRBmodel *, int, size_t, size_t *, int *, double *,
                                       double *, double *, double *, char *, char **) = GRBXaddvars;
+int (__stdcall *const p_GRBaddqpterms)(GRBmodel *, int, int *, int *, double *) = GRBaddqpterms;
+int (__stdcall *const p_GRBaddqconstr)(GRBmodel *, int, int *, double *, int, int *, int *,
+                                        double *, char, double, const char *) = GRBaddqconstr;
+int (__stdcall *const p_GRBXaddconstrs)(GRBmodel *, int, size_t, size_t *, int *, double *,
+                                         char *, double *, char **) = GRBXaddconstrs;
+int (__stdcall *const p_GRBXchgcoeffs)(GRBmodel *, size_t, int *, int *, double *) = GRBXchgcoeffs;
 int (__stdcall *const p_GRBupdatemodel)(GRBmodel *) = GRBupdatemodel;
 int (__stdcall *const p_GRBoptimize)(GRBmodel *) = GRBoptimize;
 int (__stdcall *const p_GRBfreemodel)(GRBmodel *) = GRBfreemodel;
@@ -78,6 +84,10 @@ _Static_assert(GRB_LOCALLY_INFEASIBLE == 19, "GRB_LOCALLY_INFEASIBLE");
 
 /* Numbers, senses and sizes. */
 _Static_assert(GRB_INFINITY == 1e100, "GRB_INFINITY");
+_Static_assert(GRB_ERROR_DATA_NOT_AVAILABLE == 10005, "GRB_ERROR_DATA_NOT_AVAILABLE");
+_Static_assert(GRB_ERROR_Q_NOT_PSD == 10020, "GRB_ERROR_Q_NOT_PSD");
+_Static_assert(GRB_ERROR_QCP_EQUALITY_CONSTRAINT == 10021, "GRB_ERROR_QCP_EQUALITY_CONSTRAINT");
+_Static_assert(GRB_ERROR_NOT_SUPPORTED == 10024, "GRB_ERROR_NOT_SUPPORTED");
 _Static_assert(GRB_MINIMIZE == 1, "GRB_MINIMIZE");
 _Static_assert(GRB_MAXIMIZE == -1, "GRB_MAXIMIZE");
 _Static_assert(GRB_LESS_EQUAL == '<', "GRB_LESS_EQUAL");

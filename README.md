@@ -14,7 +14,11 @@ This file is descriptive (Tier 3); the rules are in
   (affine conic constraints Fx + g ∈ K with quadratic, rotated quadratic, exponential, power,
   nonnegative, zero and semidefinite cones). Gurobi remains LP only.
 
-The test corpus is described in [docs/test-corpus.md](docs/test-corpus.md).
+**Using optSolver from another program (or asking an LLM to)**: read
+[docs/llm-interface.md](docs/llm-interface.md), the complete interface document (also the
+crate-level Rust documentation; its examples are compiled tests). LLM tools can start from
+[docs/llms.txt](docs/llms.txt). The test corpus is described in
+[docs/test-corpus.md](docs/test-corpus.md).
 
 ## Build
 

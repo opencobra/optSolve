@@ -1,0 +1,44 @@
+{
+  "instance": "toy_clp_ppow",
+  "class": "Conic",
+  "format": "jtask",
+  "file_sha256": "89269639367c344e717c13bc3b198d5a0f25b6a5f237c32dd5b76c445ccfe143",
+  "construction": "Defined in tools/corpus/make_toy_instances.m and written by MOSEK (mosekopt write, JTASK) from prob.a, c, blc, buc, blx, bux, f, g, accs; read back by mosekopt read, bit-for-bit equal to the written arrays.",
+  "sense": "min",
+  "m": 2,
+  "n": 3,
+  "nnz": 2,
+  "k": 3,
+  "nnz_F": 3,
+  "cones": [
+    {
+      "kind": "primal power",
+      "dimension": 3,
+      "alpha": [
+        1,
+        1
+      ]
+    }
+  ],
+  "expected_status": "Optimal",
+  "expected_objective": 1,
+  "expected_x": [
+    1,
+    4,
+    2
+  ],
+  "derivation": "Primal power cone of dimension 3 with exponents (1, 1), normalised to (1/2, 1/2), on (x0, x1, x2): x0^(1/2) x1^(1/2) >= |x2|, x0, x1 >= 0. With x1 = 4 and x2 = 2 fixed, sqrt(4 x0) >= 2, so x0 >= 1; the minimum 1 is unique; objective 1.",
+  "independent_checks": [
+    {
+      "tool": "MOSEK",
+      "version": "11.2.0",
+      "how": "file",
+      "status": "Optimal",
+      "objective": 1
+    }
+  ],
+  "extracting_script": "tools/corpus/make_toy_instances.m",
+  "optsolver_commit": "89776f4fe3ad524e9df610f7e20b24d6b3b2a6a3",
+  "optsolver_worktree_clean": false,
+  "licence": "MIT OR Apache-2.0, project-authored"
+}

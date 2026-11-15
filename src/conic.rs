@@ -52,7 +52,77 @@ pub enum Cone {
     },
 }
 
+/// The kind of a cone, without its parameters (feature 003, ADR-0003): what a backend declares
+/// it accepts in [`crate::Capabilities::cones`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum ConeKind {
+    /// [`Cone::Quadratic`].
+    Quadratic,
+    /// [`Cone::RotatedQuadratic`].
+    RotatedQuadratic,
+    /// [`Cone::PrimalExponential`].
+    PrimalExponential,
+    /// [`Cone::DualExponential`].
+    DualExponential,
+    /// [`Cone::PrimalPower`].
+    PrimalPower,
+    /// [`Cone::DualPower`].
+    DualPower,
+    /// [`Cone::Nonnegative`].
+    Nonnegative,
+    /// [`Cone::Zero`].
+    Zero,
+    /// [`Cone::PositiveSemidefinite`].
+    PositiveSemidefinite,
+}
+
+impl ConeKind {
+    /// Every kind.
+    pub const ALL: [ConeKind; 9] = [
+        ConeKind::Quadratic,
+        ConeKind::RotatedQuadratic,
+        ConeKind::PrimalExponential,
+        ConeKind::DualExponential,
+        ConeKind::PrimalPower,
+        ConeKind::DualPower,
+        ConeKind::Nonnegative,
+        ConeKind::Zero,
+        ConeKind::PositiveSemidefinite,
+    ];
+
+    /// Stable name, used in errors and reports (for example `"rotated quadratic"`).
+    pub fn name(self) -> &'static str {
+        match self {
+            ConeKind::Quadratic => "quadratic",
+            ConeKind::RotatedQuadratic => "rotated quadratic",
+            ConeKind::PrimalExponential => "primal exponential",
+            ConeKind::DualExponential => "dual exponential",
+            ConeKind::PrimalPower => "primal power",
+            ConeKind::DualPower => "dual power",
+            ConeKind::Nonnegative => "nonnegative",
+            ConeKind::Zero => "zero",
+            ConeKind::PositiveSemidefinite => "positive semidefinite",
+        }
+    }
+}
+
 impl Cone {
+    /// The kind of this cone.
+    pub fn kind(&self) -> ConeKind {
+        match self {
+            Cone::Quadratic(_) => ConeKind::Quadratic,
+            Cone::RotatedQuadratic(_) => ConeKind::RotatedQuadratic,
+            Cone::PrimalExponential => ConeKind::PrimalExponential,
+            Cone::DualExponential => ConeKind::DualExponential,
+            Cone::PrimalPower { .. } => ConeKind::PrimalPower,
+            Cone::DualPower { .. } => ConeKind::DualPower,
+            Cone::Nonnegative(_) => ConeKind::Nonnegative,
+            Cone::Zero(_) => ConeKind::Zero,
+            Cone::PositiveSemidefinite { .. } => ConeKind::PositiveSemidefinite,
+        }
+    }
+
     /// Dimension of the cone (number of rows of Fx + g it covers).
     pub fn dim(&self) -> usize {
         match self {

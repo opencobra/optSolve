@@ -51,6 +51,34 @@ pub fn clp_heavy_instances() -> Result<Vec<String>, String> {
     declared_list("clp_heavy_instances")
 }
 
+/// The toy instance names (`test_corpus.toy_instances`, feature 003).
+pub fn toy_instances() -> Result<Vec<String>, String> {
+    declared_list("toy_instances")
+}
+
+/// The file of a toy instance in `fixtures`/small: `<name>.mps` or `<name>.jtask`, whichever
+/// exists (an error if neither or both do).
+pub fn toy_path(name: &str) -> Result<PathBuf, String> {
+    let dir = fixtures_dir()?.join("small");
+    let (mps, jtask) = (
+        dir.join(format!("{name}.mps")),
+        dir.join(format!("{name}.jtask")),
+    );
+    match (mps.is_file(), jtask.is_file()) {
+        (true, false) => Ok(mps),
+        (false, true) => Ok(jtask),
+        (true, true) => Err(format!("toy instance {name}: both .mps and .jtask exist")),
+        (false, false) => Err(format!("toy instance {name}: no .mps or .jtask file")),
+    }
+}
+
+/// Provenance record of a toy instance.
+pub fn toy_provenance_path(name: &str) -> Result<PathBuf, String> {
+    Ok(fixtures_dir()?
+        .join("small")
+        .join(format!("{name}.provenance.json")))
+}
+
 /// CLP fixtures whose solver-reported optimum is expected to fail verification
 /// (`test_corpus.clp_expected_verification_failures`; empty when absent).
 pub fn clp_expected_verification_failures() -> Result<Vec<String>, String> {
@@ -708,6 +736,7 @@ pub fn self_tests() -> Vec<super::Trial> {
         }),
         Trial::test("fixtures::corpus_declaration", || {
             for names in [
+                toy_instances(),
                 lp_instances(),
                 qp_instances(),
                 clp_instances(),

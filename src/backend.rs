@@ -59,6 +59,8 @@ pub struct Capabilities {
     pub backend: &'static str,
     /// Problem classes it solves.
     pub problem_classes: Vec<ProblemClass>,
+    /// Cone kinds it accepts in conic problems (empty without [`ProblemClass::Conic`]).
+    pub cones: Vec<crate::conic::ConeKind>,
     /// Shared options fields it honours, with their vendor mapping.
     pub options: Vec<OptionMapping>,
     /// Whether it returns certificates on request.

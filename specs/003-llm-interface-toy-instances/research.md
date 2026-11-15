@@ -199,3 +199,31 @@ statement (LP from `toy_lp_*`, QP from `toy_qp_*`, conic from `toy_clp_quad`), w
 compiled in a scratch crate depending on optsolver by path and run against the toy instance;
 three attempts per task; model, prompts, code, compiler output and results recorded under
 `results/003-llm-interface-toy-instances/runs/<UTC>-llm-trial/`.
+
+## R13. Findings during implementation (T012–T013, 2026-11-15)
+
+- **One-line `OBJSENSE MAX`**: Gurobi writes `OBJSENSE MAX` on one line; MOSEK 11.2 cannot read
+  it (error 1100 at the next line, in free, relaxed and CPLEX read modes). The generator
+  therefore rewrites that line of `toy_lp_max.mps` and `toy_qp_max.mps` to the two-line form
+  `OBJSENSE` / `    MAX` (as `unbounded.mps` already uses) and requires both tools to read the
+  file back equal to the definition; every other byte is Gurobi's. Recorded in each record's
+  `construction`. The test reader accepts both forms.
+- **Ranged rows in Gurobi**: Gurobi reads an MPS RANGES row as an equality row with an extra
+  column (`MPS_Rgr1`) bounded by the range; folded back, it is the same problem as MOSEK's and
+  the test reader's reading (two representations, one problem).
+- Every toy instance has a unique optimal x; each solver's x is within 1e-4 relative of it
+  (largest deviation 7.7e-10). The generator's agreement check was shown to fail on a wrong
+  expected objective (5.001).
+- **Gurobi conic loading route (T019)**: instead of stacking F under A in the column loader
+  (plan wording), the conic rows are appended after the linear model: `GRBXaddconstrs` (rows
+  with sense and right-hand side −g, no coefficients), F's coefficients by `GRBXchgcoeffs` in
+  blocks through a fixed buffer of at most `BLOCK_CAPACITY` triplets, auxiliary columns by
+  `GRBXaddvars`, then one `GRBaddqconstr` per cone. Same memory bound (fixed buffer, O(k) for
+  rows and auxiliaries), and the A load path (zero-copy i32 single call) is untouched.
+  `src/gurobi/load_qc.rs`.
+- **Error messages lost after the optimise call (bug, features 001–002)**: both backends read the
+  vendor error message after removing the callback; Gurobi's successful `GRBsetcallbackfunc`
+  clears the last error, so a failing `GRBoptimize` (for example 10020, non-convex Q) returned
+  its code with an empty message. Both backends now read the error immediately after the
+  optimise call (constitution III), and `f003::t018_nonconvex_q_is_an_error` asserts a non-empty
+  message on every backend.

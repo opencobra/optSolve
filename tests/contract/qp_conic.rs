@@ -8,8 +8,8 @@ use crate::common::{Failed, Trial, ensure, fail};
 use optsolver::backend::ProblemClass;
 use optsolver::verify::names;
 use optsolver::{
-    Backend, Certificate, Cone, ConicRef, CscRef, Error, Options, Overall, Problem, RowBounds,
-    Sense, SolutionReturned, SolutionView, Status, Verdict, VerificationReport, verify,
+    Backend, Certificate, Cone, ConeKind, ConicRef, CscRef, Error, Options, Overall, Problem,
+    RowBounds, Sense, SolutionReturned, SolutionView, Status, Verdict, VerificationReport, verify,
 };
 
 const INF: f64 = f64::INFINITY;
@@ -65,6 +65,12 @@ pub fn trials() -> Vec<Trial> {
             r19_interior_cs_informational,
         ),
         ("r19_zero_rows_need_no_y", r19_zero_rows_need_no_y),
+        // Feature 003 T003: per-cone capabilities.
+        ("t003_cone_kinds_and_names", t003_cone_kinds_and_names),
+        (
+            "t003_check_problem_per_cone_kind",
+            t003_check_problem_per_cone_kind,
+        ),
     ];
     tests
         .into_iter()
@@ -282,6 +288,7 @@ fn t003_check_problem_classes() -> Result<(), Failed> {
     // A backend declaring Conic accepts it.
     let mut conic_backend = FakeBackend::lp_only();
     conic_backend.caps.problem_classes.push(ProblemClass::Conic);
+    conic_backend.caps.cones.push(ConeKind::Quadratic);
     let sol = conic_backend
         .solve((&p).into(), &mut Options::default())
         .map_err(fail)?;
@@ -943,4 +950,78 @@ fn r19_zero_rows_need_no_y() -> Result<(), Failed> {
         &TOL,
     );
     ensure(rep.overall == Overall::Verified, format!("{rep:?}"))
+}
+
+// --- Feature 003 T003: cone kinds and per-kind capabilities ---------------------------------
+
+fn t003_cone_kinds_and_names() -> Result<(), Failed> {
+    let cases = [
+        (Cone::Quadratic(3), ConeKind::Quadratic, "quadratic"),
+        (
+            Cone::RotatedQuadratic(3),
+            ConeKind::RotatedQuadratic,
+            "rotated quadratic",
+        ),
+        (
+            Cone::PrimalExponential,
+            ConeKind::PrimalExponential,
+            "primal exponential",
+        ),
+        (
+            Cone::DualExponential,
+            ConeKind::DualExponential,
+            "dual exponential",
+        ),
+        (
+            Cone::PrimalPower {
+                dim: 3,
+                alpha: vec![1.0, 1.0],
+            },
+            ConeKind::PrimalPower,
+            "primal power",
+        ),
+        (
+            Cone::DualPower {
+                dim: 3,
+                alpha: vec![1.0, 1.0],
+            },
+            ConeKind::DualPower,
+            "dual power",
+        ),
+        (Cone::Nonnegative(2), ConeKind::Nonnegative, "nonnegative"),
+        (Cone::Zero(2), ConeKind::Zero, "zero"),
+        (
+            Cone::PositiveSemidefinite { order: 2 },
+            ConeKind::PositiveSemidefinite,
+            "positive semidefinite",
+        ),
+    ];
+    for (cone, kind, name) in cases {
+        ensure(cone.kind() == kind, format!("{cone:?} has kind {kind:?}"))?;
+        ensure(kind.name() == name, format!("{kind:?} is named {name:?}"))?;
+    }
+    Ok(())
+}
+
+fn t003_check_problem_per_cone_kind() -> Result<(), Failed> {
+    let cones = [Cone::Quadratic(3)];
+    let conic = ConicRef::new(eye(3), &ZERO6[..3], &cones).map_err(fail)?;
+    let p = lp_free3().with_conic(conic).map_err(fail)?;
+    // Conic class declared, but not the quadratic kind: Unsupported naming the kind.
+    let mut backend = FakeBackend::lp_only();
+    backend.caps.problem_classes.push(ProblemClass::Conic);
+    backend.caps.cones = vec![ConeKind::Nonnegative];
+    match backend.solve((&p).into(), &mut Options::default()) {
+        Err(Error::Unsupported {
+            field: "quadratic",
+            backend: "fake",
+        }) => {}
+        other => return Err(fail(format!("expected Unsupported quadratic: {other:?}"))),
+    }
+    // Listing the kind accepts it.
+    backend.caps.cones.push(ConeKind::Quadratic);
+    let sol = backend
+        .solve((&p).into(), &mut Options::default())
+        .map_err(fail)?;
+    ensure(sol.status == Status::NotSolved, "quadratic accepted")
 }

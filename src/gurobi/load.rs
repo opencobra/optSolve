@@ -74,6 +74,13 @@ pub(crate) struct Loaded<'e> {
     pub(crate) aux_columns: usize,
     /// Row index of each auxiliary column, in order.
     pub(crate) ranged_rows: Vec<usize>,
+    /// Conic rows appended after the m rows (feature 003; 0 without conic constraints).
+    pub(crate) k: usize,
+    /// Auxiliary columns of quadratic and rotated quadratic cones, appended after the ranged-row
+    /// auxiliary columns (feature 003 research R2).
+    pub(crate) conic_aux: usize,
+    /// Quadratic objective terms passed to Gurobi (positive control; 0 for an LP).
+    pub(crate) q_terms: usize,
     /// Which loading path ran.
     pub(crate) path: LoadPath,
     /// Largest number of `i32` entries held by the conversion buffer (0 for `SingleCall`).
@@ -97,14 +104,14 @@ impl Drop for Loaded<'_> {
 
 /// [`Error::Solver`] for a failed call on `model`, with the message of the model's own
 /// environment (the manual: "the new model gets a copy of this environment").
-fn model_error(model: NonNull<ffi::GRBmodel>, code: c_int) -> Error {
+pub(super) fn model_error(model: NonNull<ffi::GRBmodel>, code: c_int) -> Error {
     // SAFETY: `model` is live; GRBgetenv only returns the model's environment pointer (or
     // null, which `env::error` handles).
     let menv = unsafe { ffi::GRBgetenv(model.as_ptr()) };
     env::error(menv, code)
 }
 
-fn to_int(what: &'static str, value: usize) -> Result<c_int> {
+pub(super) fn to_int(what: &'static str, value: usize) -> Result<c_int> {
     c_int::try_from(value).map_err(|_| Error::TooLarge { what, value })
 }
 
@@ -206,7 +213,8 @@ fn rows<'a>(bounds: &RowBounds<'a>) -> Rows<'a> {
 
 /// Loads `problem` into a new Gurobi model in `env` (research R2, R3).
 ///
-/// The problem must be an LP: the backend rejects variable types and Q before calling this.
+/// Variable types are rejected by the backend before this is called; Q and conic data are
+/// added after the linear part (feature 003, `gurobi::load_qc`).
 pub(crate) fn load<'e>(env: &'e Env, problem: ProblemRef<'_, '_>) -> Result<Loaded<'e>> {
     let started = Instant::now();
     let mut loaded = match problem {
@@ -291,6 +299,14 @@ fn load_generic<'e, I: LoadIndex>(env: &'e Env, p: &Problem<'_, I>) -> Result<Lo
         }
         loaded.aux_columns = k;
         loaded.ranged_rows = rows.ranged_rows;
+    }
+
+    // Feature 003: quadratic objective and second-order cones (research R1, R2).
+    if let Some(q) = p.Q() {
+        super::load_qc::add_quadratic_objective(&mut loaded, q)?;
+    }
+    if let Some(conic) = p.conic().filter(|c| c.k() > 0) {
+        super::load_qc::add_conic(&mut loaded, conic)?;
     }
 
     let vendor = Instant::now();
@@ -394,6 +410,9 @@ fn owned<'e>(model: NonNull<ffi::GRBmodel>, path: LoadPath) -> Loaded<'e> {
         vendor_seconds: 0.0,
         total_seconds: 0.0,
         buffer_high_water: 0,
+        k: 0,
+        conic_aux: 0,
+        q_terms: 0,
         _env: PhantomData,
     }
 }

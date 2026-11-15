@@ -1,0 +1,41 @@
+{
+  "instance": "toy_qp_diag",
+  "class": "QP",
+  "format": "mps",
+  "file_sha256": "f7aeb1c19e7a111ad68176a38fdb8cd012315d04e246e0b5f1b1645e2cf2ffe0",
+  "construction": "Defined in tools/corpus/make_toy_instances.m and written by Gurobi (gurobi_write, MPS); read back by gurobi_read and by MOSEK (mosekopt read), both equal to the definition. Gurobi model.Q = Q/2 (Gurobi's objective is x'Qx); the QUADOBJ section holds the upper triangle of Q (objective 1/2 x'Qx).",
+  "sense": "min",
+  "m": 1,
+  "n": 2,
+  "nnz": 2,
+  "k": 0,
+  "nnz_F": 0,
+  "cones": [],
+  "expected_status": "Optimal",
+  "expected_objective": 1,
+  "expected_x": [
+    1,
+    1
+  ],
+  "derivation": "Minimise 1/2 (x1^2 + x2^2) subject to x1 + x2 = 2, x >= 0. The objective is strictly convex, so the optimum is unique; stationarity of the Lagrangian gives x1 = x2, hence x = (1, 1) and objective 1/2 (1 + 1) = 1 (the bounds are inactive).",
+  "independent_checks": [
+    {
+      "tool": "MOSEK",
+      "version": "11.2.0",
+      "how": "file",
+      "status": "Optimal",
+      "objective": 0.99999999999995515
+    },
+    {
+      "tool": "Gurobi",
+      "version": "13.0.3",
+      "how": "file",
+      "status": "Optimal",
+      "objective": 1
+    }
+  ],
+  "extracting_script": "tools/corpus/make_toy_instances.m",
+  "optsolver_commit": "89776f4fe3ad524e9df610f7e20b24d6b3b2a6a3",
+  "optsolver_worktree_clean": false,
+  "licence": "MIT OR Apache-2.0, project-authored"
+}

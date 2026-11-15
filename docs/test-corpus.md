@@ -37,6 +37,22 @@ nonzeros.
 | `unbounded` | LP (small) | 1 | 2 | 2 | — | licensed | Unbounded |
 | `ranged` | LP (small) | 2 | 2 | 4 | — | licensed | Optimal, objective 1 |
 | `empty_column` | LP (small) | 1 | 2 | 1 | — | licensed | Optimal, objective −3 |
+| `toy_lp_max` | LP (toy) | 2 | 2 | 4 | — | licensed | Optimal, objective 5 |
+| `toy_lp_mixed` | LP (toy) | 3 | 3 | 7 | — | licensed | Optimal, objective 5 |
+| `toy_qp_diag` | QP (toy) | 1 | 2 | 2 | — | licensed | Optimal, objective 1 |
+| `toy_qp_offdiag` | QP (toy) | 1 | 2 | 2 | — | licensed | Optimal, objective 3 |
+| `toy_qp_max` | QP (toy) | 1 | 2 | 2 | — | licensed | Optimal, objective -1.75 |
+| `toy_clp_quad` | CLP (toy) | 2 | 3 | 2 | 3 | licensed | Optimal, objective 5 |
+| `toy_clp_rquad` | CLP (toy) | 2 | 3 | 2 | 3 | licensed | Optimal, objective 2 |
+| `toy_clp_pexp` | CLP (toy) | 2 | 3 | 2 | 3 | licensed | Optimal, objective 2.71828 |
+| `toy_clp_dexp` | CLP (toy) | 2 | 3 | 2 | 3 | licensed | Optimal, objective 0.367879 |
+| `toy_clp_ppow` | CLP (toy) | 2 | 3 | 2 | 3 | licensed | Optimal, objective 1 |
+| `toy_clp_dpow` | CLP (toy) | 2 | 3 | 2 | 3 | licensed | Optimal, objective 4 |
+| `toy_clp_rplus` | CLP (toy) | 1 | 2 | 1 | 2 | licensed | Optimal, objective 2 |
+| `toy_clp_rzero` | CLP (toy) | 0 | 2 | 0 | 2 | licensed | Optimal, objective 3 |
+| `toy_clp_psd2` | CLP (toy) | 1 | 3 | 1 | 3 | licensed | Optimal, objective 2 |
+| `toy_clp_psd3` | CLP (toy) | 3 | 6 | 3 | 6 | licensed | Optimal, objective 2 |
+| `toy_clp_infeasible` | CLP (toy) | 2 | 3 | 2 | 3 | licensed | Infeasible |
 
 "Licensed" tests run wherever the solver and its licence are present and are skipped visibly
 otherwise. "Heavy" tests also need `OPTSOLVER_HEAVY_TESTS=1`. Note that the CLP fixture
@@ -202,6 +218,39 @@ its licence. Each has a provenance record with its purpose and expected outcome.
 | `unbounded` | maximise x1 + x2 with x1 = x2 and no upper bounds | Unbounded |
 | `ranged` | 1 ≤ x1 + x2 ≤ 3 (MPS RANGES on an L row) and x1 − x2 ≥ −1; minimise x1 + 2 x2 | Optimal, x = (1, 0), objective 1 |
 | `empty_column` | minimise x1 − x2 with x1 = 2, 0 ≤ x2 ≤ 5; column x2 has no constraint entries | Optimal, objective −3 |
+
+## Toy instances (feature 003)
+
+Small self-contained problems for every problem class and cone kind, declared in
+`project.yml` (`test_corpus.toy_instances`, which also lists the four small fixtures above), in
+`tests/fixtures/small`: LP and QP as MPS (written by Gurobi; the two maximise files use the
+two-line `OBJSENSE` / `MAX` form, which MOSEK also reads), conic programmes as MOSEK JTASK (one
+per cone kind, including the semidefinite cone in svec layout). Each was defined, written, read
+back and solved by `tools/corpus/make_toy_instances.m`, which stops unless every independent
+solver check equals the closed-form optimum recorded, with its derivation, in the provenance
+record. Conic instances are also solved in maximise form by the tests (c negated, sense flipped,
+objective negated). Their tests need neither the variational kinetics repository nor the large
+fixtures, and the cross-solver comparison uses them (Gurobi supports the LP, QP, quadratic,
+rotated quadratic, nonnegative and zero instances).
+
+| Instance | Format | Structure | Expected | Independent checks |
+|---|---|---|---|---|
+| `toy_lp_max` | MPS | linear | Optimal, objective 5 | MOSEK and Gurobi |
+| `toy_lp_mixed` | MPS | linear | Optimal, objective 5 | MOSEK and Gurobi |
+| `toy_qp_diag` | MPS | quadratic objective | Optimal, objective 1 | MOSEK and Gurobi |
+| `toy_qp_offdiag` | MPS | quadratic objective | Optimal, objective 3 | MOSEK and Gurobi |
+| `toy_qp_max` | MPS | quadratic objective | Optimal, objective -1.75 | MOSEK and Gurobi |
+| `toy_clp_quad` | JTASK | quadratic (3) | Optimal, objective 5 | MOSEK and Gurobi |
+| `toy_clp_rquad` | JTASK | rotated quadratic (3) | Optimal, objective 2 | MOSEK and Gurobi |
+| `toy_clp_pexp` | JTASK | primal exponential (3) | Optimal, objective 2.71828 | MOSEK |
+| `toy_clp_dexp` | JTASK | dual exponential (3) | Optimal, objective 0.367879 | MOSEK |
+| `toy_clp_ppow` | JTASK | primal power (3) | Optimal, objective 1 | MOSEK |
+| `toy_clp_dpow` | JTASK | dual power (3) | Optimal, objective 4 | MOSEK |
+| `toy_clp_rplus` | JTASK | nonnegative (2) | Optimal, objective 2 | MOSEK and Gurobi |
+| `toy_clp_rzero` | JTASK | zero (2) | Optimal, objective 3 | MOSEK and Gurobi |
+| `toy_clp_psd2` | JTASK | positive semidefinite (3) | Optimal, objective 2 | MOSEK |
+| `toy_clp_psd3` | JTASK | positive semidefinite (6) | Optimal, objective 2 | MOSEK |
+| `toy_clp_infeasible` | JTASK | quadratic (3) | Infeasible | MOSEK and Gurobi |
 
 ## Licence
 

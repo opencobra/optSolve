@@ -33,7 +33,14 @@ impl Backend for Env {
     fn capabilities(&self) -> Capabilities {
         Capabilities {
             backend: "gurobi",
-            problem_classes: vec![ProblemClass::Lp],
+            problem_classes: vec![ProblemClass::Lp, ProblemClass::Qp, ProblemClass::Conic],
+            // Second-order cones only (feature 003, ADR-0003).
+            cones: vec![
+                crate::conic::ConeKind::Quadratic,
+                crate::conic::ConeKind::RotatedQuadratic,
+                crate::conic::ConeKind::Nonnegative,
+                crate::conic::ConeKind::Zero,
+            ],
             options: params::MAPPINGS.to_vec(),
             certificates: true,
             basis: true,
@@ -88,6 +95,22 @@ impl Backend for Env {
     }
 }
 
+/// The class a problem is solved as (conic before QP: Gurobi takes both, but a problem with
+/// cones needs `QCPDual`).
+fn class_of(problem: ProblemRef<'_, '_>) -> ProblemClass {
+    let (k, q) = match problem {
+        ProblemRef::Usize(p) => (p.k(), p.Q().is_some()),
+        ProblemRef::I32(p) => (p.k(), p.Q().is_some()),
+    };
+    if k > 0 {
+        ProblemClass::Conic
+    } else if q {
+        ProblemClass::Qp
+    } else {
+        ProblemClass::Lp
+    }
+}
+
 fn dims(problem: ProblemRef<'_, '_>) -> (usize, usize) {
     match problem {
         ProblemRef::Usize(p) => (p.m(), p.n()),
@@ -111,8 +134,9 @@ fn run(
     // SAFETY: `model` is a live model owned by `loaded`; GRBgetenv returns the model's own
     // environment, valid while the model lives (Gurobi C reference, GRBgetenv).
     let model_env = unsafe { ffi::GRBgetenv(model) };
-    let effective_parameters = params::apply(model_env, options)?;
-    let tolerances = params::effective_tolerances(model_env)?;
+    let class = class_of(problem);
+    let effective_parameters = params::apply(model_env, options, class)?;
+    let tolerances = params::effective_tolerances(model_env, class)?;
     let load_seconds = t_load.elapsed().as_secs_f64();
 
     let progress = options.progress.take();
@@ -123,6 +147,9 @@ fn run(
     // moved until `uninstall` below.
     let rc = unsafe { ffi::GRBoptimize(model) };
     let solve_seconds = t_solve.elapsed().as_secs_f64();
+    // Read the error message before any other Gurobi call: a later successful call (such as
+    // removing the callback) clears it (constitution III; found in feature 003, T018).
+    let optimize_error = (rc != 0).then(|| env::error(model_env, rc));
     callback::uninstall(model)?;
     let panic = callback::take_panic(&mut state);
     options.progress = state.into_progress();
@@ -130,8 +157,8 @@ fn run(
         drop(loaded);
         std::panic::resume_unwind(payload);
     }
-    if rc != 0 {
-        return Err(env::error(model_env, rc));
+    if let Some(err) = optimize_error {
+        return Err(err);
     }
 
     let t_extract = Instant::now();
@@ -306,6 +333,19 @@ fn extract(
         let mut z = vec![0.0; n];
         let have_y = dbl_array(model, c"Pi", 0, &mut y);
         let have_z = dbl_array(model, c"RC", 0, &mut z);
+        // Conic duals: s = Pi of the k conic rows after the m rows (feature 003 research R3).
+        let mut s_dual = vec![0.0; loaded.k];
+        let have_s = dbl_array(model, c"Pi", m, &mut s_dual);
+        if have_s && loaded.k > 0 {
+            match out.as_mut() {
+                Some(b) => {
+                    if let Some(dst) = b.s.as_deref_mut() {
+                        dst.copy_from_slice(&s_dual);
+                    }
+                }
+                None => s.s = s_dual,
+            }
+        }
         if have_y && have_z {
             // Gurobi reports one reduced cost per variable; its sign gives the bound it
             // belongs to: z_l = the part with σz ≥ 0, z_u = the part with σz ≤ 0 (z = z_l − z_u).
@@ -447,6 +487,8 @@ pub struct LoadReport {
     pub buffer_high_water: usize,
     /// Auxiliary columns added for ranged rows.
     pub aux_columns: usize,
+    /// Quadratic objective terms passed to the solver (positive control of the QP path).
+    pub q_terms: usize,
     /// Seconds spent inside Gurobi's load calls.
     pub vendor_seconds: f64,
     /// Seconds of the whole load; the difference is optSolver's own loading work.
@@ -467,6 +509,7 @@ impl Env {
             path,
             blocks,
             buffer_high_water: loaded.buffer_high_water,
+            q_terms: loaded.q_terms,
             aux_columns: loaded.aux_columns,
             vendor_seconds: loaded.vendor_seconds,
             total_seconds: loaded.total_seconds,

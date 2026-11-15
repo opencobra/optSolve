@@ -45,9 +45,9 @@ pub fn check(options: &Options<'_>, capabilities: &Capabilities) -> Result<()> {
 
 /// Rejects a problem the backend cannot solve, before any solver call (FR-013): variable
 /// types need [`ProblemClass::Milp`], Q needs [`ProblemClass::Qp`], conic constraints need
-/// [`ProblemClass::Conic`], and a problem with none of these needs [`ProblemClass::Lp`]. The
-/// error is [`Error::Unsupported`] naming the field (`"var_types"`, `"Q"`, `"conic"` or
-/// `"LP"`) and the backend.
+/// [`ProblemClass::Conic`] and every cone kind in [`Capabilities::cones`], and a problem with
+/// none of these needs [`ProblemClass::Lp`]. The error is [`Error::Unsupported`] naming the field
+/// (`"var_types"`, `"Q"`, `"conic"`, a cone kind's name, or `"LP"`) and the backend.
 pub fn check_problem(problem: ProblemRef<'_, '_>, capabilities: &Capabilities) -> Result<()> {
     let (has_var_types, has_Q, has_conic) = match problem {
         ProblemRef::Usize(p) => (
@@ -76,6 +76,18 @@ pub fn check_problem(problem: ProblemRef<'_, '_>, capabilities: &Capabilities) -
     }
     if has_conic && !supports(ProblemClass::Conic) {
         return unsupported("conic");
+    }
+    // Every cone kind must be declared (feature 003, ADR-0003).
+    let cones = match problem {
+        ProblemRef::Usize(p) => p.conic().map(|c| c.cones()),
+        ProblemRef::I32(p) => p.conic().map(|c| c.cones()),
+    };
+    if let Some(cone) = cones
+        .into_iter()
+        .flatten()
+        .find(|c| !capabilities.cones.contains(&c.kind()))
+    {
+        return unsupported(cone.kind().name());
     }
     if !has_var_types && !has_Q && !has_conic && !supports(ProblemClass::Lp) {
         return unsupported("LP");

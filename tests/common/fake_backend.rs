@@ -17,6 +17,7 @@ impl FakeBackend {
             caps: Capabilities {
                 backend: "fake",
                 problem_classes: vec![ProblemClass::Lp],
+                cones: Vec::new(),
                 options: vec![
                     OptionMapping {
                         field: "time_limit",

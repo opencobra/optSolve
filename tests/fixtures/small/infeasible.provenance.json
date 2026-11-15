@@ -11,5 +11,21 @@
   "nnz": 2,
   "objective_sense": "min",
   "licence": "MIT OR Apache-2.0 (part of optSolver)",
-  "mps_sha256": "019d0387b0df01babb1399aa826a4c53f2b247c91899ed05d72fead4ff1ea173"
+  "mps_sha256": "019d0387b0df01babb1399aa826a4c53f2b247c91899ed05d72fead4ff1ea173",
+  "independent_checks": [
+    {
+      "tool": "MOSEK",
+      "version": "11.2.0",
+      "how": "file",
+      "status": "Infeasible",
+      "objective": null
+    },
+    {
+      "tool": "Gurobi",
+      "version": "13.0.3",
+      "how": "file",
+      "status": "Infeasible",
+      "objective": null
+    }
+  ]
 }

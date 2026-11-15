@@ -1,0 +1,47 @@
+{
+  "instance": "toy_clp_rplus",
+  "class": "Conic",
+  "format": "jtask",
+  "file_sha256": "2c668eb717af5dfe2a046c97235557cb6c7fcf685ec4f880b04db2516db2b0a7",
+  "construction": "Defined in tools/corpus/make_toy_instances.m and written by MOSEK (mosekopt write, JTASK) from prob.a, c, blc, buc, blx, bux, f, g, accs; read back by mosekopt read, bit-for-bit equal to the written arrays.",
+  "sense": "min",
+  "m": 1,
+  "n": 2,
+  "nnz": 1,
+  "k": 2,
+  "nnz_F": 2,
+  "cones": [
+    {
+      "kind": "nonnegative",
+      "dimension": 2,
+      "alpha": null
+    }
+  ],
+  "expected_status": "Optimal",
+  "expected_objective": 2,
+  "expected_x": [
+    0,
+    2
+  ],
+  "derivation": "Nonnegative cone of dimension 2 on (x0, x1): x0, x1 >= 0. With x1 = 2 fixed, minimising x0 + x1 gives x0 = 0 (its lower limit), unique; objective 0 + 2 = 2.",
+  "independent_checks": [
+    {
+      "tool": "MOSEK",
+      "version": "11.2.0",
+      "how": "file",
+      "status": "Optimal",
+      "objective": 2
+    },
+    {
+      "tool": "Gurobi",
+      "version": "13.0.3",
+      "how": "built from definition",
+      "status": "Optimal",
+      "objective": 2
+    }
+  ],
+  "extracting_script": "tools/corpus/make_toy_instances.m",
+  "optsolver_commit": "89776f4fe3ad524e9df610f7e20b24d6b3b2a6a3",
+  "optsolver_worktree_clean": false,
+  "licence": "MIT OR Apache-2.0, project-authored"
+}

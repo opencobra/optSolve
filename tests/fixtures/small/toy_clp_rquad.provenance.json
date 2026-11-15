@@ -1,0 +1,48 @@
+{
+  "instance": "toy_clp_rquad",
+  "class": "Conic",
+  "format": "jtask",
+  "file_sha256": "2d90a396f3d3b64dd7770d6eb2341fa4d758a27d5c417481ca1364012c36479e",
+  "construction": "Defined in tools/corpus/make_toy_instances.m and written by MOSEK (mosekopt write, JTASK) from prob.a, c, blc, buc, blx, bux, f, g, accs; read back by mosekopt read, bit-for-bit equal to the written arrays.",
+  "sense": "min",
+  "m": 2,
+  "n": 3,
+  "nnz": 2,
+  "k": 3,
+  "nnz_F": 3,
+  "cones": [
+    {
+      "kind": "rotated quadratic",
+      "dimension": 3,
+      "alpha": null
+    }
+  ],
+  "expected_status": "Optimal",
+  "expected_objective": 2,
+  "expected_x": [
+    2,
+    1,
+    2
+  ],
+  "derivation": "Rotated quadratic cone of dimension 3 on (x0, x1, x2): 2 x0 x1 >= x2^2, x0, x1 >= 0. With x1 = 1 and x2 = 2 fixed, 2 x0 >= 4, so the minimum of x0 is 2, unique; objective 2.",
+  "independent_checks": [
+    {
+      "tool": "MOSEK",
+      "version": "11.2.0",
+      "how": "file",
+      "status": "Optimal",
+      "objective": 2
+    },
+    {
+      "tool": "Gurobi",
+      "version": "13.0.3",
+      "how": "built from definition",
+      "status": "Optimal",
+      "objective": 2.00000000003338
+    }
+  ],
+  "extracting_script": "tools/corpus/make_toy_instances.m",
+  "optsolver_commit": "89776f4fe3ad524e9df610f7e20b24d6b3b2a6a3",
+  "optsolver_worktree_clean": false,
+  "licence": "MIT OR Apache-2.0, project-authored"
+}

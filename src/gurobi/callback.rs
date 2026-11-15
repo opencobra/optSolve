@@ -252,7 +252,12 @@ mod tests {
             ..Options::default()
         };
         // SAFETY: live model.
-        params::apply(unsafe { ffi::GRBgetenv(model.0) }, &o).unwrap();
+        params::apply(
+            unsafe { ffi::GRBgetenv(model.0) },
+            &o,
+            crate::backend::ProblemClass::Lp,
+        )
+        .unwrap();
         model
     }
 
@@ -264,7 +269,12 @@ mod tests {
             ..Options::default()
         };
         // SAFETY: live model.
-        params::apply(unsafe { ffi::GRBgetenv(model.0) }, &o).unwrap();
+        params::apply(
+            unsafe { ffi::GRBgetenv(model.0) },
+            &o,
+            crate::backend::ProblemClass::Lp,
+        )
+        .unwrap();
     }
 
     fn optimize(model: &Model) -> c_int {

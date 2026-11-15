@@ -18,8 +18,12 @@
 //!   indices sorted within each column; a repeated (row, column) pair is rejected;
 //! * c and g are sparse vectors; an absent or empty c or g is zero;
 //! * domains map to [`Cone`]s: `quad` d, `rquad` d, `pexp`, `dexp`, `rplus` d, `rzero` d,
-//!   `ppow` d [α], `dpow` d [α] (encoding confirmed in MOSEK's JSON format specification).
-//!   Other types (`svecpsd`, `r`, `rminus`, geometric-mean cones) are rejected by name;
+//!   `ppow` d [α], `dpow` d [α], `svecpsd` d (positive semidefinite cone of order r with
+//!   r(r + 1)/2 = d, svec layout with the √2 in F). MOSEK's JSON format page gives the generic
+//!   shape `[type, dim, weights]` but no type names: these names are observed in MOSEK 11.2.0
+//!   writer output (feature 003 research R7). Power weights are kept as written (unnormalised);
+//!   [`Cone`] normalises them. Other types (`r`, `rminus`, geometric-mean cones) are rejected by
+//!   name;
 //! * the cones of K cover consecutive rows of Fx + g in order, so the concatenated `afeidx`
 //!   lists of the ACCs must be exactly 0, 1, …, k − 1, and the dimension of each ACC's domain
 //!   must equal the length of its `afeidx` list;
@@ -508,6 +512,18 @@ fn domain(t: &Json, what: &str) -> Result<Cone, String> {
             shape(2)?;
             Cone::Zero(dim()?)
         }
+        "svecpsd" => {
+            shape(2)?;
+            let d = dim()?;
+            // r(r + 1)/2 = d: r = (√(8d + 1) − 1)/2 must be an integer.
+            let r = (1..=d).find(|r| r * (r + 1) / 2 >= d).unwrap_or(0);
+            if r == 0 || r * (r + 1) / 2 != d {
+                return Err(format!(
+                    "{what}: svecpsd dimension {d} is not r(r + 1)/2 for an integer order r"
+                ));
+            }
+            Cone::PositiveSemidefinite { order: r }
+        }
         "ppow" | "dpow" => {
             shape(3)?;
             let dim = dim()?;
@@ -524,7 +540,7 @@ fn domain(t: &Json, what: &str) -> Result<Cone, String> {
         other => {
             return Err(format!(
                 "{what}: unsupported domain type {other:?} (supported: quad, rquad, pexp, dexp, \
-                 ppow, dpow, rplus, rzero)"
+                 ppow, dpow, rplus, rzero, svecpsd)"
             ));
         }
     })
@@ -812,8 +828,8 @@ fn no_matrix_and_no_cones() -> Result<(), super::Failed> {
 
 fn domain_types() -> Result<(), super::Failed> {
     let types = r#"[["quad",3],["rquad",3],["pexp"],["dexp"],["rplus",2],["rzero",2],
-["ppow",3,[0.25,0.75]],["dpow",4,[1,2]]]"#;
-    let p = read_jtask_str(&conic_only(types, &[3, 3, 3, 3, 2, 2, 3, 4])).map_err(fail)?;
+["ppow",3,[0.25,0.75]],["dpow",4,[1,2]],["svecpsd",6]]"#;
+    let p = read_jtask_str(&conic_only(types, &[3, 3, 3, 3, 2, 2, 3, 4, 6])).map_err(fail)?;
     let want = vec![
         Cone::Quadratic(3),
         Cone::RotatedQuadratic(3),
@@ -829,9 +845,10 @@ fn domain_types() -> Result<(), super::Failed> {
             dim: 4,
             alpha: vec![1.0, 2.0],
         },
+        Cone::PositiveSemidefinite { order: 3 },
     ];
     ensure(p.cones == want, format!("cones {:?}", p.cones))?;
-    ensure(p.k == 23 && p.g == vec![0.0; 23], "k and zero g")?;
+    ensure(p.k == 29 && p.g == vec![0.0; 29], "k and zero g")?;
     p.problem().map(|_| ()).map_err(fail)
 }
 
@@ -955,8 +972,14 @@ const MALFORMED: &[(&str, &str, &str, &str)] = &[
     (
         "unknown_domain",
         "[\"pexp\"]",
-        "[\"svecpsd\",3]",
-        "unsupported domain type \"svecpsd\"",
+        "[\"r\",3]",
+        "unsupported domain type \"r\"",
+    ),
+    (
+        "svecpsd_not_triangular",
+        "[\"pexp\"]",
+        "[\"svecpsd\",4]",
+        "is not r(r + 1)/2",
     ),
     (
         "domain_dimension",

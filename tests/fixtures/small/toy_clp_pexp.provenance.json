@@ -1,0 +1,41 @@
+{
+  "instance": "toy_clp_pexp",
+  "class": "Conic",
+  "format": "jtask",
+  "file_sha256": "ea0eddcde4b25b1d3a064753011a9bdbb300dac8348413e948d3ab453a973c3c",
+  "construction": "Defined in tools/corpus/make_toy_instances.m and written by MOSEK (mosekopt write, JTASK) from prob.a, c, blc, buc, blx, bux, f, g, accs; read back by mosekopt read, bit-for-bit equal to the written arrays.",
+  "sense": "min",
+  "m": 2,
+  "n": 3,
+  "nnz": 2,
+  "k": 3,
+  "nnz_F": 3,
+  "cones": [
+    {
+      "kind": "primal exponential",
+      "dimension": 3,
+      "alpha": null
+    }
+  ],
+  "expected_status": "Optimal",
+  "expected_objective": 2.7182818284590451,
+  "expected_x": [
+    2.7182818284590451,
+    1,
+    1
+  ],
+  "derivation": "Primal exponential cone on (x0, x1, x2): x0 >= x1 exp(x2 / x1), x1 > 0. With x1 = 1 and x2 = 1 fixed, x0 >= exp(1), so the minimum is e, attained only at x0 = e; objective e.",
+  "independent_checks": [
+    {
+      "tool": "MOSEK",
+      "version": "11.2.0",
+      "how": "file",
+      "status": "Optimal",
+      "objective": 2.7182818284590451
+    }
+  ],
+  "extracting_script": "tools/corpus/make_toy_instances.m",
+  "optsolver_commit": "89776f4fe3ad524e9df610f7e20b24d6b3b2a6a3",
+  "optsolver_worktree_clean": false,
+  "licence": "MIT OR Apache-2.0, project-authored"
+}

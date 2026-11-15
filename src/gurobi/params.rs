@@ -8,7 +8,7 @@ use core::ffi::{CStr, c_double, c_int};
 use std::ffi::CString;
 
 use super::{env, ffi};
-use crate::backend::OptionMapping;
+use crate::backend::{OptionMapping, ProblemClass};
 use crate::error::{Error, Result};
 use crate::options::{Method, Options, ParamValue, Presolve, defaults};
 use crate::verify::Tolerances;
@@ -189,12 +189,21 @@ fn invalid_raw(detail: String) -> Error {
 pub(crate) fn apply(
     model_env: *mut ffi::GRBenv,
     options: &Options<'_>,
+    class: ProblemClass,
 ) -> Result<Vec<(String, ParamValue)>> {
     let mut r = Recorder {
         env: model_env,
         set: Vec::new(),
     };
     r.int(c"OutputFlag", c_int::from(options.effective_solver_log()))?;
+    // Feature 003 (research R1, R3): a non-convex Q is an error, not a silent switch to spatial
+    // branching; duals of second-order cones need QCPDual. Before the raw route, which may
+    // override them.
+    match class {
+        ProblemClass::Qp => r.int(c"NonConvex", 0)?,
+        ProblemClass::Conic => r.int(c"QCPDual", 1)?,
+        _ => {}
+    }
     if let Some(v) = options.time_limit {
         r.dbl(c"TimeLimit", v)?;
     }
@@ -299,12 +308,22 @@ fn apply_raw(r: &mut Recorder, name: &str, value: &ParamValue) -> Result<()> {
 }
 
 /// Effective verification tolerances read back from `model_env` after [`apply`] (research
-/// R5, CHK011): `FeasibilityTol` (primal), `OptimalityTol` (dual), `IntFeasTol`
-/// (integrality).
-pub(crate) fn effective_tolerances(model_env: *mut ffi::GRBenv) -> Result<Tolerances> {
+/// R5, CHK011; feature 003 research R5): `FeasibilityTol` (primal), `OptimalityTol` (dual;
+/// for QP the larger of it and `BarConvTol`, for conic problems of it and `BarQCPConvTol`,
+/// since those are solved by barrier), `IntFeasTol` (integrality).
+pub(crate) fn effective_tolerances(
+    model_env: *mut ffi::GRBenv,
+    class: ProblemClass,
+) -> Result<Tolerances> {
+    let optimality = get_dbl(model_env, c"OptimalityTol")?;
+    let dual = match class {
+        ProblemClass::Qp => optimality.max(get_dbl(model_env, c"BarConvTol")?),
+        ProblemClass::Conic => optimality.max(get_dbl(model_env, c"BarQCPConvTol")?),
+        _ => optimality,
+    };
     Ok(Tolerances {
         primal: get_dbl(model_env, c"FeasibilityTol")?,
-        dual: get_dbl(model_env, c"OptimalityTol")?,
+        dual,
         integrality: get_dbl(model_env, c"IntFeasTol")?,
     })
 }
@@ -404,7 +423,7 @@ mod tests {
             ],
             ..Options::default()
         };
-        let set = apply(e, &o).expect("parameters accepted");
+        let set = apply(e, &o, ProblemClass::Lp).expect("parameters accepted");
 
         assert_eq!(get_int(e, c"OutputFlag"), 0);
         assert_eq!(get_dbl(e, c"TimeLimit").unwrap(), 12.5);
@@ -446,7 +465,7 @@ mod tests {
         assert!(set.contains(&("MIPGap".into(), ParamValue::Double(0.0))));
         assert!(set.contains(&("OutputFlag".into(), ParamValue::Int(0))));
 
-        let tol = effective_tolerances(e).unwrap();
+        let tol = effective_tolerances(e, ProblemClass::Lp).unwrap();
         assert_eq!(tol.primal, 1e-7);
         assert_eq!(tol.dual, 1e-8);
         assert!(tol.integrality > 0.0);
@@ -455,7 +474,7 @@ mod tests {
     #[test]
     fn default_options_set_only_output_flag() {
         let env = started_env();
-        let set = apply(env.raw(), &Options::default()).unwrap();
+        let set = apply(env.raw(), &Options::default(), ProblemClass::Lp).unwrap();
         assert_eq!(set, vec![("OutputFlag".to_owned(), ParamValue::Int(0))]);
     }
 
@@ -466,7 +485,7 @@ mod tests {
             solver_log: Some(true),
             ..Options::default()
         };
-        apply(env.raw(), &o).unwrap();
+        apply(env.raw(), &o, ProblemClass::Lp).unwrap();
         assert_eq!(get_int(env.raw(), c"OutputFlag"), 1);
         // Restore so that later calls on this environment print nothing.
         configure_new_environment(env.raw()).unwrap();
@@ -478,7 +497,7 @@ mod tests {
             raw,
             ..Options::default()
         };
-        apply(env.raw(), &o).expect_err("rejected")
+        apply(env.raw(), &o, ProblemClass::Lp).expect_err("rejected")
     }
 
     #[test]

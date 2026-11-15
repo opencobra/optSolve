@@ -12,6 +12,13 @@ fn main() {
     trials.extend(us1_trials());
     trials.extend(us3_trials(&registry));
     trials.extend(f002_trials(&registry));
+    trials.extend(toy_trials(&registry));
+    // Feature 003 T017: cross-solver comparison (each pair of declared backends).
+    trials.extend(common::compare::self_tests());
+    match common::compare::items() {
+        Ok(items) => trials.extend(common::compare::trials(&registry, &items)),
+        Err(e) => trials.push(Trial::test("compare::items", move || Err(common::fail(&e)))),
+    }
     libtest_mimic::run(&args, trials).exit();
 }
 
@@ -340,6 +347,10 @@ fn f002_trials(registry: &Registry) -> Vec<Trial> {
         // User Story 4 (T029).
         ("f002::t029_corpus_qp", f002::t029_corpus_qp),
         ("f002::t029_small_qps", f002::t029_small_qps),
+        (
+            "f003::t018_nonconvex_q_is_an_error",
+            f002::t018_nonconvex_q_is_an_error,
+        ),
         // User Story 5 (T034).
         ("f002::t034_conic_cases", f002::t034_conic_cases),
         ("f002::t034_conic_infeasible", f002::t034_conic_infeasible),
@@ -419,6 +430,7 @@ fn us1_corpus_document_matches_declaration() -> Result<(), common::Failed> {
         let candidates = [
             dir.join(format!("{name}.mps")),
             dir.join("small").join(format!("{name}.mps")),
+            dir.join("small").join(format!("{name}.jtask")),
             dir.join("qp").join(format!("{name}.provenance.json")),
             dir.join("clp").join(format!("{name}.jtask")),
         ];
@@ -432,4 +444,22 @@ fn us1_corpus_document_matches_declaration() -> Result<(), common::Failed> {
         listed >= declared.len(),
         format!("only {listed} fixtures listed in the tables"),
     )
+}
+
+/// Feature 003 T014: every toy instance on every declared backend.
+fn toy_trials(registry: &Registry) -> Vec<Trial> {
+    match common::fixtures::toy_instances() {
+        Ok(names) => names
+            .into_iter()
+            .flat_map(|name| {
+                let label = format!("toy::{name}");
+                let test: common::BackendClosure =
+                    std::sync::Arc::new(move |b| common::toy::toy_trial(b, &name));
+                registry.trials_dyn(&label, test)
+            })
+            .collect(),
+        Err(e) => vec![Trial::test("toy::declaration", move || {
+            Err(common::fail(&e))
+        })],
+    }
 }

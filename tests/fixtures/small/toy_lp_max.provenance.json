@@ -1,0 +1,41 @@
+{
+  "instance": "toy_lp_max",
+  "class": "LP",
+  "format": "mps",
+  "file_sha256": "30307e3fac333757ba559a059299610b3b25978a513454168865d19ec457c8ad",
+  "construction": "Defined in tools/corpus/make_toy_instances.m and written by Gurobi (gurobi_write, MPS), then its one-line \"OBJSENSE MAX\" rewritten as the two-line form \"OBJSENSE\" / \"    MAX\" (MOSEK 11.2 rejects the one-line form with error 1100 at the next line); read back by gurobi_read and by MOSEK (mosekopt read), both equal to the definition.",
+  "sense": "max",
+  "m": 2,
+  "n": 2,
+  "nnz": 4,
+  "k": 0,
+  "nnz_F": 0,
+  "cones": [],
+  "expected_status": "Optimal",
+  "expected_objective": 5,
+  "expected_x": [
+    3,
+    1
+  ],
+  "derivation": "Maximise x1 + 2 x2 subject to x1 + x2 <= 4, x1 + 3 x2 <= 6, x >= 0. The feasible polygon has vertices (0, 0), (4, 0), (0, 2) and (3, 1) (the two rows active: subtracting gives 2 x2 = 2). Objective values 0, 4, 4, 5: the maximum 5 is attained only at (3, 1), since every other vertex is strictly smaller.",
+  "independent_checks": [
+    {
+      "tool": "MOSEK",
+      "version": "11.2.0",
+      "how": "file",
+      "status": "Optimal",
+      "objective": 5
+    },
+    {
+      "tool": "Gurobi",
+      "version": "13.0.3",
+      "how": "file",
+      "status": "Optimal",
+      "objective": 5
+    }
+  ],
+  "extracting_script": "tools/corpus/make_toy_instances.m",
+  "optsolver_commit": "89776f4fe3ad524e9df610f7e20b24d6b3b2a6a3",
+  "optsolver_worktree_clean": false,
+  "licence": "MIT OR Apache-2.0, project-authored"
+}

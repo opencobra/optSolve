@@ -1,0 +1,42 @@
+{
+  "instance": "toy_lp_mixed",
+  "class": "LP",
+  "format": "mps",
+  "file_sha256": "4920663c3532e7e16f69e94d24fd6e2b8a6884b07b49293418b111a2bf1837a5",
+  "construction": "Defined in tools/corpus/make_toy_instances.m and written by Gurobi (gurobi_write, MPS); read back by gurobi_read and by MOSEK (mosekopt read), both equal to the definition.",
+  "sense": "min",
+  "m": 3,
+  "n": 3,
+  "nnz": 7,
+  "k": 0,
+  "nnz_F": 0,
+  "cones": [],
+  "expected_status": "Optimal",
+  "expected_objective": 5,
+  "expected_x": [
+    1,
+    0,
+    3
+  ],
+  "derivation": "Minimise 2 x1 + 3 x2 + x3 subject to x1 + x2 + x3 = 4, x1 - x2 >= 1, x2 + x3 <= 3, 0 <= x <= 10. Eliminating x3 = 4 - x1 - x2 gives objective 4 + x1 + 2 x2 with x1 - x2 >= 1, x1 >= 1 (from x2 + x3 <= 3) and x1 + x2 <= 4 (from x3 >= 0). Since x1 >= 1 and x2 >= 0 with positive coefficients, the minimum 4 + 1 + 0 = 5 is attained only at x1 = 1, x2 = 0, hence x3 = 3.",
+  "independent_checks": [
+    {
+      "tool": "MOSEK",
+      "version": "11.2.0",
+      "how": "file",
+      "status": "Optimal",
+      "objective": 5
+    },
+    {
+      "tool": "Gurobi",
+      "version": "13.0.3",
+      "how": "file",
+      "status": "Optimal",
+      "objective": 5
+    }
+  ],
+  "extracting_script": "tools/corpus/make_toy_instances.m",
+  "optsolver_commit": "89776f4fe3ad524e9df610f7e20b24d6b3b2a6a3",
+  "optsolver_worktree_clean": false,
+  "licence": "MIT OR Apache-2.0, project-authored"
+}

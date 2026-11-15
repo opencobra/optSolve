@@ -1,6 +1,9 @@
 //! A small MPS reader for test fixtures (research R11). Test-only code; no dependency.
 //!
-//! Reads the sections NAME, OBJSENSE, ROWS, COLUMNS, RHS, RANGES, BOUNDS and ENDATA, in free
+//! Reads the sections NAME, OBJSENSE, ROWS, COLUMNS, RHS, RANGES, BOUNDS, the quadratic
+//! objective sections QUADOBJ, QSECTION <objective row> and QMATRIX (feature 003 research R6:
+//! entries are Q_ij of ½xᵀQx; one-triangle sections mirrored, duplicates summed; QMATRIX's lower
+//! triangle taken), and ENDATA, in free
 //! format (whitespace-separated fields, so names must not contain spaces; fixed-format files
 //! whose names have no spaces read identically). Bound types UP, LO, FX, FR, MI and PL are
 //! accepted; integer markers and other bound types are rejected with a message.
@@ -18,7 +21,7 @@
 
 #![allow(non_snake_case)] // A is the constraint matrix (Notation Convention).
 
-use super::{Trial, ensure, fail};
+use super::{Failed, Trial, ensure, fail};
 use optsolver::{CscRef, Problem, RowBounds, Sense};
 use std::collections::HashMap;
 
@@ -59,6 +62,13 @@ pub struct MpsProblem {
     pub row_names: Vec<String>,
     /// Column names, length n.
     pub col_names: Vec<String>,
+    /// Quadratic objective Q (½xᵀQx), lower triangle in CSC form: column pointers (empty when
+    /// the file has no quadratic section), row indices, values (feature 003 research R6).
+    pub q_col_ptrs: Vec<usize>,
+    /// Row indices of Q's lower triangle, sorted within each column.
+    pub q_row_indices: Vec<usize>,
+    /// Values of Q's lower triangle.
+    pub q_values: Vec<f64>,
 }
 
 impl MpsProblem {
@@ -120,9 +130,28 @@ impl MpsProblem {
             sense: &self.sense,
             b: &self.b,
         };
-        Problem::new(A, c, self.objective_sense, rows, &self.l, &self.u)
+        let p = Problem::new(A, c, self.objective_sense, rows, &self.l, &self.u)
             .and_then(|p| p.with_gamma(self.gamma))
-            .map_err(|e| e.to_string())
+            .map_err(|e| e.to_string())?;
+        match self.Q().map_err(|e| e.to_string())? {
+            Some(q) => p.with_Q(q).map_err(|e| e.to_string()),
+            None => Ok(p),
+        }
+    }
+
+    /// The quadratic objective's lower triangle, if the file has a quadratic section.
+    pub fn Q(&self) -> Result<Option<CscRef<'_, usize>>, optsolver::Error> {
+        if self.q_col_ptrs.is_empty() {
+            return Ok(None);
+        }
+        CscRef::new(
+            self.n,
+            self.n,
+            &self.q_col_ptrs,
+            &self.q_row_indices,
+            &self.q_values,
+        )
+        .map(Some)
     }
 }
 
@@ -142,6 +171,10 @@ enum Section {
     Rhs,
     Ranges,
     Bounds,
+    /// QUADOBJ or QSECTION <objective row>: one triangle of Q, mirrored.
+    QuadOneTriangle,
+    /// QMATRIX: the full symmetric Q; the lower triangle is taken.
+    QuadFull,
     End,
 }
 
@@ -166,6 +199,9 @@ pub fn parse_mps(text: &str) -> Result<MpsProblem, String> {
     let mut u: Vec<f64> = Vec::new();
     let mut lower_set: Vec<bool> = Vec::new();
     let mut section = Section::None;
+    // Quadratic entries (row name, column name, value, full-matrix section), resolved at the end.
+    let mut quad: Vec<(usize, String, String, f64, bool)> = Vec::new();
+    let mut has_quad = false;
     // Entries of the column being read, sorted and checked when the column ends.
     let mut current: Vec<(usize, f64)> = Vec::new();
 
@@ -209,6 +245,21 @@ pub fn parse_mps(text: &str) -> Result<MpsProblem, String> {
                 "RHS" => Section::Rhs,
                 "RANGES" => Section::Ranges,
                 "BOUNDS" => Section::Bounds,
+                "QUADOBJ" => Section::QuadOneTriangle,
+                "QSECTION" => {
+                    // Only the objective's section; QCMATRIX-style constraint sections are not
+                    // supported.
+                    match (fields.get(1), objective_name.as_deref()) {
+                        (Some(&row), Some(obj)) if row == obj => Section::QuadOneTriangle,
+                        (Some(&row), _) => {
+                            return Err(err(format!(
+                                "QSECTION {row}: only the objective's quadratic section is supported"
+                            )));
+                        }
+                        (None, _) => return Err(err("QSECTION without a row name".into())),
+                    }
+                }
+                "QMATRIX" => Section::QuadFull,
                 "ENDATA" => Section::End,
                 other => return Err(err(format!("unknown or unsupported section {other}"))),
             };
@@ -236,6 +287,12 @@ pub fn parse_mps(text: &str) -> Result<MpsProblem, String> {
                 Section::ObjSense if fields.len() == 2 => {
                     objective_sense = parse_sense(fields[1]).map_err(err)?;
                 }
+                Section::QuadOneTriangle | Section::QuadFull => {
+                    has_quad = true;
+                    if fields[0] != "QSECTION" && fields.len() > 1 {
+                        return Err(err(format!("unexpected fields after {}", fields[0])));
+                    }
+                }
                 _ if fields.len() > 1 => {
                     return Err(err(format!("unexpected fields after {}", fields[0])));
                 }
@@ -244,6 +301,26 @@ pub fn parse_mps(text: &str) -> Result<MpsProblem, String> {
             continue;
         }
         match section {
+            Section::QuadOneTriangle | Section::QuadFull => {
+                if fields.len() != 3 {
+                    return Err(err(format!(
+                        "quadratic entry needs 3 fields (column, column, value), got {}",
+                        fields.len()
+                    )));
+                }
+                let v = parse_number(fields[2]).map_err(err)?;
+                if !v.is_finite() {
+                    return Err(err(format!("non-finite quadratic value {v}")));
+                }
+                quad.push((
+                    line_no,
+                    fields[0].to_string(),
+                    fields[1].to_string(),
+                    v,
+                    section == Section::QuadFull,
+                ));
+                continue;
+            }
             Section::None | Section::Name => {
                 return Err(err("data line before any section".into()));
             }
@@ -421,7 +498,42 @@ pub fn parse_mps(text: &str) -> Result<MpsProblem, String> {
             l[j] = f64::NEG_INFINITY;
         }
     }
+    // Quadratic objective: lower triangle (research R6). One-triangle sections are mirrored and
+    // duplicate (i, j) entries summed, as Gurobi and MOSEK do; a full QMATRIX contributes its
+    // lower triangle only.
+    let n = col_names.len();
+    let (mut q_col_ptrs, mut q_row_indices, mut q_values) = (Vec::new(), Vec::new(), Vec::new());
+    if has_quad {
+        let mut entries: std::collections::BTreeMap<(usize, usize), f64> = Default::default();
+        for (line_no, a, b, v, full) in &quad {
+            let find = |name: &String| {
+                col_index.get(name).copied().ok_or_else(|| {
+                    format!("line {line_no}: unknown column {name} in a quadratic section")
+                })
+            };
+            let (i, j) = (find(a)?, find(b)?);
+            if *full && i < j {
+                continue; // upper triangle of a full matrix: its mirror is listed too
+            }
+            let (row, col) = if i >= j { (i, j) } else { (j, i) };
+            *entries.entry((col, row)).or_insert(0.0) += *v;
+        }
+        q_col_ptrs = vec![0; n + 1];
+        for (&(col, row), &v) in &entries {
+            if v != 0.0 {
+                q_row_indices.push(row);
+                q_values.push(v);
+                q_col_ptrs[col + 1] += 1;
+            }
+        }
+        for j in 0..n {
+            q_col_ptrs[j + 1] += q_col_ptrs[j];
+        }
+    }
     Ok(MpsProblem {
+        q_col_ptrs,
+        q_row_indices,
+        q_values,
         name,
         objective_sense,
         m: row_names.len(),
@@ -488,7 +600,85 @@ pub fn self_tests() -> Vec<Trial> {
             infinite_and_negative_upper_bounds,
         ),
         Trial::test("mps::rejects_malformed_input", rejects_malformed_input),
+        Trial::test("mps::quadratic_sections", quadratic_sections),
+        Trial::test(
+            "mps::quadratic_duplicates_summed",
+            quadratic_duplicates_summed,
+        ),
+        Trial::test("mps::quadratic_malformed", quadratic_malformed),
     ]
+}
+
+/// The QP of feature 003 research R6: minimise ½xᵀQx, Q = [[2,1],[1,2]], x1 + x2 = 2, x ≥ 0.
+fn qp_text(section: &str) -> String {
+    format!(
+        "NAME qp\nROWS\n N  obj\n E  r1\nCOLUMNS\n    x1  obj  0  r1  1\n    x2  obj  0  r1  1\n\
+         RHS\n    rhs  r1  2\n{section}ENDATA\n"
+    )
+}
+
+fn expect_q(p: &MpsProblem, cp: &[usize], ri: &[usize], va: &[f64]) -> Result<(), Failed> {
+    ensure(
+        p.q_col_ptrs == cp && p.q_row_indices == ri && p.q_values == va,
+        format!(
+            "Q = ({:?}, {:?}, {:?}), expected ({cp:?}, {ri:?}, {va:?})",
+            p.q_col_ptrs, p.q_row_indices, p.q_values
+        ),
+    )
+}
+
+fn quadratic_sections() -> Result<(), Failed> {
+    // Lower triangle in CSC: (0,0) = 2, (1,0) = 1, (1,1) = 2.
+    let (cp, ri, va) = ([0, 2, 3], [0, 1, 1], [2.0, 1.0, 2.0]);
+    for section in [
+        // Gurobi's output: QUADOBJ, upper triangle.
+        "QUADOBJ\n    x1  x1  2\n    x1  x2  1\n    x2  x2  2\n",
+        // QUADOBJ, lower triangle.
+        "QUADOBJ\n    x1  x1  2\n    x2  x1  1\n    x2  x2  2\n",
+        // MOSEK's output: QSECTION <objective row>, lower triangle.
+        "QSECTION      obj\n    x1  x1  2\n    x2  x1  1\n    x2  x2  2\n",
+        // QMATRIX: the full matrix.
+        "QMATRIX\n    x1  x1  2\n    x1  x2  1\n    x2  x1  1\n    x2  x2  2\n",
+    ] {
+        let p = parse_mps(&qp_text(section)).map_err(fail)?;
+        expect_q(&p, &cp, &ri, &va)?;
+        let c = vec![0.0; 2];
+        let prob = p.problem(&c).map_err(fail)?;
+        ensure(prob.Q().is_some(), "problem() carries Q")?;
+    }
+    // No quadratic section: no Q.
+    let p = parse_mps(&qp_text("")).map_err(fail)?;
+    ensure(p.Q().map_err(fail)?.is_none(), "LP has no Q")
+}
+
+fn quadratic_duplicates_summed() -> Result<(), Failed> {
+    // Listing (1,2) and (2,1) in a one-triangle section sums them (both solver tools agree).
+    let p = parse_mps(&qp_text(
+        "QUADOBJ\n    x1  x1  2\n    x1  x2  1\n    x2  x1  1\n    x2  x2  2\n",
+    ))
+    .map_err(fail)?;
+    expect_q(&p, &[0, 2, 3], &[0, 1, 1], &[2.0, 2.0, 2.0])
+}
+
+fn quadratic_malformed() -> Result<(), Failed> {
+    for (section, why) in [
+        ("QUADOBJ\n    x1  x9  2\n", "unknown column"),
+        ("QUADOBJ\n    x1  x1\n", "needs 3 fields"),
+        ("QUADOBJ\n    x1  x1  abc\n", "not a number"),
+        ("QSECTION      r1\n    x1  x1  2\n", "only the objective"),
+        ("QSECTION\n    x1  x1  2\n", "without a row name"),
+        ("QUADOBJ  extra\n    x1  x1  2\n", "unexpected fields"),
+    ] {
+        match parse_mps(&qp_text(section)) {
+            Err(e) if e.contains(why) => {}
+            other => {
+                return Err(fail(format!(
+                    "{section:?}: expected an error containing {why:?}, got {other:?}"
+                )));
+            }
+        }
+    }
+    Ok(())
 }
 
 const SMALL: &str = "\
@@ -678,7 +868,7 @@ fn rejects_malformed_input() -> Result<(), super::Failed> {
         ),
         (
             "unknown section",
-            base.replace("RHS\n", "QUADOBJ\n"),
+            base.replace("RHS\n", "QCMATRIX\n"),
             "unsupported section",
         ),
         (

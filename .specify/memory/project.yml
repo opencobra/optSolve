@@ -94,6 +94,30 @@ test_corpus:
     - iDopaNeuroC_problem_3
     - iDopaNeuroC_problem_3_fullRankFR
     - iDopaNeuroC_problem_5
+  # Toy instances (feature 003): small self-contained problems for every class and cone kind,
+  # MPS (LP, QP) or JTASK (conic) in `fixtures`/small, each with provenance; built and checked
+  # against both solver tools by tools/corpus/make_toy_instances.m.
+  toy_instances:
+    - infeasible
+    - unbounded
+    - ranged
+    - empty_column
+    - toy_lp_max
+    - toy_lp_mixed
+    - toy_qp_diag
+    - toy_qp_offdiag
+    - toy_qp_max
+    - toy_clp_quad
+    - toy_clp_rquad
+    - toy_clp_pexp
+    - toy_clp_dexp
+    - toy_clp_ppow
+    - toy_clp_dpow
+    - toy_clp_rplus
+    - toy_clp_rzero
+    - toy_clp_psd2
+    - toy_clp_psd3
+    - toy_clp_infeasible
   # Instances whose solver-reported optimum is expected to FAIL independent verification
   # (maintainer decision at feature 002 Gate 3, 2026-11-15; research R19): MOSEK reports
   # Optimal with a row-bound violation of about 2e-7 relative, as the variational kinetics

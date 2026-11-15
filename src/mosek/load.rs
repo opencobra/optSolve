@@ -54,6 +54,8 @@ pub(crate) struct Loaded<'e> {
     pub(crate) buffer_high_water: usize,
     /// Bytes of bound keys and bound-value copies made.
     pub(crate) bound_bytes: usize,
+    /// Quadratic objective terms passed to MOSEK (positive control; 0 for an LP).
+    pub(crate) q_terms: usize,
     pub(crate) vendor_seconds: f64,
     pub(crate) total_seconds: f64,
 }
@@ -229,7 +231,9 @@ fn load_problem<'e, I: RowIndex>(
     }
 
     // Q.
+    let mut q_terms = 0;
     if let Some(Q) = p.Q().filter(|q| q.nnz() > 0) {
+        q_terms = Q.nnz();
         let nq = int32("nnz(Q)", Q.nnz())?;
         let mut qi = Vec::with_capacity(Q.nnz());
         let mut qj = Vec::with_capacity(Q.nnz());
@@ -266,6 +270,7 @@ fn load_problem<'e, I: RowIndex>(
         path,
         buffer_high_water: high_water,
         bound_bytes,
+        q_terms,
         vendor_seconds,
         total_seconds: start.elapsed().as_secs_f64(),
     })

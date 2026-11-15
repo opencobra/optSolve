@@ -1,10 +1,10 @@
 # Human Loop State
 
 ## Current State
-- Status: Gate 2 passed (approve all); awaiting the implementation invocation (/speckit-implement)
+- Status: Bundle 3 complete (25 of 26; T024 deferred as debt); committed; awaiting Gate 3
 - Active feature directory: specs/003-llm-interface-toy-instances
 - Last completed bundle: Bundle 2 (implementation preparation)
-- Source code modified by this workflow: no
+- Source code modified by this workflow: yes (committed)
 
 ## Core Command Ledger
 - constitution:   checked (2.5.0); amended to 2.5.1 at Gate 2A (z_l, z_u)
@@ -14,11 +14,14 @@
 - plan:           invoked 2026-11-15 (plan.md, research.md R1-R12, data-model.md, contracts/public-api.md, quickstart.md, architecture-delta.yaml; two read-only research agents with Gurobi C and MATLAB probes)
 - tasks:          invoked 2026-11-15 (26 tasks)
 - analyze:        invoked 2026-11-15 (0 critical; 1 medium applied to T017; 3 low accepted)
-- implement:
+- implement:      invoked 2026-11-15 (T001–T026 except T024, deferred; receipt specs/003-llm-interface-toy-instances/agent-runs/20261115T172120Z-implement-003/implementation-receipt.md)
 
 ## Human Decisions
 | Date (UTC) | Gate | Option chosen | Consequence |
 |---|---|---|---|
+| 2026-11-15 | (implementation) | "commit" | Bundle 3 committed |
+| 2026-11-15 | (implementation) | "complete remaining tasks, will do LLM trial manually so leave as debt for now" | T024 deferred as debt (SC-002 unverified); llm-trial.md protocol |
+| 2026-11-15 | (implementation) | LLM trial as a nine-agent workflow: rejected (tool use declined) | not run |
 | 2026-11-15 | Gate 2 | Approve all tasks and commit | Scope T001–T026; implementation on /speckit-implement |
 | 2026-11-15 | Gate 2A | APPROVE_WITH_ADR; llms.txt in docs/ (not root); add z_l, z_u to the Notation Convention | ADR-0003; delta, plan, spec FR-005 updated; /speckit-constitution amendment next |
 | 2026-11-15 | Gate 1 | Continue and commit | Bundle 1 committed; Bundle 2 (plan) next |
@@ -32,13 +35,14 @@
 - Approved: yes (Gate 2, 2026-11-15); edits only after the implementation invocation
 - Scope: all
 - Tasks approved: T001–T026
-- Tasks deferred: none
+- Tasks deferred: T024 (LLM trial; maintainer 2026-11-15: "will do LLM trial manually so leave as debt for now"; protocol in llm-trial.md)
+- Implementation baseline (2026-11-15, /speckit-implement): T001–T026, 26 unchecked
 - Files allowed: as in implementation-review.md, "Files likely to change"
 - Files not allowed: other .specify/ governance, literature/, specs/000-*, specs/001-*, specs/002-*, the variational kinetics repository, the LP/QP/CLP corpus fixtures
 
 ## Pointers
 - Exploration: none (direct request); background specs/002-mosek-lp-qp-clp
-- Implementation receipt(s):
+- Implementation receipt(s): specs/003-llm-interface-toy-instances/agent-runs/20261115T172120Z-implement-003/implementation-receipt.md
 - Implementation review: specs/003-llm-interface-toy-instances/implementation-review.md
 
 ## Open Risks and Ambiguities
@@ -58,3 +62,9 @@ Unchecked items of checklists/contract.md, each routed to Bundle 2 (plan):
 - CHK019 reader-versus-tool disagreement → data-model.md
 - CHK020 PSD instance form (JTASK encoding evidence) → research.md (probe with MOSEK)
 - CHK022 Gurobi features and version confirmed → research.md
+
+## Implementation Continuation Log
+- 2026-11-15, cycle 1: unchecked approved tasks 26 → 1 (T024, deferred by the maintainer as debt,
+  so outside the remaining scope). Stop-and-report conditions: none. Tests introduced: all pass
+  (gate run 20261115T160741Z). Decision: finished; no resumption; in-flight marker removed;
+  Gate 3 next.
