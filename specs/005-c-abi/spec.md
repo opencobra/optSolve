@@ -475,8 +475,8 @@ checker free every library-owned object.
   separate solves. One thread is fixed because the Gurobi 13.0 `SoftMemLimit` reference says
   "termination may be non-deterministic for multi-threaded runs" and that the limit is "only
   checked at places where optimization can be terminated gracefully"; three repetitions show the
-  outcome does not depend on where the first check falls. The same limit without the memory
-  option solves to optimality. On MOSEK the memory limit gives the "unsupported" error naming the
+  outcome does not depend on where the first check falls. The same solve without the memory
+  limit solves to optimality. On MOSEK the memory limit gives the "unsupported" error naming the
   field, before any solver call (N = 1; no solver runs, so the outcome is deterministic).
 - **SC-006**: Every invalid-input case of the existing Rust failing-input tests that a C caller can
   express returns the "invalid input" (or "too large") code with a message naming the input, before
