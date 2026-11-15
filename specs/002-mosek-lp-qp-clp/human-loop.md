@@ -1,9 +1,9 @@
 # Human Loop State
 
 ## Current State
-- Status: Gate 2A passed (APPROVE_WITH_ADR); Bundle 2 steps 3-5 in progress
+- Status: Gate 2 passed (approve all); awaiting the implementation invocation (/speckit-implement)
 - Active feature directory: specs/002-mosek-lp-qp-clp
-- Last completed bundle: Bundle 1 (requirements preparation)
+- Last completed bundle: Bundle 2 (implementation preparation)
 - Source code modified by this workflow: no
 
 ## Core Command Ledger
@@ -12,25 +12,26 @@
 - clarify:        invoked 2026-11-15 (2 questions: cone types broader set; heavy test tier)
 - checklist:      invoked 2026-11-15 (checklists/contract.md, 23 items: 9 resolved, 14 routed)
 - plan:           invoked 2026-11-15 (plan.md, research.md R1-R15, data-model.md, contracts/public-api.md, quickstart.md, architecture-delta.yaml; two read-only research agents)
-- tasks:
-- analyze:
+- tasks:          invoked 2026-11-15 (40 tasks)
+- analyze:        invoked 2026-11-15 (0 critical; 1 low fixed)
 - implement:
 
 ## Human Decisions
 | Date (UTC) | Gate | Option chosen | Consequence |
 |---|---|---|---|
 | 2026-11-15 | (before Bundle 1) | Start feature 002: MOSEK LP, QP, CLP; rename LP fixture and document corpus; verify certificate sign and callback threading as code behaviour; build on Rust 1.85 | Branch 002-mosek-lp-qp-clp from devel |
+| 2026-11-15 | Gate 2 | Approve all tasks; commit authorised | Scope T001–T040 |
 | 2026-11-15 | Gate 2A | APPROVE_WITH_ADR; CLP problem = solveCobraCLP input; exclude iDopaNeuroC_problem_4; accept names, notation (2.5.0), extend licence decision to VK CLP data; commit | ADR-0002; constitution 2.5.0; spec FR-014 amended; tasks may be generated |
 | 2026-11-15 | Gate 1 | Continue to Bundle 2; commit authorised | Bundle 1 committed; speckit-plan next |
 | 2026-11-15 | (specify) | CLP test problems: first inner conic problem of each VK corpus instance, iCoreED and iDopaNeuroC | Spec FR-014 |
 
 ## Approved Implementation Scope
-- Approved: no
-- Scope:
-- Tasks approved:
-- Tasks deferred:
-- Files allowed:
-- Files not allowed:
+- Approved: yes (Gate 2, 2026-11-15); edits only after the implementation invocation
+- Scope: all
+- Tasks approved: T001–T040
+- Tasks deferred: none
+- Files allowed: as in implementation-review.md, "Files likely to change"
+- Files not allowed: .specify/ governance (except project.yml), literature/, specs/000-*, specs/001-*, the variational kinetics repository
 
 ## Pointers
 - Exploration: none (direct request); background specs/000 and specs/001 closeout
