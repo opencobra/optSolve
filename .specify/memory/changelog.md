@@ -6,6 +6,59 @@ entry first, sections ordered alphabetically by path.
 
 ## .specify/memory/constitution.md
 
+### 3.0.0 — 2026-11-15
+
+Sync Impact Report.
+
+- Version change: 2.5.1 → 3.0.0 (MAJOR: the gates are redefined — passed by an independent
+  compliance review instead of a human decision — and the commit rule changes).
+- Trigger: the maintainer's instruction "optSolver can also use independent subagents at each
+  gate", relayed by the COBRA Toolbox session on 2026-11-15, modelled on RunMat constitution 2.0.0
+  Principle VIII (Constitution Compliance Gates, RunMat commit 0985bb934) and
+  matlab-interface-spec constitution §8 (commit d5fc754), so that the COBRA Toolbox can drive the
+  development optSolver needs.
+- Modified principles:
+  - VI-A "Human-Loop Gates Are Binding Where The Extension Is Installed" → "Gates Are Passed By
+    Independent Compliance Review": Gates E, 1, 2A, 2 and 3 are each passed by a fresh-context
+    subagent that did not produce the artefacts, given only the constitution, its Tier 1
+    companions and the artefacts (at Gate 3 also the diff and validation evidence), checking
+    every principle with cited evidence; recorded in specs/<feature>/gate-reviews/; on FAIL a new
+    reviewer re-reviews; no principle waived.
+  - VI: implementation is authorised by a Gate 2 PASS for the current spec, plan and tasks, not by
+    an explicit implementation invocation from the user.
+  - VI-B: accepting a checklist item open becomes an agent decision checked by the reviewer.
+  - XI-4: the exploration Status and Decision are set by the agent at Gate E and stand only with a
+    PASS.
+  - XIII-C: the Gate 2A verdict is issued by the compliance reviewer.
+  - XIII-F "Naming A New Layer Is A Human Decision, Taken At The Architecture Delta" → "Naming A
+    New Layer Is Decided At The Architecture Delta And Reviewed".
+  - Governance: amendments only on the maintainer's explicit instruction; "Commits Carry In-Flight
+    Manual Work" — feature-branch commits are agent actions made before each gate review;
+    commits or merges to the integration branch or other shared branches, pushes and pull
+    requests stay with the maintainer; "Feature Branches Begin And End At The Integration
+    Branch" — integration after a Gate 3 PASS only on the maintainer's instruction.
+- Decisions that become reviewer-checked agent decisions: clarification answers and open
+  requirements (Gate 1); accepting a checklist item open (VI-B); the exploration outcome (XI-4);
+  the architecture verdict and new-layer names (XIII-C, XIII-F); implementation-scope approval
+  (Gate 2); accepting a feature as complete (Gate 3).
+- Decisions that stay human: publication (commit or merge to the integration or another shared
+  branch, push, pull request); constitution amendments, including Notation Convention
+  additions; project.yml declared values and new kinds of parameter; legal and licensing
+  questions (X, IX-J); the SPECKIT OVERRIDE token; reversing a recorded maintainer ruling (XV-E).
+- Added sections: none (VI-A rewritten in place). Removed sections: none.
+- Companions:
+  ✅ .specify/extensions/human-loop/workflow.md (gates run compliance reviews; state-file table;
+  Gate 3 integration awaits the maintainer);
+  ✅ .specify/extensions/human-loop/commands/speckit.human-loop.md;
+  ✅ .claude/skills/speckit-human-loop/SKILL.md (pointer wording);
+  ✅ .specify/skills/speckit-plan.md;
+  ✅ .specify/templates/checklist-template.md, exploration-template.md, plan-template.md;
+  ✅ docs/architecture/repo_folder_organisation.md (gate-reviews role);
+  spec-template.md, tasks-template.md, CLAUDE.md, AGENTS.md reviewed — unchanged (no gate
+  semantics restated).
+- Follow-up: features open under 2.5.1 (004-milp-interface) continue under 3.0.0; their recorded
+  human gate decisions stand.
+
 ### 2.5.1 — 2026-11-15
 
 Sync Impact Report.

@@ -1,6 +1,6 @@
 ---
 name: "speckit-human-loop"
-description: "Orchestrate GitHub Spec Kit's core commands as bundled, human-gated phases: requirements preparation, implementation preparation, an architecture gate, an explicit approval gate before any source-code change, scoped implementation, then verification and closeout. This workflow embeds and invokes the installed core Spec Kit skills (constitution, specify, clarify, checklist, plan, tasks, analyze, implement) rather than replacing them."
+description: "Orchestrate GitHub Spec Kit's core commands as bundled phases, each gate passed by an independent fresh-context compliance review: requirements preparation, implementation preparation, an architecture gate, an approval gate before any source-code change, scoped implementation, then verification and closeout. This workflow embeds and invokes the installed core Spec Kit skills (constitution, specify, clarify, checklist, plan, tasks, analyze, implement) rather than replacing them."
 argument-hint: "<explore <question> | feature request | continue | prepare | implement approved | closeout> [--scope all|slice:<phase>|tests-only]"
 compatibility: "Requires a Spec Kit project initialized with .specify/ and the core speckit skills installed for the active agent. Honors the project constitution at .specify/memory/constitution.md, including its implementation gate and implementation-receipt ledger."
 metadata:
@@ -17,13 +17,14 @@ and the equivalent for any future agent) are THIN POINTERS to this file and MUST
 NOT restate or extend it. Constitution: "Agent Instruction Files Delegate To
 Spec Kit" (Governance) and Principle XIII-B.
 
-Agent-native affordances named below (AskUserQuestion, the task list, MCP
-servers, subagents) are Claude's names for generic capabilities. Under another
-agent, substitute that agent's equivalent for each: an interactive multiple-choice
-prompt for a gate, its progress/task mechanism, its tool integrations, and its
-delegated-review mechanism. Where no equivalent exists, run the gate as an
-explicit question to the human and record the answer in human-loop.md — the gate
-itself is never optional.
+Agent-native affordances named below (the Agent tool, AskUserQuestion, the task
+list, MCP servers) are Claude's names for generic capabilities. Under another
+agent, substitute that agent's equivalent for each: its fresh-context subagent
+mechanism for a gate's compliance review, an interactive prompt for a decision
+the constitution reserves for a human, its progress/task mechanism and its tool
+integrations. Where an agent cannot spawn a fresh-context reviewer, it stops at
+the gate and reports what the reviewer must be given (constitution VI-A) — the
+gate itself is never optional.
 -->
 
 
@@ -45,8 +46,8 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 # Spec Kit Human Loop
 
-Run the ordinary GitHub Spec Kit workflow as a small number of human-gated
-bundles, so the user does not chain eight commands by hand. This skill is an
+Run the ordinary GitHub Spec Kit workflow as a small number of bundles, each
+ending at a gate passed by an independent compliance review (constitution VI-A), so the user does not chain eight commands by hand. This skill is an
 **orchestrator**: it must not replace, summarize away, or silently skip the core
 Spec Kit commands. At each phase it invokes the installed core skill and follows
 its instructions.
@@ -57,20 +58,24 @@ constitution wins** and this skill defers to it (see "Constitution reconciliatio
 
 ## Non-negotiable rules
 
-1. **No source edits before approval.** Do not modify source code, tests, build
-   files, or other implementation artifacts before the human explicitly approves
-   implementation at Gate 2 **and** the approval is expressed as a real
-   implementation invocation (see Constitution reconciliation). Spec Kit
+1. **No source edits before Gate 2 passes.** Do not modify source code, tests,
+   build files, or other implementation artifacts before the Gate 2 compliance
+   review has recorded a PASS for the current spec, plan and tasks, and then only
+   in the implementation phase (see Constitution reconciliation). Spec Kit
    artifacts under `specs/<feature>/` and the orchestration state file are not
    "source code" and may be written during preparation.
 2. **Embed, never emulate, core commands.** Each bundle invokes the corresponding
    installed core skill using the runtime mapping below (e.g. `speckit-specify`). Do not
    hand-write `spec.md`, `plan.md`, or `tasks.md` unless the core skill is
    unavailable and the user explicitly asks for a temporary fallback.
-3. **Sparse gates only.** Stop for a human decision at Gates E, 1, 2A, 2 and 3 as applicable, or on
-   a real blocker (ambiguity, failed quality gate, excessive scope, an attempted
-   source edit). Do not ask between routine phases.
-4. **Record every human decision** in the orchestration state file.
+3. **Gates are compliance reviews.** Run the compliance review (see "Gate
+   discipline") at Gates E, 1, 2A, 2 and 3 as applicable. Stop for a human only
+   on a decision the constitution reserves for one (VI-A: publication,
+   constitution amendments, `project.yml` values, legal and licensing questions,
+   `SPECKIT OVERRIDE`, reversing a recorded maintainer ruling) or on a blocker
+   no permitted agent decision resolves. Do not ask between routine phases.
+4. **Record every gate verdict and every decision** in the orchestration state
+   file, with its rationale and the review file.
 5. **`spec.md` is the authority for requirements.** When it changes, re-derive the
    downstream artifacts (`plan.md`, `tasks.md`, analysis) rather than editing them
    in isolation.
@@ -83,14 +88,10 @@ constitution wins** and this skill defers to it (see "Constitution reconciliatio
 Before Bundle 0, read `.specify/memory/constitution.md` if present and obey it.
 This skill is explicitly subordinate to it. In particular:
 
-- **Implementation gate.** If the constitution restricts implementation to an
-  explicit invocation (for example, only `/speckit-implement`, `$speckit-implement`,
-  or a stated exact phrase authorizes edits), then **a Gate 2 menu choice is not
-  sufficient by itself**. Gate 2 records the human's intent and approved scope;
-  the skill then proceeds to implementation **only via the constitution's required
-  invocation**. If the user picked "approve" in the gate but the constitution
-  needs an explicit implement invocation, ask the user to confirm with that exact
-  invocation before any edit.
+- **Implementation gate.** Implementation runs only through `speckit-implement`
+  (or the agent's equivalent), only after the Gate 2 compliance review has
+  recorded a PASS for the current spec, plan and tasks, and only within the task
+  scope that review passed (constitution VI, VI-A).
 - **Run record / receipt.** If the constitution mandates an implementation-receipt
   ledger at a specific path (for example
   `<FEATURE_DIR>/agent-runs/<UTC-timestamp>-<short-name>/implementation-receipt.md`),
@@ -114,9 +115,9 @@ It also applies when a core skill or extension is invoked directly.
 | Capability | Claude | Codex |
 |---|---|---|
 | Core skill | Invoke the Skill tool | Read the registered `SKILL.md`, follow its authoritative pointers, and execute its procedure with available tools |
-| Human decision | `AskUserQuestion` | Use an available structured question tool only when it permits this kind of question; otherwise ask explicitly in the response and wait |
+| Gate compliance review | Agent tool, a new fresh-context subagent (never a fork, never one that produced or reviewed the artefacts before) | Available collaboration tools that start a subagent with an independent context |
+| Human-reserved decision (VI-A) | `AskUserQuestion` | Use an available structured question tool only when it permits this kind of question; otherwise ask explicitly in the response and wait |
 | Progress | `TaskCreate` / `TaskUpdate` | Available progress tools and concise updates; durable state remains in feature artifacts |
-| Independent review | Task tool | Available collaboration tools, with the approved review scope and independent context |
 | Review artifacts | `present_files` | Clickable file links to the actual artifacts |
 
 On Codex, `request_user_input` may be restricted to Plan mode or optional
@@ -144,16 +145,14 @@ The following Claude names use the equivalents above on other runtimes:
   task per bundle with `TaskCreate`; mark each `in_progress`/`completed` with
   `TaskUpdate`. During implementation, mirror `tasks.md` entries as tasks so the
   user sees live progress.
-- **Run human gates with `AskUserQuestion`,** not a plain-text lettered menu.
-  Present the gate's options as structured choices (the tool always adds an
-  "Other" escape). Record the selected option verbatim in `human-loop.md`.
+- **Run each gate as a compliance review with the Agent tool** (see "Gate
+  discipline"). Use `AskUserQuestion` only for a decision the constitution
+  reserves for a human.
 - **Verify with Cargo**: `cargo fmt --check`, `cargo clippy` with warnings denied,
   the narrowest relevant `cargo test` first (unlicensed tier everywhere, licensed tier
   where a solver licence is present), feature-combination checks, and benchmarks for
   any load, solve or result path. Redirect long output to the run bundle's log
   (Principle XV-D). Capture raw solver status codes faithfully.
-- **Use a subagent for independent review** (Gate 2 option "independent review")
-  via the Task tool, so the review does not share the implementing context.
 - **Surface review artifacts** to the user with `present_files`
   (`implementation-review.md`, comparison reports, diffs).
 
@@ -165,9 +164,10 @@ and agent-context refresh). Because a bundle runs several phases in sequence, th
 can produce several commit prompts. At the start of a bundle, tell the user that
 per-phase hooks will fire, and offer to (a) let each hook prompt as configured, or
 (b) defer commits and make one commit at the end of the bundle. Either way, the
-feature's work MUST be committed to its own branch before the next gate is presented
-(constitution, "Feature Branches Begin And End At The Integration Branch": work is
-committed at every gate, when the maintainer authorises it). Never disable hooks silently.
+feature's work MUST be committed to its own branch before the next gate's compliance
+review (constitution, "Feature Branches Begin And End At The Integration Branch";
+feature-branch commits are agent actions, integration-branch commits are not). Never
+disable hooks silently.
 
 ## Orchestration state file
 
@@ -194,9 +194,11 @@ it indexes the run and points at the constitutional receipt rather than copying 
 - analyze:
 - implement:
 
-## Human Decisions
-| Date (UTC) | Gate | Option chosen | Consequence |
-|---|---|---|---|
+## Gate Reviews And Decisions
+| Date (UTC) | Gate | Decision or verdict (with rationale) | Review file | Consequence |
+|---|---|---|---|---|
+
+## Human-Reserved Decisions Pending (constitution VI-A)
 
 ## Approved Implementation Scope
 - Approved: no
@@ -238,10 +240,12 @@ it indexes the run and points at the constitutional receipt rather than copying 
    for Codex, `.claude/skills/` for Claude. Follow their shared Spec Kit pointers.
    Do not prefer another agent's adapter over the active agent's registered skill.
 6. Decide the requested mode: `explore`, `start`, `prepare`, `implement`,
-   `continue`, or `closeout`. If unclear, ask with `AskUserQuestion`:
+   `continue`, or `closeout`, from the request and the feature's recorded state
+   (the last PASS in `gate-reviews/`). If the request does not determine it,
+   ask the requester:
    - Explore a candidate feature before specifying (Bundle E — problem-space
      research only, no spec yet).
-   - Start a new human-gated workflow from this request.
+   - Start a new gated workflow from this request.
    - Continue the active feature workflow.
    - Prepare the implementation review for the active feature.
    - Implement the approved task scope.
@@ -300,9 +304,10 @@ is disposable and any agent can resume from the file alone.
 
 Then **Gate E**.
 
-### Gate E — exploration decision (`AskUserQuestion`)
+### Gate E — exploration decision (compliance review)
 
-Options:
+The agent chooses one outcome, records it with its rationale and the request it
+answers, and passes Gate E only on a PASS from the compliance review. Outcomes:
 - Go: mature the directory name, then seed specify (proceed to Bundle 1).
   Allocate the next sequential feature number (max over `specs/` dirs and
   feature branches, + 1), `git mv specs/<timestamp>-<slug>
@@ -316,9 +321,10 @@ Options:
   remains, holding the exploration, as the recorded dead end (no feature
   number is consumed).
 
-The Decision section is human-only: the agent drafts nothing there beyond the
-proposed specify seed; the human signs the outcome. Record the choice in the
-exploration file (there is no `human-loop.md` yet — it begins at specify).
+The agent fills the Decision section and names the review file (constitution
+XI-4). Record the choice in the exploration file (there is no `human-loop.md`
+yet — it begins at specify); the review goes to the exploration directory's
+`gate-reviews/`, which moves with it on "go".
 
 ## Bundle 1: requirements preparation
 
@@ -352,15 +358,16 @@ Embedded core skills, in order:
 
 Ensure `human-loop.md` exists and records completed commands. Then **Gate 1**.
 
-### Gate 1 — requirements decision (`AskUserQuestion`)
+### Gate 1 — requirements decision (compliance review)
 
-Options:
+The agent answers any open clarification questions itself (recording each answer
+and its rationale in the spec's Clarifications section), chooses one outcome, and
+passes Gate 1 only on a PASS. Outcomes:
 - Continue to implementation-preparation bundle.
 - Revise the specification, then re-run clarify and checklist.
-- Answer remaining clarification questions.
 - Split this into smaller features.
 
-No source code has been modified. Record the choice.
+No source code has been modified. Record the outcome and the review file.
 
 ## Bundle 2: implementation preparation
 
@@ -395,9 +402,13 @@ Gate 2A**, and steps 3-5 run only on an approving verdict.
    presentation aid; the declared model and `architecture-delta.yaml` remain
    authoritative. Record any exception in the viewing instructions.
 
-`present_files` the delta, then **always** stop at Gate 2A.
+`present_files` the delta, then **always** run Gate 2A.
 
-### Gate 2A — architecture delta review (`AskUserQuestion`)
+### Gate 2A — architecture delta review (compliance review)
+
+The Gate 2A reviewer issues the verdict. Names for a new layer or a renamed
+element are decided by the agent in the delta and checked by this review
+(constitution XIII-F).
 
 Before choosing a verdict, examine three things alongside the delta itself
 (Principle XIII-C, XIII-E, XIII-G). Each is grounds for `REVISE_ARCHITECTURE`; none
@@ -473,34 +484,30 @@ On an approving verdict, continue:
 ## Tests and Validation Expected (name the narrowest relevant test first)
 ## Blocking Issues
 ## Acceptable Risks
-## Human Approval
+## Gate 2 Approval (compliance review)
 - Approved: no
-- Approved option:
+- Proposed scope (all | slice):
 - Approved tasks/scope:
-- Required implementation invocation per constitution:
+- Gate 2 review file and verdict:
 - Date (UTC):
 ```
 
-`present_files` the review, then **always** stop at Gate 2.
+`present_files` the review, then **always** run Gate 2.
 
-### Gate 2 — implementation approval (`AskUserQuestion`)
+### Gate 2 — implementation approval (compliance review)
 
-Options (four; revising the plan is routed through Gate 2A's `REVISE_ARCHITECTURE`
-verdict):
-- Approve implementation of all proposed tasks.
-- Approve only the first independently testable slice (name it, e.g. a single plan phase).
-- Revise the task list, then re-run analyze.
-- Run an independent review (subagent) before deciding.
-
-Only "approve all" or "approve a slice" can authorize edits — **and only then via
-the constitution's required implementation invocation** (see reconciliation).
-Record the approved scope in both `human-loop.md` and `implementation-review.md`.
+The agent proposes the implementation scope (all tasks, or a named independently
+testable slice) in `implementation-review.md`; the Gate 2 reviewer checks the
+spec, plan, tasks, analysis and that scope. Only a PASS authorises implementation,
+and only of the scope it passed; on FAIL the task list or plan is repaired
+(plan changes go back through Gate 2A) and a new reviewer reviews. Record the
+approved scope in both `human-loop.md` and `implementation-review.md`.
 
 ## Bundle 3: approved implementation
 
-Preconditions: `implementation-review.md` exists; `human-loop.md` records explicit
-approval; the approved scope is "all" or a named slice; and the user has supplied
-the constitution's required implementation invocation if one is mandated.
+Preconditions: `implementation-review.md` exists; `gate-reviews/` holds a Gate 2
+PASS for the current spec, plan and tasks; the approved scope is "all" or a named
+slice.
 
 1. Mirror the approved `tasks.md` entries into the task list.
 2. Invoke `speckit-implement`, constrained to the approved scope. Do not edit
@@ -560,19 +567,22 @@ the constitution's required implementation invocation if one is mandated.
    general. Record the promotion decision per item in `human-loop.md`, including
    a deliberate decision that an item is feature-specific and needs no promotion.
    Nothing learned may be left in an agent-private memory store.
-8. **Gate 3** with `AskUserQuestion`.
+8. **Gate 3** compliance review, given the diff against the feature's base and the
+   validation evidence.
 
-### Gate 3 — closeout decision
+### Gate 3 — closeout decision (compliance review)
 
-Options:
-- **Accept and close the feature.** This outcome, and only this one, triggers the
+The agent chooses one outcome and passes Gate 3 only on a PASS. Outcomes:
+- **Accept and close the feature.** This outcome, and only this one, leads to the
   branch integration the constitution requires under "Feature Branches Begin And
-  End At The Integration Branch":
+  End At The Integration Branch". Integration and publication are human decisions
+  (constitution VI-A): steps 3 to 5 run only on the maintainer's instruction, and
+  until then the feature is recorded as "accepted, awaiting integration":
   1. Confirm the feature's work is committed on its branch; nothing belonging to the
      feature may remain uncommitted.
   2. Verify the integration introduces no file exceeding the hosting limit of
      every remote it will be pushed to (`branches.max_file_bytes_remote` in `project.yml`).
-  3. With the maintainer's authorisation to commit and integrate, bring the integration
+  3. On the maintainer's instruction to integrate, bring the integration
      branch up to date with the feature branch — fast-forward where the history allows,
      a merge commit otherwise. **Never force-push it; never rewrite its history.**
   4. Where remotes exist, publish the integration branch to each, ask each host with
@@ -601,22 +611,37 @@ Options:
 **Binding under Principle VI-A.** Where this extension is installed, Gates E, 1,
 2A, 2 and 3 are MANDATORY for every agent. A gate MUST NOT be skipped silently: a
 deferred or unrun gate is recorded in the feature's `human-loop.md` with its
-reason and surfaced at the next gate. An agent with no interactive
-multiple-choice mechanism runs the gate as an explicit question to the human and
-records the answer — substituting the agent's own equivalent is expected,
-omitting the gate is not.
+reason and surfaced at the next gate.
 
-- Use `AskUserQuestion` with at most four primary options (the tool adds "Other").
-- State the safe default when there is one.
-- Record the exact option chosen and its consequence in `human-loop.md`.
-- Continue automatically only after a choice that permits continuation.
+Each gate is passed by a compliance review:
+
+1. Commit the feature's work to its branch, so the review names a revision.
+2. Spawn a new fresh-context subagent (Agent tool, not a fork; one that has not
+   produced or reviewed these artefacts). Its prompt gives only: the gate; the
+   paths of the constitution, the Tier 1 companions and the feature's artefacts,
+   with their revision; at Gate 3 also the diff against the feature's base and
+   the paths of the validation evidence. Do not pass your own conclusions,
+   summaries or a proposed verdict. Ask it to check every principle, cite the
+   principle and evidence (file and line, test name, command output) for each
+   finding, and return PASS or FAIL (at Gate 2A, one of the four XIII-C verdicts).
+3. Write its review, unedited, to
+   `specs/<feature>/gate-reviews/gate-<id>-<UTC-timestamp>.md` with the header
+   fields the constitution lists (gate, date, reviewer, artefacts and revision,
+   findings, verdict).
+4. On FAIL, repair the cited findings and repeat from step 1 with a new
+   reviewer. Advance only on PASS. A reviewer cannot waive a principle.
+5. Record the verdict, the review file and the consequence in `human-loop.md`.
+
+An agent that cannot spawn a reviewer stops at the gate and reports exactly what
+the reviewer must be given.
 
 **Checklists at a gate — binding under Principle VI-B.** Before recording any gate
 as passed, every item of every checklist under `specs/<feature>/checklists/` MUST
 be either resolved (ticked, with the closing artifact identifiable — ticking
 asserts verification) or explicitly routed (left open with its destination named:
-a later gate, a task ID, or a recorded human decision to accept it open with
-rationale). An unmarked item is neither, and a checklist carrying unmarked items
+a later gate, a task ID, or a recorded decision to accept it open with
+rationale; accepting open is an agent decision the
+reviewer checks). An unmarked item is neither, and a checklist carrying unmarked items
 has not passed. Record the routing per item in `human-loop.md` with the item
 identifier, its question, and its destination. Do not tick items to clear a gate,
 and do not assume unmarked items were considered — a zeroed checklist is as
@@ -627,10 +652,10 @@ distinguished only by checking.
 
 Stop rather than auto-continuing if: a core skill is missing; the active feature
 is undeterminable; the constitution is missing and the user has not supplied
-principles; clarify/checklist/analyze report blocking issues; source code would be
-modified before Gate 2 approval (or before the constitution's required implement
-invocation); the approved scope cannot be enforced; or tests fail when the mode
-was not test repair.
+principles; clarify/checklist/analyze report blocking issues no permitted agent
+decision resolves; source code would be modified before a Gate 2 PASS; the
+approved scope cannot be enforced; a decision the constitution reserves for a
+human is needed; or tests fail when the mode was not test repair.
 
 ## Concise progress report (after each bundle)
 
@@ -640,5 +665,5 @@ Completed:
 - Files created/updated:
 - Source code modified: yes/no
 - Receipt path (if implemented):
-- Next human gate:
+- Next gate (compliance review):
 ```

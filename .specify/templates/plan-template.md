@@ -119,7 +119,8 @@ write N/A only where stated.*
   is approved before tasks; boundaries and dependency directions in `docs/architecture/`
   preserved; no cycle; solver-specific code behind its backend; public interfaces preserved or
   versioned deliberately; any ADR required named; no ownership asserted in agent files; any
-  naming decision for a new layer recorded here and in the delta (XIII-F)]
+  naming decision for a new layer recorded here and in the delta, checked by the Gate 2A
+  compliance review (XIII-F)]
 
 ## Architecture Impact
 

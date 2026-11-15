@@ -18,6 +18,7 @@ Whether a path is tracked is stated in `.gitignore` only.
 | Generated and run output | `results/<name>/` | One home per feature, exploration or session, keyed by `<name>`; run bundles at `results/<name>/runs/<UTC-timestamp>-<label>/` with that run's logs inside. IX-C, IX-E. |
 | Feature artifacts | `specs/<feature>/` | Spec Kit Tier 2. Exploration at `specs/<YYYYMMDD-HHMMSS>-<slug>/` until go (XI). |
 | Implementation receipts | `specs/<feature>/agent-runs/<UTC-timestamp>-<name>/` | Constitution, Implementation Receipt Ledger. |
+| Gate compliance reviews | `specs/<feature>/gate-reviews/` | One file per review (constitution VI-A); written by the reviewer, never edited by the producer. |
 | Architecture model and decisions | `docs/architecture/`, `docs/architecture/decisions/` | XIII. |
 | Descriptive documentation | `docs/` | Tier 3; originates no rule. |
 | Downloaded external literature | `literature/<source>/` | Upstream text and licence files only; index in `literature/SOURCES.md` (IX-J). |

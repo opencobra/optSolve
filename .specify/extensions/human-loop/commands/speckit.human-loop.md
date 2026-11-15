@@ -1,5 +1,5 @@
 ---
-description: "Run bundled core Spec Kit phases with sparse human gates and constitution-compliant approval before implementation (Claude-tailored)."
+description: "Run bundled core Spec Kit phases with gates passed by independent compliance reviews before and after implementation (Claude-tailored)."
 argument-hint: "<feature request | continue | prepare | implement approved | closeout> [--scope all|slice:<phase>|tests-only]"
 ---
 
@@ -23,16 +23,15 @@ and `.agents/skills/` are thin pointers to it. In summary it:
 1. Detects the project, active feature, and requested mode (Bundle 0), reading and
    obeying `.specify/memory/constitution.md`.
 2. Bundles requirements preparation — `speckit.constitution` (check), `speckit.specify`,
-   `speckit.clarify`, `speckit.checklist` — then stops at Gate 1.
+   `speckit.clarify`, `speckit.checklist` — then runs Gate 1.
 3. Bundles implementation preparation, split by an architecture gate —
-   `speckit.plan`, then `architecture-delta.yaml` and a stop at Gate 2A
+   `speckit.plan`, then `architecture-delta.yaml` and the Gate 2A review
    (APPROVE | APPROVE_WITH_ADR | REVISE_ARCHITECTURE | REJECT); only an
    approving verdict permits `speckit.tasks`, `speckit.analyze`, plus
-   `implementation-review.md` — then always stops at Gate 2. Tasks MUST NOT be
+   `implementation-review.md` — then always runs Gate 2. Tasks MUST NOT be
    generated before the architecture delta is approved (Principle XIII-C).
-4. Implements only the human-approved scope, and only via the constitution's
-   required implementation invocation; writes the constitutional implementation
-   receipt.
+4. Implements only the scope the Gate 2 compliance review passed, through
+   `speckit.implement`; writes the constitutional implementation receipt.
 5. Verifies (git diff, narrowest relevant Cargo tests and benchmarks) and
    closes out at Gate 3.
 
@@ -46,6 +45,7 @@ which one is missing.
 
 ## Safety rule
 
-Do not modify source code until the human approves implementation at Gate 2 AND the
-constitution's required implementation invocation has been given. Run human gates
-with the `AskUserQuestion` tool; track bundles and tasks with the task list.
+Do not modify source code until the Gate 2 compliance review has recorded a PASS.
+Run each gate as a fresh-context compliance review (Agent tool); use `AskUserQuestion`
+only for decisions the constitution reserves for a human; track bundles and tasks with
+the task list.

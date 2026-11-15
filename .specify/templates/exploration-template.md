@@ -60,8 +60,9 @@ concurrently. The file, not any one conversation, is the working memory
 5. **Dedup, don't repeat**: before a search/inspection, scan the Observations
    log; a repeat is recorded as `dup-of:O#` and costs the marginal-gain
    counter (see Stop rule).
-6. **Decision is human-only**: agents fill everything above it; only the
-   human sets Status to go/no-go/parked and signs the Decision.
+6. **Decision at Gate E**: the agent sets Status to go/no-go/parked and fills
+   the Decision; it stands only with a PASS from the Gate E compliance review
+   (constitution XI-4, VI-A).
 
 ## Mission *(append-only)*
 
@@ -120,12 +121,12 @@ re-derives the same error.
 
 An exploration session stops when its mission questions are answered, or after
 3 consecutive actions that add no new live evidence (marginal gain exhausted),
-or on an explicit human park/no-go. Before stopping, regenerate Synthesis.
+or on a park/no-go decision. Before stopping, regenerate Synthesis.
 
-## Decision *(human-only)*
+## Decision *(Gate E; stands only with a compliance-review PASS)*
 
 - **Outcome**: go | no-go | parked
 - **Rationale**: [one paragraph, citing entry IDs]
 - **Seed for /speckit-specify** *(go only)*: [the distilled feature request,
   drawn from Synthesis, to be passed verbatim as the specify input]
-- **Decided by**: [human] on [UTC date]
+- **Decided by**: [agent] on [UTC date]; request answered: [request]; review: [gate-reviews/ file]

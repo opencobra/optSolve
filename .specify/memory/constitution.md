@@ -183,13 +183,13 @@ Tasks MUST NOT be generated before the feature's architecture delta is approved 
 Implementation MUST NOT begin until the feature has a current `spec.md`, `plan.md` and
 `tasks.md`, any required clarification or analysis artifacts, and no unresolved blocker.
 
-Implementation files may be modified only when the user explicitly invokes the implementation
-phase with the agent's implementation command (`/speckit-implement` or its equivalent), or with
-the direct instruction `Run the Spec Kit implementation phase for the active feature`.
+Implementation files may be modified only in the implementation phase (`/speckit-implement` or
+its equivalent) of a feature whose Gate 2 compliance review (VI-A) has recorded a PASS for the
+current `spec.md`, `plan.md` and `tasks.md`, and only within the task scope that review passed.
 Planning-only prompts (a plan, design, explanation, debugging advice, research) MUST stop before
 code edits. Brownfield and bug-fix work MUST attach to, or create, Spec Kit artifacts first. If
-the user asks for code changes before the prerequisites exist, the agent MUST decline briefly and
-name the next required command.
+code changes are requested before the prerequisites exist, the agent MUST decline briefly and
+name the next required phase or gate.
 
 `SPECKIT OVERRIDE` is the single override mechanism. Only the user's use of that exact token
 authorises it; an agent MUST NOT infer it from urgency or a broad request. It applies only to the
@@ -200,31 +200,73 @@ These requirements are agent-neutral and apply identically to every agent or mod
 
 Every implementation run MUST write the implementation receipt defined in Development Workflow
 And Quality Gates. Every implementation decision MUST be traceable to this constitution, the
-spec, the plan, a task, and the receipt. When in doubt, stop before editing and ask which phase
-runs next.
+spec, the plan, a task, the gate reviews, and the receipt. When in doubt, stop before editing and
+run the next gate's compliance review.
 
-#### VI-A. Human-Loop Gates Are Binding Where The Extension Is Installed
+#### VI-A. Gates Are Passed By Independent Compliance Review
 
-Where `.specify/extensions/human-loop/workflow.md` is present, the gates it defines — **Gate E,
-Gate 1, Gate 2A, Gate 2 and Gate 3** — are MANDATORY for every agent. A gate MUST NOT be skipped
-silently: a deferred or unrun gate is recorded in the feature's `human-loop.md` with its reason
-and surfaced at the next gate. Where an agent has no interactive multiple-choice mechanism, the
-gate is run as an explicit question and the answer recorded. Substituting an agent's own
-equivalent mechanism is expected; omitting the gate is not.
+Where `.specify/extensions/human-loop/workflow.md` is present, the gates it defines are MANDATORY
+for every agent: **Gate E** after exploration (whether to specify); **Gate 1** after requirements
+(specification, clarification, checklists); **Gate 2A** after planning (the architecture delta and
+its XIII-C verdict); **Gate 2** after task generation and cross-artifact analysis, before
+implementation; **Gate 3** after implementation and validation (closeout). A gate MUST NOT be
+skipped silently: a deferred or unrun gate is recorded in the feature's `human-loop.md` with its
+reason and surfaced at the next gate.
+
+A gate is passed only by a compliance review, not by human approval:
+
+* The review MUST be performed by a separate subagent with a fresh context that did not produce
+  the artefacts under review. It is given this constitution, the Tier 1 companions it names, and
+  the feature's artefacts; at Gate 3 also the code and test changes (the diff against the
+  feature's base) and the validation evidence. It is NOT given the producing agent's conclusions,
+  summaries or proposed verdict.
+* The reviewer MUST check that everything the feature plans to do (Gates E to 2) or has done
+  (Gate 3) accords with every principle of this constitution, citing for each finding the
+  principle and the evidence (file and line, test name, command output). At Gate 2A the reviewer
+  issues one of the four XIII-C verdicts; `APPROVE` and `APPROVE_WITH_ADR` are a PASS.
+* The review is recorded in `specs/<feature>/gate-reviews/`, one file per review, stating: the
+  gate; the UTC date; the reviewer (agent and model, and that its context was fresh); the
+  artefacts reviewed and their revision (a commit, or content hashes where uncommitted); the
+  findings; and the verdict, PASS or FAIL. Work MUST NOT advance past a gate without a PASS
+  recorded for the current state of the artefacts; a reviewed artefact changed after its PASS is
+  re-reviewed. The producing agent MUST NOT edit a review record.
+* On FAIL, the producing agent repairs the artefacts or the implementation, and a NEW reviewer,
+  again with a fresh context, reviews the result. A reviewer MUST NOT waive a principle; a finding
+  is closed only by a repair or by a decision this constitution permits the agent to take.
+* An agent that cannot spawn a fresh-context reviewer stops at the gate and reports exactly what
+  the reviewer must be given; a human or another agent may then spawn it.
+
+The following decisions, formerly the maintainer's, are taken by the producing agent, recorded
+with their rationale in the feature's artefacts, and checked by the gate's reviewer: answering
+clarification questions and deciding the spec's open requirements (Gate 1); accepting a checklist
+item open (VI-B); the exploration outcome (XI-4); the architecture verdict and the names of a new
+layer or of a renamed element (XIII-C, XIII-F); approval of the implementation scope (Gate 2); and
+accepting a feature as complete (Gate 3). Every such decision MUST trace to a request from the
+maintainer or from a consumer repository working under the maintainer's authority.
+
+The following remain human decisions; agents MUST record and report them rather than resolve
+them, and work that depends on one stops while independent work in the feature continues:
+publication (committing or merging to the integration branch or any other shared branch, pushing,
+opening a pull request), which a Gate 3 PASS does not authorise; amendments to this constitution,
+including additions to the Notation Convention; changing a declared value of `project.yml` or
+adding a kind of parameter to it; legal and licensing questions (X, IX-J); the `SPECKIT OVERRIDE`
+token; and reversing a ruling the maintainer recorded (XV-E).
 
 Rationale: without binding gates an agent could run every phase and present finished work with
-no human decision recorded anywhere. The gates are the points where a person, not a machine,
-decides scope, architecture and approval.
+no check recorded anywhere. A reviewer that did not produce the work, sees only the rules and the
+evidence, and must cite both, checks it without inheriting the producer's blind spots, and lets
+consumer repositories drive development without a person at every gate. Publication, the rules
+themselves and legal exposure stay with the maintainer.
 
 #### VI-B. A Checklist Reaching A Gate Is Resolved Or Explicitly Routed
 
 Every item of every checklist under `specs/<feature>/checklists/` MUST, when presented at a gate,
 be either **resolved** (marked complete, with the closing artifact identifiable; marking asserts
 verification) or **explicitly routed** (left open with its destination named: a later gate, a
-task ID, or a recorded human decision to accept it open, with rationale). An unmarked item is
+task ID, or a recorded decision to accept it open, with rationale). An unmarked item is
 neither, and a checklist carrying one has not passed. The routing record lives in the feature's
-`human-loop.md`. Accepting an item open is a human decision; an agent MUST NOT close an item by
-declaring it unimportant.
+`human-loop.md`. Accepting an item open is an agent decision checked by the gate's compliance
+reviewer (VI-A); an agent MUST NOT close an item by declaring it unimportant.
 
 Rationale: in the variational kinetics repository, sixteen features reached gates with their
 domain checklists entirely unmarked; one, verified late, had only 13 of 36 items genuinely
@@ -450,8 +492,9 @@ be recorded when it occurs, in a durable artifact any agent can resume.
    ledgers, agent identity and UTC timestamp on every entry, unique sequential entry IDs, refuted
    entries marked and never deleted, and a Synthesis section regenerated whole by whichever agent
    writes last.
-4. **Human-only decision.** Only the human sets the exploration Status and signs the Decision.
-   Before ending a substantive discussion of an incomplete feature, the agent MUST refresh one
+4. **Decision at Gate E.** The exploration Status and Decision are set by the agent at Gate E
+   and stand only with a PASS from that gate's compliance review (VI-A); the Decision names the
+   request it answers and the review file. Before ending a substantive discussion of an incomplete feature, the agent MUST refresh one
    concise `Current conversation summary` below the title of that feature's `exploration.md`;
    it grants no implementation authority.
 5. **Exploration grants no implementation authority.** Explore mode MUST NOT edit code, tests or
@@ -522,8 +565,8 @@ Every feature MUST carry `specs/<feature>/architecture-delta.yaml` declaring the
 dependency edges it adds, modifies or removes, the public interfaces and persistent data
 structures it changes, and the edges it declares forbidden.
 
-NO TASKS ARE GENERATED UNTIL THE ARCHITECTURE DELTA IS APPROVED. The review terminates in one of
-four verdicts: `APPROVE`, `APPROVE_WITH_ADR`, `REVISE_ARCHITECTURE` or `REJECT`. Only the first
+NO TASKS ARE GENERATED UNTIL THE ARCHITECTURE DELTA IS APPROVED. The review, the Gate 2A
+compliance review (VI-A), terminates in one of four verdicts: `APPROVE`, `APPROVE_WITH_ADR`, `REVISE_ARCHITECTURE` or `REJECT`. Only the first
 two permit task generation; `APPROVE_WITH_ADR` requires an ADR under `docs/architecture/decisions/`
 before implementation. An ADR is REQUIRED when a feature introduces a crate or layer, changes an
 allowed dependency direction, introduces a shared data representation, changes an encapsulation
@@ -553,13 +596,13 @@ the distinctions the shared interface must preserve. Reuse MUST NOT make a lower
 a higher one and MUST NOT introduce a framework for a single caller. Conformance is checked at
 the architecture review and again at closeout.
 
-#### XIII-F. Naming A New Layer Is A Human Decision, Taken At The Architecture Delta
+#### XIII-F. Naming A New Layer Is Decided At The Architecture Delta And Reviewed
 
 A name MUST mean what the thing does. Where a change would alter what an existing name denotes
 (inserting a layer, splitting or merging a component, promoting an internal helper to a public
-element), the agent MUST stop before implementing and ask the maintainer for the names. The
-answer is recorded in the delta and its Gate 2A record. A standing instruction to proceed covers
-execution, not naming.
+element), the agent MUST decide the names before implementing, record each with what it denotes
+and why in the delta, and have them checked against this rule by the Gate 2A compliance review
+(VI-A). A name MUST NOT change after Gate 2A without a new Gate 2A review.
 
 #### XIII-G. A Shared Capability Is Not Delivered Until A Real Consumer Adopts It
 
@@ -801,8 +844,9 @@ logs; any redaction MUST be marked.
 
 This constitution supersedes conflicting habits, templates and preferences. The Strict
 Spec-Driven Development Gate has precedence over convenience, speed and agent initiative.
-Amendments require an update to this file, a Sync Impact Report in the changelog, review of
-dependent templates and skills, and review of affected agent instruction files. Feature plans and
+Amendments are made only on the maintainer's explicit instruction (VI-A) and require an update
+to this file, a Sync Impact Report in the changelog, review of dependent templates and skills,
+and review of affected agent instruction files. Feature plans and
 reviews MUST check compliance before implementation and again before completion.
 
 Versioning follows semantic versioning: MAJOR for incompatible governance changes, principle
@@ -811,8 +855,10 @@ requirements; PATCH for clarifications.
 
 ### Commits Carry In-Flight Manual Work
 
-Commits, pushes and pull requests are made only on the maintainer's explicit instruction; a gate
-answer MAY give that instruction. Whenever a commit is made, by any agent or by hand:
+Commits to a feature's own branch are agent actions, made before each gate's compliance review
+so that the review names a revision. Committing or merging to the integration branch or any other
+shared branch, pushing, and opening pull requests are publication and are made only on the
+maintainer's explicit instruction (VI-A). Whenever a commit is made, by any agent or by hand:
 
 * it MUST include the in-flight manual changes to tracked files present in the working tree, and
   the message MUST list them, one line each, distinguished from the work being committed, with
@@ -832,15 +878,14 @@ The integration branch is `branches.integration` in `project.yml`.
 * A feature branch MUST be created from the integration branch, after updating it from its
   remotes if any exist. `create-new-feature.sh` branches from whatever is checked out; checking
   out the integration branch first is the enforcement.
-* At Gate 3, and only on "accept and close", the integration branch is brought up to date with
-  the feature branch (fast-forward where possible, a merge commit otherwise) and the working
+* After a Gate 3 PASS, and only on the maintainer's instruction to integrate, the integration
+  branch is brought up to date with the feature branch (fast-forward where possible, a merge commit otherwise) and the working
   branch switched to it. Where remotes exist, the integration branch is published to each and
   the tip each host shows is recorded. The integration branch MUST NOT be force-pushed or have
   its history rewritten. Feature branches are kept.
 * Two features MUST NOT share a working tree; a feature started while another is open gets its
   own `git worktree` from the integration branch.
-* A feature's work is committed to its branch, when the maintainer authorises it, before each
-  gate is presented.
+* A feature's work is committed to its branch before each gate's compliance review.
 * At the entry of every feature the agent confirms that closed features are contained in the
   integration branch, that local and remote integration branches agree where remotes exist, and
   that the working tree holds no other feature's uncommitted work.
@@ -926,4 +971,4 @@ entry first. `/speckit-constitution` writes its Sync Impact Report there; prepen
 constitution is prohibited. Freshness stamps on observed facts, and rationales citing an incident
 to explain a rule, are not records of change and stay where they are.
 
-**Version**: 2.5.1 | **Ratified**: 2026-11-14 | **Last Amended**: 2026-11-15
+**Version**: 3.0.0 | **Ratified**: 2026-11-14 | **Last Amended**: 2026-11-15

@@ -48,11 +48,12 @@ exactly one of two states:
   is a false record.
 - **Explicitly routed** — left `[ ]` deliberately, with its destination named in
   the feature's `human-loop.md`: a later gate, a specific task ID, or a recorded
-  human decision to accept it open with rationale.
+  decision to accept it open with rationale.
 
 An item that is merely unmarked is in neither state. **A checklist carrying
 unmarked items has not passed, and a gate MUST NOT be recorded as passed on it.**
 
-Accepting an item open is a human decision recorded with rationale. An agent MUST
+Accepting an item open is an agent decision recorded with rationale and checked by
+the gate's compliance reviewer (VI-A). An agent MUST
 NOT close an item by declaring it unimportant, and MUST NOT infer that unmarked
 items were considered.

@@ -18,8 +18,8 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 Read `.specify/extensions/human-loop/workflow.md`, including its runtime mapping.
 This is the shared planning procedure for all agents, subordinate to constitution
-Principles VI, VI-A and XIII-C. Preserve the applicable human gates when invoked
-directly; planning completion does not approve the architecture or task generation.
+Principles VI, VI-A and XIII-C. Preserve the applicable gates (compliance reviews) when
+invoked directly; planning completion does not approve the architecture or task generation.
 
 ## Pre-Execution Checks
 
