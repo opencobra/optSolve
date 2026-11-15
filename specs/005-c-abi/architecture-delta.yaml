@@ -46,13 +46,15 @@ components_modified:
   - id: gurobi.params
     change: memory_limit_gb → SoftMemLimit in apply and MAPPINGS
   - id: gurobi.env
-    change: Env is Send (not Sync), vendor-cited; process-wide lock serialising environment creation and freeing
+    change: Env is Send (not Sync), vendor-cited; pub(crate) lifecycle helper holding one process-wide lock, used by every call of GRBemptyenvinternal, GRBstartenv, GRBfreeenv, GRBXloadmodel, GRBfreemodel (library code and unit tests, incl. the empty-environment unit test)
   - id: mosek.env
     change: Env is Send (not Sync), vendor-cited
   - id: gurobi.load
     change: model creation (GRBXloadmodel) and freeing (GRBfreemodel) under the gurobi::env lock
   - id: gurobi.callback
     change: test-helper model creation and freeing under the gurobi::env lock
+  - id: gurobi.params
+    change: (also) its unit test creating and freeing an environment goes through env::lifecycle
   - id: gurobi.solve
     change: solve_into checks the conic-dual buffer length (closing a validation gap; MOSEK already checks)
   - id: test.harness
@@ -64,7 +66,7 @@ components_modified:
   - id: manifest  # not a component id in components.yaml; listed for completeness
     change: Cargo.toml crate-type lib + staticlib + cdylib; feature capi; [[test]] c_interface; [[bench]] c_interface
   - id: test.standards  # not a component id in components.yaml (tests/standards.rs); listed for completeness
-    change: src/capi/ admitted as an FFI module for unsafe and extern "C" definitions; drift test covers the header's names
+    change: src/capi/ admitted as an FFI module for unsafe and extern "C" definitions; drift test covers the header's names; every Gurobi lifecycle call inside env::lifecycle
 
 components_removed: []
 

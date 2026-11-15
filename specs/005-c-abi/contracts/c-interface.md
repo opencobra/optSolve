@@ -148,7 +148,9 @@ uint64_t optsolver_environments_created(void);               /* test support: co
 ```
 
 Thread rule: a handle may be used from any thread, by one thread at a time; different handles may
-be used concurrently; Gurobi creation and freeing are serialised by a lock in the Gurobi backend (the Rust
+be used concurrently; Gurobi creation and freeing are serialised by a lock in the Gurobi backend;
+MOSEK documents no guarantee for concurrent environment creation, so MOSEK environments should be
+created one at a time (unverified either way) (the Rust
 `gurobi::Env` and `mosek::Env` are `Send`, not `Sync`).
 
 ## Solving (FR-005 to FR-007)

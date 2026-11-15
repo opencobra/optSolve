@@ -1,7 +1,7 @@
 # Human Loop State
 
 ## Current State
-- Status: Gate 1 PASS (review 4); Gate 2A reviews 1 and 2 REVISE_ARCHITECTURE, repaired; Gate 2A review 3 requested.
+- Status: Gate 1 PASS (review 4); Gate 2A reviews 1 to 3 REVISE_ARCHITECTURE, each repaired; Gate 2A review 4 requested.
 - Active feature directory: specs/005-c-abi (worktree `../optSolver-005-c-abi`, branch `005-c-abi`)
 - Last completed bundle: Bundle 1 (requirements preparation)
 - Source code modified by this workflow: no
@@ -31,6 +31,7 @@
 | 2026-11-15 | Gate 1 review 4 | PASS | gate-reviews/gate-1-20261115T233939Z.md | Gate 1 passed; Bundle 2 (plan) starts. Observations routed to the plan: capabilities usability, crate types versus the feature, C-layer failing-input tests, thread-rule and no-output checks, machine class, version mapping, absent arrays. Wording observation (User Story 3 says "toy-sized" while the memory-limit criterion uses iDopaNeuroC_problem_LP) left for the next spec revision, which will need a Gate 1 re-review |
 | 2026-11-15 | Gate 2A review 1 | REVISE_ARCHITECTURE (FAIL), three findings: the Gurobi creation lock placed in the C layer by ADR-0004, research R3 and the plan but in the backend by the spec and delta; the plan's delta summary missing `capi → gurobi.solve/mosek.solve` and `gurobi.solve`; symbols outside the inventory in the contract and plan. Names approved | gate-reviews/gate-2A-20261115T234459Z.md | Repairs: lock only in `gurobi::env`; plan summary matches the delta; symbols replaced by words and field names; MILP capability bit documented |
 | 2026-11-15 | Gate 2A review 2 | REVISE_ARCHITECTURE (FAIL), four findings: ADR-0004 still said the Rust Env stays !Send; the inference that a lock suffices for Gurobi creation/freeing on any thread was not marked; codes without names in the plan; NaN-fill cost inconsistent | gate-reviews/gate-2A-20261115T235156Z.md | Repairs: ADR decisions 1 and 5 corrected; inference marked unverified, accepted risk with a licensed concurrency test, lock extended to Gurobi model creation and freeing; names beside codes; O(m + n + k). Observations routed to tasks: lazy name conversion, cone names from ConeKind::name, boundaries.yaml at closeout |
+| 2026-11-15 | Gate 2A review 3 | REVISE_ARCHITECTURE (FAIL), three findings: the Gurobi lock did not cover two unit-test creation sites and had no crate-wide rule; codes without names in the plan; wrong research cross-reference | gate-reviews/gate-2A-20261115T235742Z.md | Repairs: crate-wide rule with the single helper gurobi::env::lifecycle, source test, poisoning recorded, sites added to delta and plan; names; R9. MOSEK concurrent creation stated unverified in research and header |
 
 **Recorded deviation (Governance, "Commits Carry In-Flight Manual Work")**: commit 710ae9a
 (feature artefacts) did not include or list the eleven tracked governance changes then in the

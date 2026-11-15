@@ -80,6 +80,23 @@ Gurobi 13.0.3 header (`$GUROBI_HOME/include/gurobi_c.h`), the Gurobi Optimizer R
   therefore also held around model creation and model freeing in `gurobi::load` and in the test
   helper model of `gurobi::callback` (no lock around optimisation, so concurrent solves on
   different environments still run in parallel).
+- **One locked helper** (Gate 2A review 3): the rule is crate-wide — every call of
+  `GRBemptyenvinternal`, `GRBstartenv`, `GRBfreeenv`, `GRBXloadmodel` and `GRBfreemodel`, in
+  library code and in unit tests (which run on parallel threads of one process), is made inside
+  `gurobi::env::lifecycle(|| …)`, a `pub(crate)` function that holds the one `static Mutex<()>`
+  for the duration of the closure. `Env::new` makes its whole creation sequence (create, set
+  `OutputFlag`, start, free on failure) one `lifecycle` call, so the non-re-entrant mutex is never
+  taken twice; `Drop` is one call. Present sites: `Env::new` and `Drop` (src/gurobi/env.rs), the
+  unit test creating an empty environment (src/gurobi/env.rs:160-165), the unit test of
+  `configure_new_environment` (src/gurobi/params.rs:389-396), model creation and freeing in
+  src/gurobi/load.rs, and the test-helper model in src/gurobi/callback.rs. A source test in
+  `tests/standards.rs` fails if any line naming one of the five functions (outside `ffi.rs`) is
+  not inside a `lifecycle(` call. Poisoning: a panic while the lock is held cannot leave the
+  vendor's state half-changed by Rust (the vendor calls do not unwind), so a poisoned lock is
+  recovered with `PoisonError::into_inner` and used normally.
+- **MOSEK environment creation**: MOSEK documents no restriction and no guarantee for concurrent
+  `MSK_makeenv`; unverified. No lock is added; the header states that MOSEK environments should
+  be created one at a time, which the consumer (one environment per backend, created once) does.
 - **C handle**: a `Box` of an enum holding one of the two `Env`s; the C caller may move the
   pointer between threads under the same rule.
 

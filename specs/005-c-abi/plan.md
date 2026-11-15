@@ -55,7 +55,7 @@ NaN writes on the caller-buffer path only; no printing (III)
   the point of the handle (US2); model modification without reload does not exist in the Rust API
   yet (spec Assumptions) and is not touched. Validation is not removed. Targets: the heap criterion (SC-002) and the wall-time criterion
   (SC-003).
-- **Solver configuration audit** (I): research R8 — the only new parameter is `SoftMemLimit`,
+- **Solver configuration audit** (I): research R9 — the only new parameter is `SoftMemLimit`,
   unset by default (vendor default Infinity, 13.0 parameter reference); the problem data passed is
   unchanged, so feature 001–003 audits stand.
 - **Solver parameters in one location** (VII-G): `memory_limit_gb` is declared in
@@ -81,8 +81,10 @@ NaN writes on the caller-buffer path only; no printing (III)
   unchanged; `unsafe impl Send` (not `Sync`) for `gurobi::Env` and `mosek::Env`, each citing the
   vendor documentation (research R3, superseding feature 001 R15 and feature 002 R2 as recorded
   in the spec's Clarifications); Gurobi environment and model creation and freeing under one lock in `gurobi::env`
-  (`Env::new`, `Drop`, used by `gurobi::load`), the lock's sufficiency an accepted, recorded risk
-  (research R3); errors as codes, panics contained with
+  — crate-wide rule: every call of `GRBemptyenvinternal`, `GRBstartenv`, `GRBfreeenv`,
+  `GRBXloadmodel` and `GRBfreemodel`, in library code and unit tests alike, runs inside the single
+  locked helper `gurobi::env::lifecycle` (research R3), checked by a source test — the lock's
+  sufficiency an accepted, recorded risk; errors as codes, panics contained with
   `catch_unwind` at every entry point (VII-C); validation before the first FFI call is the Rust
   API's, plus the C layer's null and length checks before building slices (VII-D); no vendor
   declaration added (VII-E); lints unchanged, `links` unchanged, no new build-script variable
@@ -122,7 +124,7 @@ NaN writes on the caller-buffer path only; no printing (III)
   parameters, solver versions, optSolver tree state (commit plus content hash of the uncommitted
   tree), machine and profile. Both paths use identical instances and options. (c) Environment
   creation outside the timed region; the result's load, solve, extraction timings recorded for both
-  paths; warm runs only for SC-003 (first run discarded); heap measured with `dhat` in a process
+  paths; warm runs only for the wall-time criterion (SC-003) (first run discarded); heap measured with `dhat` in a process
   per scenario. (d) Positive control: the pointer-identity test (task list) and a dhat check that
   the C path's allocation count differs from the Rust path's by the expected small constant.
 - **Version mapping for the consumer** (versioning requirement FR-015; Gate 1 observation): the
@@ -256,6 +258,8 @@ src/options.rs                # memory_limit_gb
 src/gurobi/env.rs             # Send; creation/freeing lock
 src/gurobi/load.rs            # model creation and freeing under the lock
 src/gurobi/callback.rs        # test-helper model creation and freeing under the lock
+src/gurobi/params.rs          # (also) unit-test environment creation and freeing under the lock
+tests/standards.rs            # (also) every Gurobi lifecycle call inside env::lifecycle
 src/mosek/env.rs              # Send
 src/gurobi/params.rs          # SoftMemLimit
 src/gurobi/solve.rs           # solve_into checks the conic-dual buffer length (as MOSEK does)
@@ -263,7 +267,7 @@ tests/c_interface.rs          # new: agreement, unlicensed and licensed C tests
 tests/c/                      # new: C test programs (placement: C test sources)
 tests/common/cdata.rs         # new: toy-instance writer, C-result reader (shared harness)
 tests/standards.rs            # src/capi/ admitted as FFI module; header names in drift test
-benches/c_interface.rs        # new: SC-002, SC-003
+benches/c_interface.rs        # new: heap and wall-time criteria (SC-002, SC-003)
 docs/llm-interface.md         # C interface section
 docs/architecture/            # components.yaml, repo_folder_organisation.md, ADR-0004
 specs/005-c-abi/requests/from-cobratoolbox-REQ-001.md   # record of the consumer's request
