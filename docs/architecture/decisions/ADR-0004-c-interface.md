@@ -29,7 +29,8 @@ still outside this repository (VIII).
    major.minor, with input structures carrying `struct_size` so minor versions can append fields.
 4. Errors cross as codes with a per-thread message; panics are contained at every entry point.
 5. Environment handles may move between threads (one user at a time), on vendor evidence
-   (feature 005 research R3); Gurobi creation and freeing are serialised in the C layer. The
+   (feature 005 research R3); Gurobi creation and freeing are serialised by one lock in `gurobi::env`
+   (`Env::new` and `Drop`), protecting Rust callers too. The
    Rust `Env` types stay `!Send`.
 6. The memory limit is a solver-independent option: Gurobi `SoftMemLimit`; unsupported on MOSEK.
 

@@ -47,7 +47,7 @@ NaN writes on the caller-buffer path only; no printing (III)
   `SPECKIT OVERRIDE`. A licensed probe of `SoftMemLimit` per model (research R2) is a test task,
   not a scratch script.
 - **Performance and memory** (I): input path — no copy; the C layer allocates only the cone
-  descriptor vector (O(p) for p cones, with power-cone exponents) and the raw-parameter name
+  descriptor vector (linear in the number of cones, `num_cones`, with power-cone exponents) and the raw-parameter name
   strings (O(number of raw parameters)). Result path — owned arrays are read in place; per-result
   NUL-terminated copies of names only (O(number of names)); caller buffers are NaN-filled
   (O(m + n + k) writes, no allocation). No allocation proportional to nnz. Environment reuse is
@@ -78,7 +78,7 @@ NaN writes on the caller-buffer path only; no printing (III)
   `Box`ed Rust values behind opaque pointers, freed only by their free function; `Env` lifetimes
   unchanged; `unsafe impl Send` (not `Sync`) for `gurobi::Env` and `mosek::Env`, each citing the
   vendor documentation (research R3, superseding feature 001 R15 and feature 002 R2 as recorded
-  in the spec's Clarifications); Gurobi creation and freeing under one lock; errors as codes, panics contained with
+  in the spec's Clarifications); Gurobi creation and freeing under one lock in `gurobi::env` (`Env::new`, `Drop`); errors as codes, panics contained with
   `catch_unwind` at every entry point (VII-C); validation before the first FFI call is the Rust
   API's, plus the C layer's null and length checks before building slices (VII-D); no vendor
   declaration added (VII-E); lints unchanged, `links` unchanged, no new build-script variable
@@ -160,10 +160,10 @@ behind features, all in crate `optsolver` (components.yaml); no C-exported symbo
 design's RunMat adapter lives outside the repository.
 
 **Proposed delta**: see `architecture-delta.yaml` — added `capi` (src/capi/), `capi.header`
-(src/capi/optsolver.h), `test.c_interface`, `bench.c_interface`; modified `core.options`, `gurobi.env`, `mosek.env`,
-`gurobi.params`, `test.harness`, `docs.llm_interface`, the placement document, the manifest and
-`tests/standards.rs`. New edges capi → core.*, capi → gurobi.env/mosek.env (environment creation
-only). Public interfaces: `Options::memory_limit_gb`; `Send` for both `Env` types; C interface ABI
+(src/capi/optsolver.h), `test.c_interface`, `bench.c_interface`; modified `core.options`, `gurobi.env` (Send; creation/freeing lock), `mosek.env` (Send),
+`gurobi.params`, `gurobi.solve` (conic-dual buffer length check), `test.harness`, `docs.llm_interface`, the placement document, the manifest and
+`tests/standards.rs`. New edges capi → core.*, capi → gurobi.env/mosek.env (environment creation and
+ownership) and capi → gurobi.solve/mosek.solve (solving through their `Backend` implementations). Public interfaces: `Options::memory_limit_gb`; `Send` for both `Env` types; C interface ABI
 1.0.
 
 **Alternatives considered**: (1) a separate crate `optsolver-capi` — cleaner crate types but
@@ -243,7 +243,7 @@ src/capi/optsolver.h           # new: public C header (placement: public C heade
 src/lib.rs                    # mod capi behind feature
 src/capi/mod.rs               # new: codes, constants, errors, panic containment, version
 src/capi/problem.rs           # new: C structures → Problem (borrowed), Options
-src/capi/env.rs               # new: environment handle, Gurobi creation lock, capabilities
+src/capi/env.rs               # new: environment handle, capabilities
 src/capi/result.rs            # new: solve entry points and result accessors
 src/options.rs                # memory_limit_gb
 src/gurobi/env.rs             # Send; creation/freeing lock

@@ -45,7 +45,8 @@ Gurobi 13.0.3 header (`$GUROBI_HOME/include/gurobi_c.h`), the Gurobi Optimizer R
 ## R3. Thread rule for the environment handle (FR-008)
 
 - **Decision**: any thread, one thread at a time; different handles concurrently; Gurobi
-  environment creation and freeing serialised inside the C layer by one process-wide lock.
+  environment creation and freeing serialised by one process-wide lock in `gurobi::env`
+  (`Env::new` and `Drop`), so that Rust callers of the now-`Send` `Env` are protected too.
 - **Evidence**: MOSEK manual §10.3 "Sharing a task between threads is safe, as long as it is not
   accessed from more than one thread at a time. Multiple tasks can be created and used in
   parallel without any problems"; §10.6 "Calling MSK_optimize from different threads using the
@@ -107,7 +108,7 @@ Gurobi 13.0.3 header (`$GUROBI_HOME/include/gurobi_c.h`), the Gurobi Optimizer R
 - Arrays are borrowed as `&[T]` built with `slice::from_raw_parts` directly from the caller's
   pointers, lengths derived from the dimensions and `col_ptrs[n]`; nothing is copied (FR-003).
   Per-cone descriptors become a `Vec<Cone>` (one entry per cone, plus the power-cone exponents):
-  O(p) where p is the number of cones.
+  linear in the number of cones (`num_cones`).
 - Owned results stay as the Rust `Solution` inside an opaque `optsolver_result`; arrays are
   returned as pointers into its `Vec`s (no copy). Strings the Rust result holds as `String`
   (solver name and version, raw status names, attribute and parameter names) are converted once

@@ -13,7 +13,7 @@ structures are defined in `contracts/c-interface.md`; this table maps each onto 
 | `row_sense`, `b` | `RowBounds::SenseRhs { sense: &[u8], b }` | `char` read as `u8`, borrowed |
 | `b_l`, `b_u` | `RowBounds::Ranges { b_l, b_u }` | exactly one form |
 | `Q` | `with_Q(CscRef<usize>)` | lower triangle (Rust rule) |
-| `F`, `g`, `cones` | `ConicRef::new(F, g, &[Cone])`, `with_conic` | cones → `Vec<Cone>` (O(p)) |
+| `F`, `g`, `cones` | `ConicRef::new(F, g, &[Cone])`, `with_conic` | cones → `Vec<Cone>` (linear in `num_cones`) |
 | `optsolver_cone {kind 1..9, dim, alpha}` | `Cone::Quadratic(dim)` … `Cone::PositiveSemidefinite { order: dim }`; power cones `alpha` copied into the variant | exponential cones require dim 3 or 0 (dim ignored when 0) |
 | `optsolver_options` fields | `Options` fields of the same names | NaN / `OPTSOLVER_UNSET` → `None` |
 | `threads` ≥ 0 | `Some(u32)` | above `u32::MAX` invalid |

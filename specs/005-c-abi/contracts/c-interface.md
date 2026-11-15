@@ -14,8 +14,8 @@ uint32_t optsolver_abi_version(void);   /* (major << 16) | minor */
 
 An incompatible change (a removed or changed function, type, field, constant meaning or ownership
 rule) increments the major part; a compatible addition (a new function, a new constant, a field
-appended to an input structure) increments the minor part. A caller compiled against M.N works
-with any library M.N' with N' ≥ N. Input structures begin with `struct_size`
+appended to an input structure) increments the minor part. A caller compiled against a given major and minor
+version works with any library of the same major version and an equal or higher minor version. Input structures begin with `struct_size`
 (= `sizeof` the caller's structure); the library reads only the fields that size covers and
 treats absent trailing fields as unset.
 
@@ -52,7 +52,9 @@ Solution returned: `OPTSOLVER_RETURNED_NONE` 0, `_FEASIBLE` 1, `_OPTIMAL` 2.
 Cone kinds (COBRA `coneType` codes): `OPTSOLVER_CONE_QUADRATIC` 1, `_ROTATED_QUADRATIC` 2,
 `_PRIMAL_EXPONENTIAL` 3, `_DUAL_EXPONENTIAL` 4, `_PRIMAL_POWER` 5, `_DUAL_POWER` 6,
 `_NONNEGATIVE` 7, `_ZERO` 8, `_POSITIVE_SEMIDEFINITE` 9.
-Problem classes (bit flags): `OPTSOLVER_CLASS_LP` 1, `_MILP` 2, `_QP` 4, `_CONIC` 8.
+Problem classes (bit flags): `OPTSOLVER_CLASS_LP` 1, `_MILP` 2, `_QP` 4, `_CONIC` 8. The bits describe
+the backend; interface version 1.0 cannot pass variable types, so a mixed-integer problem cannot be
+posed through it whatever the backend reports.
 Method: `OPTSOLVER_METHOD_AUTO` 0, `_PRIMAL_SIMPLEX` 1, `_DUAL_SIMPLEX` 2, `_BARRIER` 3,
 `_CONCURRENT` 4. Presolve: `OPTSOLVER_PRESOLVE_AUTO` 0, `_OFF` 1, `_CONSERVATIVE` 2,
 `_AGGRESSIVE` 3. `OPTSOLVER_UNSET` −1 (integer option unset).
@@ -81,7 +83,7 @@ typedef struct optsolver_csc {
 
 typedef struct optsolver_cone {
     int32_t kind;               /* OPTSOLVER_CONE_* */
-    size_t dim;                 /* dimension (order r for positive semidefinite) */
+    size_t dim;                 /* dimension; for positive semidefinite, the order */
     const double *alpha;        /* power cones: exponents of the leading coordinates */
     size_t alpha_len;
 } optsolver_cone;
@@ -146,7 +148,7 @@ uint64_t optsolver_environments_created(void);               /* test support: co
 ```
 
 Thread rule: a handle may be used from any thread, by one thread at a time; different handles may
-be used concurrently; Gurobi creation and freeing are serialised by the library (the Rust
+be used concurrently; Gurobi creation and freeing are serialised by a lock in the Gurobi backend (the Rust
 `gurobi::Env` and `mosek::Env` are `Send`, not `Sync`).
 
 ## Solving (FR-005 to FR-007)
