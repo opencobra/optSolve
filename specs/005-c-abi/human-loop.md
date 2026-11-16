@@ -1,7 +1,7 @@
 # Human Loop State
 
 ## Current State
-- Status: Gate 1 PASS (review 4); Gate 2A PASS (review 8, APPROVE_WITH_ADR); tasks and analysis written; Gate 2 reviews 1 and 2 FAIL, repaired; Gate 2 review 3 requested.
+- Status: Gate 1 PASS (review 4); Gate 2A PASS (review 8, APPROVE_WITH_ADR); tasks and analysis written; Gate 2 reviews 1 to 3 FAIL, each repaired; Gate 2 review 4 requested.
 - Active feature directory: specs/005-c-abi (worktree `../optSolver-005-c-abi`, branch `005-c-abi`)
 - Last completed bundle: Bundle 2 (up to Gate 2)
 - Source code modified by this workflow: no
@@ -39,6 +39,7 @@
 | 2026-11-16 | Gate 2A review 8 | APPROVE_WITH_ADR (PASS); names `capi`, "C interface", `src/capi/optsolver.h` approved (XIII-F) | gate-reviews/gate-2A-20261116T004341Z.md | ADR-0004 accepted; delta verdict set; task generation permitted. Observations routed to tasks (header parameter names `result`/`caps`, freeing on another thread, cold and environment-creation phases in the bench, visible skips for new licensed tests, early library-build check) and to closeout (conic-dual check as a repaired defect; components and boundaries reconciliation; consumer adoption; User Story 3 wording) |
 | 2026-11-16 | Gate 2 review 1 | FAIL, six findings: test ordering; stories not independently testable; coverage gaps (all invalid inputs, wrong-length buffer, solver-error code, name functions, conic on both paths); comparison rule never shown to reject; additivity combinations incomplete; analysis overstated | gate-reviews/gate-2-20261116T005056Z.md | Repairs: tasks restructured (each task with its tests; foundational harness and driver; story phases independent); gaps covered; negative comparison tests; eight feature combinations; analysis corrected; contract fields `rows`/`cols`, `caps` |
 | 2026-11-16 | Gate 2 review 2 | FAIL, two findings: NaN rule, per-thread messages and not-usable backend untested; analysis still overstated (coverage, task reference, file list) | gate-reviews/gate-2-20261116T005909Z.md | Repairs: tests added to T005, T007, T008, T010; analysis corrected; observations folded in (lock foundational, explicit comparison tests, no-output in the shared runner, twenty problems, phase names in dependencies) |
+| 2026-11-16 | Gate 2 review 3 | FAIL, three findings: certificates through C untested; new output and leak checks without negative controls; `unsafe` would be needed outside src/capi/ | gate-reviews/gate-2-20261116T010611Z.md | Repairs: certificate trials; runner self-test and deliberate-leak control; driver-based accessor tests and a safe hidden helper for the bench. Observations folded in (upward library search, every option through C, per-code tests, verdicts in the concurrency trial, repr(C) note) |
 
 **Recorded deviation (Governance, "Commits Carry In-Flight Manual Work")**: commit 710ae9a
 (feature artefacts) did not include or list the eleven tracked governance changes then in the

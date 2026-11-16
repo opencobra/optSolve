@@ -35,8 +35,8 @@ checks; the first version of this analysis overstated coverage and said no confl
 |---|---|
 | Thin translation (FR-001) | T005 to T008 |
 | Problem input (FR-002), zero copy (FR-003) | T006 (pointer-identity positive control), T010, T015 |
-| Options (FR-004) | T006, T010 |
-| Result fields (FR-005), two result paths and the NaN rule (FR-006) | T008 (NaN after error), T010 (NaN for absent quantities), T015 |
+| Options (FR-004) | T006, T008 (every option through C), T010 |
+| Result fields incl. certificates (FR-005), two result paths and the NaN rule (FR-006) | T008 (every accessor, NaN after error), T010 (NaN for absent quantities; certificates on infeasible and unbounded toys), T015 |
 | Environments and one-shot (FR-007) | T007, T012 |
 | Thread rule (FR-008) | T011, T012 |
 | Panic containment (FR-009) | T005, T016 |
@@ -68,6 +68,9 @@ trial runs with it.
 
 Findings:
 
+- Repaired after the third Gate 2 review: certificates through C untested; no negative control for
+  the empty-output assertion or the leak checker; in-process C calls would have needed `unsafe`
+  outside `src/capi/` (now a safe hidden helper for the bench, and driver-based tests).
 - Blocking: none remaining after the second Gate 2 review's repairs (NaN rule, per-thread
   messages and the not-usable backend were untested in the previous version; the previous
   analysis claimed them covered).

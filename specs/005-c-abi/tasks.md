@@ -22,10 +22,12 @@ harness). Each story phase then carries its own independent test and needs only 
   `[[test]] name = "c_interface", harness = false, required-features = ["capi"]`; no new bench
   target (research R4, R7). Check: `cargo test --features capi --no-run` produces
   `liboptsolver.a` and `liboptsolver.so` (recorded in the run log) before any C test relies on them.
-- [ ] T002 `src/lib.rs`: `#[cfg(feature = "capi")] #[doc(hidden)] pub mod capi;` (research R6).
+- [ ] T002 `src/lib.rs`: `#[cfg(feature = "capi")] #[doc(hidden)] pub mod capi;` with an initial
+  `src/capi/mod.rs` (research R6).
   `tests/standards.rs`: admit `src/capi/` as an FFI module (definitions only, no extern blocks) and
   extend the interface-document drift test to the header's `optsolver_`/`OPTSOLVER_` names; both
-  checks shown to fail on a synthetic violation (XV-C).
+  checks shown to fail on a synthetic violation (XV-C). The agreement test of T004 and these checks
+  pass once the foundational phase is complete (the phase is not done until they do).
 
 ## Phase 2: Foundational (blocks every story; each task with its tests)
 
@@ -33,7 +35,9 @@ harness). Each story phase then carries its own independent test and needs only 
   from tests/header_conformance.rs:20-75 and tests/header_conformance_mosek.rs:21-66; both header
   tests migrate and still pass. `tests/common/cdata.rs`: problem-file writer for toy instances and
   the iDopaNeuroC LP, result-file reader, compile-and-run of a `tests/c/` program against the
-  static or shared library with captured standard output and error. `tests/c/driver.c`: generic C
+  static or shared library (the library found by an upward search from the test executable for
+  the Cargo profile directory, never by counting parent levels, IX-I) with captured standard
+  output and error. `tests/c/driver.c`: generic C
   driver (owned or buffer path, handle or one-shot, options and raw parameters from the file,
   optional second thread for use and freeing, writes every result field and the error code,
   message and vendor code). `tests/common/compare.rs`: new function implementing the spec's
@@ -41,7 +45,8 @@ harness). Each story phase then carries its own independent test and needs only 
   bound is rejected; one within it is accepted and reported as not bit-identical; a status, limit
   reason, failed-measure-name or array-presence difference is rejected; an "everything failed"
   case is reported as uninterpretable (XV-C). The driver runner asserts empty standard output and
-  error on every run.
+  error on every run, and a runner self-test with a C program writing to both streams shows the
+  assertion rejects it (XV-C).
 - [ ] T004 Header `src/capi/optsolver.h` per contracts/c-interface.md (types with `rows`/`cols`,
   constants, prototypes, ownership, thread and aliasing rules, version rule, panic-profile and
   panic-hook notes, MOSEK creation and freeing unverified, link-flag pointer) together with its
@@ -59,7 +64,8 @@ harness). Each story phase then carries its own independent test and needs only 
   `tests/standards.rs` — `GRBemptyenvinternal`, `GRBstartenv`, `GRBfreeenv` named only in
   src/gurobi/env.rs outside `ffi.rs`, with a negative test on synthetic source; licensed
   concurrency trial in `tests/contract.rs` (four threads creating, solving a toy LP with and
-  freeing Gurobi environments twenty times concurrently; environments created on one thread, used
+  freeing Gurobi environments twenty times concurrently, each solve's verification verdict
+  checked; environments created on one thread, used
   and freed on another) (FR-008, VII-B; evidence for that run only).
 - [ ] T005 `src/capi/mod.rs` with its tests: constants (`pub const`), error codes, per-thread last
   error, `guard` (catch_unwind, thread-local in-entry flag, `Error` → code), the silent wrapping
@@ -69,7 +75,8 @@ harness). Each story phase then carries its own independent test and needs only 
   `optsolver_environments_created`. Unit tests: version equals the header macros; every `Error`
   variant → its code, `Solver` keeps the vendor code; code-by-code translation of every Rust enum
   (status, limit reason, solution returned, basis, verification overall and verdict, cone kind,
-  problem class) to its C constant and back, unknown codes → `""` or UNKNOWN; every name function
+  problem class, certificate kind and certificate array, method, presolve, sense, backend,
+  parameter type, result array) to its C constant and back, unknown codes → `""` or UNKNOWN; every name function
   for every code equals the core's name; a panic outside an entry point reaches a previously
   installed hook; `optsolver_test_panic` returns INTERNAL with a message and writes nothing; two
   threads failing with different errors (one a solver error from a fake backend error value) each
@@ -97,11 +104,19 @@ harness). Each story phase then carries its own independent test and needs only 
   the variable reliably, the behaviour is recorded as unverified).
 - [ ] T008 `src/capi/result.rs` with its tests: `optsolver_solve`, `optsolver_solve_once`,
   `optsolver_solve_into` (NaN fill, lengths to `SolutionBuffers`), every `optsolver_result_*`
-  accessor (names converted lazily), `optsolver_result_free`. Tests (in-process through
-  `optsolver::capi`, licensed where a solve is needed): every accessor on a toy LP equals the Rust
-  `Solution` field; absent arrays NULL/0; wrong-length output buffer → INVALID naming the array,
-  before any solver call, and every supplied array then holds NaN (FR-005 edge case, FR-006); a raw parameter Gurobi rejects (`TimeLimit` = −1) →
-  `OPTSOLVER_ERR_SOLVER` with `optsolver_last_error_solver_code` equal to the vendor code (FR-010).
+  accessor (names converted lazily), `optsolver_result_free`; and a `#[doc(hidden)]` safe helper
+  in `src/capi/` that builds the C structures from Rust slices and calls the entry points, so the
+  benchmark (T017) reaches the C path in-process with no `unsafe` outside `src/capi/` (VII-A). The
+  `#[repr(C)]` output structures (`optsolver_timings`, `optsolver_value`, `optsolver_measure`)
+  are plain C structs filled by the library; `#[non_exhaustive]` has no meaning across C, and
+  additions follow the versioning rule. Tests, all through `tests/c/driver.c` from
+  `tests/c_interface.rs` (no `unsafe` in test code; licensed where a solve is needed): every
+  accessor on a toy LP equals the Rust `Solution` field; absent arrays NULL/0; wrong-length output
+  buffer → INVALID naming the array, before any solver call, and every supplied array then holds
+  NaN (FR-005 edge case, FR-006); a raw parameter Gurobi rejects (`TimeLimit` = −1) →
+  `OPTSOLVER_ERR_SOLVER` with `optsolver_last_error_solver_code` equal to the vendor code
+  (FR-010); one trial setting every option field through C with the effective parameters equal to
+  the Rust API's for the same options.
 - [ ] T009 `src/gurobi/solve.rs`: `solve_into` checks the conic-dual buffer length against k, as
   MOSEK does; licensed test in `tests/contract.rs` (written once, every backend): a wrong-length `s`
   is `Error::Invalid` naming `out.s`, no panic.
@@ -114,7 +129,9 @@ harness). Each story phase then carries its own independent test and needs only 
   the static and to the shared library, compared with the Rust API by the comparison rule under the
   deterministic configuration; options reaching the solver (effective parameters equal), raw
   parameters, parameter conflict, a non-optimal toy (infeasible, unbounded) as a status, and on the
-  buffer path its quantities the backend does not return read as NaN (NaN rule); standard output
+  buffer path its quantities the backend does not return read as NaN (NaN rule); with
+  `certificates` = 1 on the infeasible and unbounded toys, the certificate kind and every
+  certificate array equal the Rust API's (FR-004, FR-005); standard output
   and error of the driver empty on every trial (checked by the shared driver runner of T003, so
   every trial of every story checks it) (SC-001, acceptance scenarios 1 to 5, FR-018).
 
@@ -159,13 +176,14 @@ The lock and `Send` change this story relies on is T011 (foundational).
   input, and the environment-creation count shows no solver was reached (SC-006);
   `optsolver_test_panic` → INTERNAL, the process continues, standard error empty; free functions
   accept NULL; message copies freed with `optsolver_string_free`; the program runs under
-  AddressSanitizer's leak checker with zero leaks (if the sanitizer is unavailable, recorded
-  unverified).
+  AddressSanitizer's leak checker with zero leaks, and a positive control — the same program
+  built with one deliberate unfreed result — is reported as leaking (XIV-D, XV-C) (if the
+  sanitizer is unavailable, recorded unverified).
 
 ## Phase 8: Benchmarks and link demonstration
 
 - [ ] T017 `benches/load_solve.rs`: C-path scenarios under `#[cfg(feature = "capi")]` through
-  `optsolver::capi`; heap criterion (SC-002: dhat, process per scenario, N = 3, plus the
+  the safe helper of T008 (no `unsafe` in the bench); heap criterion (SC-002: dhat, process per scenario, N = 3, plus the
   allocation-count comparison as positive control) and wall-time criterion (SC-003: N = 5 warm with
   spread; environment creation and the cold run as their own phases; per-phase timings), both
   backends, `iDopaNeuroC_problem_LP`; output location resolved through `project.yml`
