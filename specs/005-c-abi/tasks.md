@@ -37,9 +37,11 @@ harness). Each story phase then carries its own independent test and needs only 
   driver (owned or buffer path, handle or one-shot, options and raw parameters from the file,
   optional second thread for use and freeing, writes every result field and the error code,
   message and vendor code). `tests/common/compare.rs`: new function implementing the spec's
-  comparison rule, with licence-free negative unit tests on synthetic results differing by one
-  tolerance step, status, limit reason, failed-measure names and array presence, and an
-  "everything failed" case reported as uninterpretable (XV-C).
+  comparison rule, with licence-free unit tests on synthetic results: a difference just above the
+  bound is rejected; one within it is accepted and reported as not bit-identical; a status, limit
+  reason, failed-measure-name or array-presence difference is rejected; an "everything failed"
+  case is reported as uninterpretable (XV-C). The driver runner asserts empty standard output and
+  error on every run.
 - [ ] T004 Header `src/capi/optsolver.h` per contracts/c-interface.md (types with `rows`/`cols`,
   constants, prototypes, ownership, thread and aliasing rules, version rule, panic-profile and
   panic-hook notes, MOSEK creation and freeing unverified, link-flag pointer) together with its
@@ -47,6 +49,18 @@ harness). Each story phase then carries its own independent test and needs only 
   field and every constant, compared with `optsolver::capi` `size_of`/`offset_of!`/constants;
   prototypes parsed from the header compared with the `src/capi/` definitions through one type
   table; the test shown to fail on an altered copy of the header (FR-013).
+- [ ] T011 (foundational; placed here so that every licensed trial runs with the lock) `src/gurobi/env.rs`: private token `Lifecycle` created only by
+  `pub(crate) fn lifecycle<T>(f: impl FnOnce(&Lifecycle) -> T) -> T` (one process-wide
+  `static Mutex<()>`, poison recovered with `into_inner`); `empty`, `start`, new `free` take
+  `&Lifecycle`; `Env::new` one `lifecycle` call (free on failure with the same token); `Drop` one
+  call; the unit tests in src/gurobi/env.rs and src/gurobi/params.rs go through it. `unsafe impl
+  Send for Env` in src/gurobi/env.rs and src/mosek/env.rs with `SAFETY` citing research R3 and
+  the accepted risk; module docs rewritten. Tests: compile-time `Send` assertions;
+  `tests/standards.rs` — `GRBemptyenvinternal`, `GRBstartenv`, `GRBfreeenv` named only in
+  src/gurobi/env.rs outside `ffi.rs`, with a negative test on synthetic source; licensed
+  concurrency trial in `tests/contract.rs` (four threads creating, solving a toy LP with and
+  freeing Gurobi environments twenty times concurrently; environments created on one thread, used
+  and freed on another) (FR-008, VII-B; evidence for that run only).
 - [ ] T005 `src/capi/mod.rs` with its tests: constants (`pub const`), error codes, per-thread last
   error, `guard` (catch_unwind, thread-local in-entry flag, `Error` → code), the silent wrapping
   panic hook (research R4), `optsolver_abi_version`, `optsolver_last_error_message`
@@ -57,7 +71,9 @@ harness). Each story phase then carries its own independent test and needs only 
   (status, limit reason, solution returned, basis, verification overall and verdict, cone kind,
   problem class) to its C constant and back, unknown codes → `""` or UNKNOWN; every name function
   for every code equals the core's name; a panic outside an entry point reaches a previously
-  installed hook; `optsolver_test_panic` returns INTERNAL with a message and writes nothing.
+  installed hook; `optsolver_test_panic` returns INTERNAL with a message and writes nothing; two
+  threads failing with different errors (one a solver error from a fake backend error value) each
+  read back their own message and vendor code (FR-010).
 - [ ] T006 `src/options.rs`: `memory_limit_gb: Option<f64>` (in `set_shared_fields`, `Debug`,
   per-backend documentation; unit test), needed by the C options mapping. `src/capi/problem.rs`
   with its tests: `optsolver_options_init`; C problem →
@@ -74,13 +90,17 @@ harness). Each story phase then carries its own independent test and needs only 
   `optsolver_backend_compiled`, `optsolver_capabilities`, `optsolver_env_capabilities`,
   `optsolver_caps_*`, `optsolver_caps_free`; usability from `Env::new`. Tests: not-compiled backend
   → UNSUPPORTED (unlicensed); licensed: capabilities from C equal the Rust `Capabilities`
-  (classes, cones, certificates, basis, option names, solver version), usable with empty reason.
+  (classes, cones, certificates, basis, option names, solver version), usable with empty reason;
+  compiled in but not usable: the C driver run as a subprocess with the vendor licence variable
+  pointing at a nonexistent file reports not usable with the vendor's message as the reason and
+  `optsolver_env_create` fails with OPTSOLVER_ERR_SOLVER (if the vendor library does not honour
+  the variable reliably, the behaviour is recorded as unverified).
 - [ ] T008 `src/capi/result.rs` with its tests: `optsolver_solve`, `optsolver_solve_once`,
   `optsolver_solve_into` (NaN fill, lengths to `SolutionBuffers`), every `optsolver_result_*`
   accessor (names converted lazily), `optsolver_result_free`. Tests (in-process through
   `optsolver::capi`, licensed where a solve is needed): every accessor on a toy LP equals the Rust
   `Solution` field; absent arrays NULL/0; wrong-length output buffer → INVALID naming the array,
-  before any solver call (FR-005 edge case); a raw parameter Gurobi rejects (`TimeLimit` = −1) →
+  before any solver call, and every supplied array then holds NaN (FR-005 edge case, FR-006); a raw parameter Gurobi rejects (`TimeLimit` = −1) →
   `OPTSOLVER_ERR_SOLVER` with `optsolver_last_error_solver_code` equal to the vendor code (FR-010).
 - [ ] T009 `src/gurobi/solve.rs`: `solve_into` checks the conic-dual buffer length against k, as
   MOSEK does; licensed test in `tests/contract.rs` (written once, every backend): a wrong-length `s`
@@ -93,25 +113,18 @@ harness). Each story phase then carries its own independent test and needs only 
   right-hand side, ranges} × {`size_t`, `int32` row indices}, through `tests/c/driver.c` linked to
   the static and to the shared library, compared with the Rust API by the comparison rule under the
   deterministic configuration; options reaching the solver (effective parameters equal), raw
-  parameters, parameter conflict, a non-optimal toy (infeasible, unbounded) as a status; standard
-  output and error of the driver empty on every trial (SC-001, acceptance scenarios 1 to 5, FR-018).
+  parameters, parameter conflict, a non-optimal toy (infeasible, unbounded) as a status, and on the
+  buffer path its quantities the backend does not return read as NaN (NaN rule); standard output
+  and error of the driver empty on every trial (checked by the shared driver runner of T003, so
+  every trial of every story checks it) (SC-001, acceptance scenarios 1 to 5, FR-018).
 
 ## Phase 4: User Story 2 — zero copy, reuse and threads (P1)
 
-- [ ] T011 [US2] `src/gurobi/env.rs`: private token `Lifecycle` created only by
-  `pub(crate) fn lifecycle<T>(f: impl FnOnce(&Lifecycle) -> T) -> T` (one process-wide
-  `static Mutex<()>`, poison recovered with `into_inner`); `empty`, `start`, new `free` take
-  `&Lifecycle`; `Env::new` one `lifecycle` call (free on failure with the same token); `Drop` one
-  call; the unit tests in src/gurobi/env.rs and src/gurobi/params.rs go through it. `unsafe impl
-  Send for Env` in src/gurobi/env.rs and src/mosek/env.rs with `SAFETY` citing research R3 and
-  the accepted risk; module docs rewritten. Tests: compile-time `Send` assertions;
-  `tests/standards.rs` — `GRBemptyenvinternal`, `GRBstartenv`, `GRBfreeenv` named only in
-  src/gurobi/env.rs outside `ffi.rs`, with a negative test on synthetic source; licensed
-  concurrency trial in `tests/contract.rs` (four threads creating, solving a toy LP with and
-  freeing Gurobi environments twenty times concurrently; environments created on one thread, used
-  and freed on another) (FR-008, VII-B; evidence for that run only).
-- [ ] T012 [US2] Reuse and thread trials in `tests/c_interface.rs`: the driver solves every toy
-  instance a backend supports through one handle and one-shot; `optsolver_environments_created`
+The lock and `Send` change this story relies on is T011 (foundational).
+
+- [ ] T012 [US2] Reuse and thread trials in `tests/c_interface.rs`: the driver solves twenty
+  problems through one handle (every toy instance the backend supports, repeated in order until
+  twenty; the count per backend recorded) and the same problems one-shot; `optsolver_environments_created`
   increases by one for the handle sequence; results agree by the comparison rule; wall time of the
   sequence and the one-shot solves recorded (informational, N = 1) (SC-004); a handle created on
   one thread is used and freed on another (C driver, `pthread`) (FR-008). The pointer-identity test
@@ -178,8 +191,10 @@ harness). Each story phase then carries its own independent test and needs only 
 
 ## Dependencies & Execution Order
 
-T001–T002 → T003–T009 (foundational; T003 and T004 first) → each story phase (T010; T011–T012;
-T013–T014; T015; T016) needs only Phase 2 and may run in any order → T017–T018 → T019–T022.
+Setup (T001–T002) → Foundational (T003, T004, T011, then T005–T009) → each story phase — LP and QP
+from C (T010), reuse and threads (T012), memory limit (T013–T014), conic from C (T015), errors and
+versioning (T016) — needs only the foundational phase and may run in any order → benchmarks and
+link demonstration (T017–T018) → polish and closeout (T019–T022).
 
 ## Implementation Strategy
 

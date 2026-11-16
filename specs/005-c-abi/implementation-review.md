@@ -36,18 +36,18 @@ checks; the first version of this analysis overstated coverage and said no confl
 | Thin translation (FR-001) | T005 to T008 |
 | Problem input (FR-002), zero copy (FR-003) | T006 (pointer-identity positive control), T010, T015 |
 | Options (FR-004) | T006, T010 |
-| Result fields (FR-005), two result paths (FR-006) | T008, T010, T015 |
+| Result fields (FR-005), two result paths and the NaN rule (FR-006) | T008 (NaN after error), T010 (NaN for absent quantities), T015 |
 | Environments and one-shot (FR-007) | T007, T012 |
 | Thread rule (FR-008) | T011, T012 |
 | Panic containment (FR-009) | T005, T016 |
-| Error codes and messages, vendor code (FR-010) | T005, T008 (solver error), T016 |
+| Error codes and messages, vendor code, per-thread messages (FR-010) | T005 (two-thread test), T008 (solver error), T016 |
 | Memory limit (FR-011) | T006, T013, T014 |
 | Libraries and flags (FR-012) | T001, T018, T019 |
 | Header agreement (FR-013) | T004 |
 | C-level tests (FR-014) | T003, T004, T010, T012, T014 to T016 |
 | Versioning (FR-015) | T005, T016 |
 | Ownership (FR-016) | T005, T008, T016 (leaks, NULL frees, message copies) |
-| Capabilities (FR-017) | T007 |
+| Capabilities, usable or not with reason (FR-017) | T007 (not compiled, usable, compiled but not usable; the last possibly unverified) |
 | No output (FR-018) | T005, T010, T016 |
 | Interface document (FR-019) | T002, T019 |
 | Extension point (FR-020) | T006, T016 |
@@ -63,16 +63,22 @@ checks; the first version of this analysis overstated coverage and said no confl
 Test ordering: every implementing task carries its own tests (written first or in the same
 change); story phases need only the foundational phase, and each carries its own independent
 test. The comparison rule is shown to reject disagreements (T003). Additivity covers all eight
-feature combinations (T021).
+feature combinations (T021). The Gurobi lifecycle lock (T011) is foundational, so every licensed
+trial runs with it.
 
 Findings:
 
-- Blocking: none remaining.
+- Blocking: none remaining after the second Gate 2 review's repairs (NaN rule, per-thread
+  messages and the not-usable backend were untested in the previous version; the previous
+  analysis claimed them covered).
 - Repaired after the first Gate 2 review: test ordering; story independence (driver and harness
   foundational, foundational tasks unlabelled); invalid-input coverage (all `expect_invalid`
   cases mapped or recorded as not expressible); wrong-length buffer, solver-error code, name
   functions, conic on both paths; negative tests of the comparison rule; additivity combinations;
   C structure fields `rows`/`cols` and the `caps` parameter name in the contract.
+- Acceptable: stale plan text — plan.md lists four feature combinations (tasks run eight, T021)
+  and names the C structure fields `m`/`n` (the contract now uses `rows`/`cols`); the tasks and the
+  contract govern; corrected at closeout with the reconciliation (T020).
 - Acceptable: Gurobi `solve_into` conic-dual length check (T009) is a repaired defect not listed in
   FR-021's Rust-API changes (it removes a panic on user input); reported at closeout.
 - Deferred to closeout (Gate 3): the success-criteria checklist item (CHK015); User Story 3's
@@ -85,8 +91,10 @@ Findings:
 - Tasks proposed: all, T001 to T022.
 - First independently testable slice: Phases 1 and 2 (T001 to T009).
 - Files likely to change: Cargo.toml; src/lib.rs; src/capi/ (new: mod.rs, problem.rs, env.rs,
-  result.rs, optsolver.h); src/options.rs; src/gurobi/env.rs, params.rs, solve.rs; src/mosek/env.rs,
-  params.rs (test); tests/c_interface.rs, tests/c/, tests/common/ (cdata.rs, ccompiler.rs,
+  result.rs, optsolver.h); src/options.rs; src/gurobi/env.rs, params.rs, solve.rs; src/mosek/env.rs;
+  tests/contract.rs (licensed Rust-API trials of T009, T011, T013, T014; not listed in the plan's
+  Project Structure — a known omission of the plan's file list, recorded here, not an architecture
+  change); tests/c_interface.rs, tests/c/, tests/common/ (cdata.rs, ccompiler.rs,
   compare.rs, mod.rs), tests/header_conformance.rs, tests/header_conformance_mosek.rs,
   tests/standards.rs; benches/load_solve.rs; docs/llm-interface.md; docs/architecture/.
 - Files that should NOT change: the core's validation, status translation, parameter application
@@ -97,7 +105,7 @@ Findings:
 
 Narrowest first: `cargo test --features capi --test c_interface` (unlicensed: agreement, version,
 errors, panic, leaks); then `cargo test --features capi,gurobi,mosek --test c_interface`
-(licensed toy comparison, reuse, threads, memory limit, conic); then the in-gate checks (T025).
+(licensed toy comparison, reuse, threads, memory limit, conic); then the in-gate checks (T021).
 
 ## Blocking Issues
 
