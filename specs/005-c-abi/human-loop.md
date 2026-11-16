@@ -93,6 +93,13 @@ support the first reading; the failed runs themselves are not evidence either wa
 - Behavioural integration evidence (Principle II): the C programs are real callers linked against
   the static and shared libraries; see the implementation receipts and the gate run directories.
 
+**Validation after the Gate 3 review-2 repairs**: in-gate run at commit f4af454 with a clean tree,
+`results/005-c-abi/runs/20261116T030644Z-gate/summary.txt` (generated output, untracked): fmt, clippy `-D warnings` and `cargo test` ok for
+all eight feature combinations; five parallel C-interface repeats with fresh C builds ok; 1.85.0
+build ok; three C-path benchmark bundles (heap difference 0 B, N = 3; wall-time median differences
+−0.01, +0.49, −0.36 ms Gurobi and +0.06, +0.05, −0.58 ms MOSEK, N = 5, all within the limit);
+default benchmark ok (regression comparison as in the repair receipt).
+
 **Recorded deviation (Governance, "Commits Carry In-Flight Manual Work")**: commit 710ae9a
 (feature artefacts) did not include or list the eleven tracked governance changes then in the
 working tree (constitution 3.0.0 and its companions); they were committed 14 seconds later in
