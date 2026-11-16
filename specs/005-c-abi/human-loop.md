@@ -1,7 +1,7 @@
 # Human Loop State
 
 ## Current State
-- Status: Gate 1 PASS (review 4); Gate 2A PASS (review 8, APPROVE_WITH_ADR); tasks and analysis written; Gate 2 reviews 1 to 6 FAIL, each repaired; Gate 2 review 7 requested.
+- Status: Gate 1 PASS (review 4); Gate 2A PASS (review 8, APPROVE_WITH_ADR); tasks and analysis written; Gate 2 PASS (review 7); implementation in progress.
 - Active feature directory: specs/005-c-abi (worktree `../optSolver-005-c-abi`, branch `005-c-abi`)
 - Last completed bundle: Bundle 2 (up to Gate 2)
 - Source code modified by this workflow: no
@@ -43,6 +43,7 @@
 | 2026-11-16 | Gate 2 review 4 | FAIL, two findings: leak check did not cover environment and result and its control could not run unlicensed; drift test could not pass at the end of the foundational phase | gate-reviews/gate-2-20261116T011329Z.md | Repairs: two leak checks with working controls; names documented in the introducing task; observations folded in (guard source check, timing rule, empty problem, bench paths). Pending for Gate 3: maintainer's confirmation of the instruction behind constitution 3.0.0 |
 | 2026-11-16 | Gate 2 review 5 | FAIL, two findings: too-large dimension case not covered through C; link demonstration ordered before its flags were documented | gate-reviews/gate-2-20261116T012147Z.md | Repairs: T016 and T006 validation order; T018 documents flags first; contract states the validation order (A first). Observations folded in (UTF-8 string value, verification off, verdicts, leak-run stderr exception, MOSEK "before any solver call" defined) |
 | 2026-11-16 | Gate 2 review 6 | FAIL, two findings: too-large column case untested; principle numerals without names in tasks and analysis | gate-reviews/gate-2-20261116T012618Z.md | Repairs: column case in T016 with dimensions-first order; names beside numerals; contract `cols + 1`; verdict assertions added to T012 and T016 |
+| 2026-11-16 | Gate 2 review 7 | PASS; scope all tasks T001–T022 | gate-reviews/gate-2-20261116T013252Z.md | Implementation authorised for the approved scope. Observations routed to implementation (NULL top-level pointers, minimal.c prints the verdict, feature-003 benchmark comparison, scoped lint allowances, history section in env.rs, suppression-list home) and closeout (stale plan text) |
 
 **Recorded deviation (Governance, "Commits Carry In-Flight Manual Work")**: commit 710ae9a
 (feature artefacts) did not include or list the eleven tracked governance changes then in the
@@ -65,7 +66,9 @@ rather than rewritten.
   the maintainer's decision.
 
 ## Approved Implementation Scope
-- Approved: no
+- Approved: yes (Gate 2 review 7, 2026-11-16)
+- Scope: all
+- Tasks approved: T001–T022
 
 ## Pointers
 - Exploration: none (direct request; see spec Exploration field)

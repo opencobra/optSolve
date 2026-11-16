@@ -131,8 +131,8 @@ None.
 
 ## Gate 2 Approval (compliance review)
 
-- Approved: pending the Gate 2 review
+- Approved: yes
 - Proposed scope (all | slice): all
-- Approved tasks/scope:
-- Gate 2 review file and verdict:
-- Date (UTC):
+- Approved tasks/scope: T001–T022
+- Gate 2 review file and verdict: gate-reviews/gate-2-20261116T013252Z.md, PASS
+- Date (UTC): 2026-11-16
