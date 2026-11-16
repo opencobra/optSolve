@@ -1,7 +1,7 @@
 # Human Loop State
 
 ## Current State
-- Status: Gate 1 PASS (review 4); Gate 2A PASS (review 8, APPROVE_WITH_ADR); tasks and analysis written; Gate 2 PASS (review 7); implementation T001–T022 complete and validated; Gate 3 reviews 1 to 4 FAIL, each repaired; Gate 3 review 5 requested.
+- Status: Gate 1 PASS (review 4); Gate 2A PASS (review 8, APPROVE_WITH_ADR); tasks and analysis written; Gate 2 PASS (review 7); implementation T001–T022 complete and validated; Gate 3 reviews 1 to 5 FAIL, each repaired; Gate 3 review 6 requested.
 - Active feature directory: specs/005-c-abi (worktree `../optSolver-005-c-abi`, branch `005-c-abi`)
 - Last completed bundle: Bundle 3 (implementation); Bundle 4 (verification and closeout) at Gate 3
 - Source code modified by this workflow: yes (approved scope T001–T022)
@@ -129,16 +129,19 @@ validation phase, Gurobi run 1.60e-4 s (min 1.52e-4, max 1.72e-4) against 7.90e-
 max 1.75e-4), MOSEK run 1.46e-4 s (min 1.40e-4, max 1.68e-4) against 1.50e-4 s (min 1.45e-4, max
 1.90e-4). Reading: no regression. The validation code
 (`CscRef::new`, `Problem::new`) is unchanged by this feature and independent of the backend, and
-feature 003's own MOSEK run measured it at 1.50e-4 s against 7.90e-5 s in its Gurobi run of the
-same session, so the Gurobi difference is variation between runs and sessions, not a change. (The default
-benchmark at 3e7aeb0, below, measured the same validation code at 9.36e-5 and 6.70e-5 s.)
+feature 003's own MOSEK run measured it at 1.50e-4 s (min 1.45e-4, max 1.90e-4) against 7.90e-5 s
+(min 7.23e-5, max 1.75e-4) in its Gurobi run of the same session (N = 5 each), so the Gurobi difference is variation between runs and sessions, not a change. (The default
+benchmark at 3e7aeb0, below, measured the same validation code at 9.36e-5 s (min 8.75e-5, max
+1.09e-4) in its Gurobi run and 6.70e-5 s (min 6.48e-5, max 8.55e-5) in its MOSEK run, N = 5 each.)
 | 2026-11-16 | Gate 3 review 4 | FAIL, two findings: five NULL top-level checks without failing-input tests (and an over-broad sentence in the interface document); two timing figures without spreads | gate-reviews/gate-3-20261116T034201Z.md | Tests added to tests/c/errors.c, the NULL and alignment rules stated in header, contract and document, output buffers NaN-filled only after every buffer passes its checks (3e7aeb0); spreads added; validation re-run; Gate 3 review 5 requested |
 
 **Validation after the Gate 3 review-4 repairs**: in-gate run at commit 3e7aeb0 with a clean tree,
 `results/005-c-abi/runs/20261116T034733Z-gate/summary.txt`: fmt, clippy `-D warnings`, `cargo test` ok for all eight feature combinations;
 five parallel C-interface repeats ok; 1.85.0 build ok; link demonstration (four runs) Optimal and
 Verified; default benchmark ok (`results/005-c-abi/runs/20261116T035104Z-bench`: heap during load
-78 536 B, overhead ratio 0.019 Gurobi and 0.013 MOSEK). C-path benchmark, three bundles: heap
+78 536 B, zero spread; overhead ratio 0.019 (min 0.017, max 0.024) Gurobi and 0.013 (min 0.013,
+max 0.013) MOSEK; N = 5 each). The fourth repair receipt's figures are, for heap, N = 3 per path
+and, for wall time, N = 5 per path. C-path benchmark, three bundles: heap
 difference 0 B (N = 3 each, zero spread); wall-time median differences, N = 5 each: Gurobi +0.46,
 +0.31, +0.15 ms (all within the limit); MOSEK −1.03, −1.32, +1.01 ms — the last is above the 1 ms
 limit, so the wall-time criterion (SC-003) FAILED in one of six comparisons in this run.
@@ -155,6 +158,7 @@ VI-B, for the Gate 3 reviewer to check): the success-criteria item (CHK015) is r
 accepted open for the wall-time criterion only, with this rationale; every other success criterion
 is met as recorded. A resolving measurement (larger N, an idle machine, or timing the C layer's
 own work directly) is routed to the maintainer as a follow-up.
+| 2026-11-16 | Gate 3 review 5 | FAIL, one finding: new figures without N and spread | gate-reviews/gate-3-20261116T035611Z.md | N and spreads added (records only; no code change, no re-validation needed); Gate 3 review 6 requested |
 
 **Recorded deviation (Governance, "Commits Carry In-Flight Manual Work")**: commit 710ae9a
 (feature artefacts) did not include or list the eleven tracked governance changes then in the
