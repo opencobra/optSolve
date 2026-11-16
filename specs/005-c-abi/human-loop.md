@@ -143,8 +143,8 @@ difference 0 B (N = 3 each, zero spread); wall-time median differences, N = 5 ea
 +0.31, +0.15 ms (all within the limit); MOSEK −1.03, −1.32, +1.01 ms — the last is above the 1 ms
 limit, so the wall-time criterion (SC-003) FAILED in one of six comparisons in this run.
 
-**Wall-time criterion (SC-003) — reading and checklist decision**: over the fifteen alternating
-comparisons recorded (five sets of three bundles, two backends), the median differences range from
+**Wall-time criterion (SC-003) — reading and checklist decision**: over the thirty alternating
+comparisons recorded (fifteen bundles in five sets of three, two backends each), the median differences range from
 −5.44 to +1.01 ms and change sign between bundles of the same commit; one exceeded the limit (by
 0.012 ms). The C layer adds no work inside the timed solve phase and its own work is a fixed number
 of small allocations (about 40 name conversions, measured by the heap profiler). Reading: the
