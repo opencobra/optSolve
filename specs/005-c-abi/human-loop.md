@@ -1,7 +1,7 @@
 # Human Loop State
 
 ## Current State
-- Status: Gate 1 PASS (review 4); Gate 2A PASS (review 8, APPROVE_WITH_ADR); tasks and analysis written; Gate 2 PASS (review 7); implementation T001–T022 complete and validated; Gate 3 reviews 1 and 2 FAIL, repaired; Gate 3 review 3 requested.
+- Status: Gate 1 PASS (review 4); Gate 2A PASS (review 8, APPROVE_WITH_ADR); tasks and analysis written; Gate 2 PASS (review 7); implementation T001–T022 complete and validated; Gate 3 reviews 1 to 3 FAIL, each repaired; Gate 3 review 4 requested.
 - Active feature directory: specs/005-c-abi (worktree `../optSolver-005-c-abi`, branch `005-c-abi`)
 - Last completed bundle: Bundle 3 (implementation); Bundle 4 (verification and closeout) at Gate 3
 - Source code modified by this workflow: yes (approved scope T001–T022)
@@ -18,6 +18,7 @@
 - tasks:          2026-11-16, after the Gate 2A PASS
 - analyze:        2026-11-16 (feature agent, speckit-analyze checks; summary in implementation-review.md)
 - implement:      2026-11-16, T001–T022 (agent-runs/20261116T022035Z-implement/implementation-receipt.md);
+                  repairs after Gate 3 review 3 (agent-runs/20261116T033623Z-gate3-repairs-2/implementation-receipt.md);
                   repairs after Gate 3 reviews 1 and 2 (agent-runs/20261116T030638Z-gate3-repairs/implementation-receipt.md)
 
 ## Gate Reviews And Decisions
@@ -75,7 +76,10 @@ runs the per-phase load and extraction medians of the two paths agreed while the
 differed by a few milliseconds, and the C layer adds no code inside the solve phase; two readings
 were possible — machine drift between separate processes, or a real cost — and the method was
 switched to alternating Rust and C calls in one process precisely to separate them. The
-alternating runs (six bundles, all within the limit, median differences between −0.79 and +0.29 ms)
+alternating runs (corrected at Gate 3 review 3: the three bundles at f9a30b2 gave median
+differences between −0.79 and +0.29 ms; across all nine alternating bundles recorded so far the
+range is −5.44 to +1.00 ms — the −5.44 ms value is a C path faster than the Rust path — every
+one within the limit except none, the largest positive 0.9993 ms)
 support the first reading; the failed runs themselves are not evidence either way.
 
 **Closeout reconciliation, additions after Gate 3 review 2 (constitution XIII-D)**:
@@ -98,7 +102,33 @@ support the first reading; the failed runs themselves are not evidence either wa
 all eight feature combinations; five parallel C-interface repeats with fresh C builds ok; 1.85.0
 build ok; three C-path benchmark bundles (heap difference 0 B, N = 3; wall-time median differences
 −0.01, +0.49, −0.36 ms Gurobi and +0.06, +0.05, −0.58 ms MOSEK, N = 5, all within the limit);
-default benchmark ok (regression comparison as in the repair receipt).
+default benchmark ok (the regression comparison is recorded below, after the Gate 3 review-3
+repairs).
+| 2026-11-16 | Gate 3 review 3 | FAIL, three findings: C-layer checks without failing-input tests (and the misalignment check missing from the contract); the regression comparison no longer recorded; benchmark figures misreported (bundle count, missing spreads, the C path's environment creation not timed) | gate-reviews/gate-3-20261116T032912Z.md | Tests and contract/header/document text added (da7bf81); the benchmark times each path's environment and reports spreads; validation re-run at da7bf81; regression comparison and corrected figures recorded (below); Gate 3 review 4 requested |
+
+**Validation after the Gate 3 review-3 repairs**: in-gate run at commit da7bf81 with a clean tree,
+`results/005-c-abi/runs/20261116T033246Z-gate/summary.txt` (generated output, untracked): fmt, clippy `-D warnings` and `cargo test` ok for
+all eight feature combinations; five parallel C-interface repeats with fresh C builds ok; 1.85.0
+build ok; link demonstration re-run (static and shared, both backends: Optimal, objective 5,
+Verified). C-path benchmark, three bundles (`capi-bench-1..3.log`): heap difference 0 B, Rust and C
+each N = 3 with zero spread; wall-time median differences +0.86, −0.15, −0.09 ms (Gurobi) and
++0.78, −0.32, +0.46 ms (MOSEK), N = 5 each, all within max(1 %, 1 ms); environment creation now
+timed per path (N = 1): Gurobi 1.19–1.27 ms Rust, 1.25–1.30 ms C; MOSEK 6.5–7.5 ms Rust,
+5.9–6.5 ms C.
+
+**Regression comparison (constitution II; Development Workflow)** — the default benchmark at
+da7bf81 (`results/005-c-abi/runs/20261116T033538Z-bench/summary.md`) against feature 003's
+release-profile bundle (main checkout,
+`results/003-llm-interface-toy-instances/runs/20261115T160715Z-bench/summary.md`),
+iDopaNeuroC_problem_LP with `usize` row indices, N = 5 each: heap peak during load 78 536 B in
+both (zero spread); overhead ratio (validation + optSolver load + extraction + verification) /
+solve, Gurobi 0.023 (min 0.015, max 0.025) against 0.018 (min 0.014, max 0.023), MOSEK 0.015
+(min 0.010, max 0.019) against 0.018 (min 0.017, max 0.019) — both under the 0.05 limit;
+validation phase, Gurobi run 1.60e-4 s (min 1.52e-4, max 1.72e-4) against 7.90e-5 s (min 7.23e-5,
+max 1.75e-4), MOSEK run 1.46e-4 s against 1.50e-4 s. Reading: no regression. The validation code
+(`CscRef::new`, `Problem::new`) is unchanged by this feature and independent of the backend, and
+feature 003's own MOSEK run measured it at 1.50e-4 s against 7.90e-5 s in its Gurobi run of the
+same session, so the Gurobi difference is variation between runs and sessions, not a change.
 
 **Recorded deviation (Governance, "Commits Carry In-Flight Manual Work")**: commit 710ae9a
 (feature artefacts) did not include or list the eleven tracked governance changes then in the
@@ -129,7 +159,7 @@ rather than rewritten.
 - Exploration: none (direct request; see spec Exploration field)
 - Gate reviews: specs/005-c-abi/gate-reviews/
 - Implementation receipt(s): specs/005-c-abi/agent-runs/20261116T022035Z-implement/implementation-receipt.md
-  (T001–T022); specs/005-c-abi/agent-runs/20261116T030638Z-gate3-repairs/implementation-receipt.md (Gate 3 repairs)
+  (T001–T022); specs/005-c-abi/agent-runs/20261116T033623Z-gate3-repairs-2/implementation-receipt.md (Gate 3 review-3 repairs); specs/005-c-abi/agent-runs/20261116T030638Z-gate3-repairs/implementation-receipt.md (Gate 3 repairs)
 - Implementation review: specs/005-c-abi/implementation-review.md
 
 ## Open Risks and Ambiguities
