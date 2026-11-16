@@ -62,6 +62,21 @@ int main(int argc, char **argv) {
     CHECK(optsolver_solve_once(OPTSOLVER_BACKEND_GUROBI, NULL, NULL, NULL) == OPTSOLVER_ERR_INVALID);
     CHECK(optsolver_solve_into(NULL, NULL, NULL, NULL, &res) == OPTSOLVER_ERR_INVALID);
     CHECK(message_has("buffers"));
+    /* NULL top-level arguments: every required one is OPTSOLVER_ERR_INVALID naming it. */
+    optsolver_caps *caps = NULL;
+    CHECK(optsolver_capabilities(OPTSOLVER_BACKEND_GUROBI, NULL) == OPTSOLVER_ERR_INVALID);
+    CHECK(message_has("out"));
+    CHECK(optsolver_env_capabilities(NULL, &caps) == OPTSOLVER_ERR_INVALID && caps == NULL);
+    CHECK(message_has("env"));
+    CHECK(optsolver_env_capabilities((const optsolver_env *)&caps, NULL) == OPTSOLVER_ERR_INVALID);
+    CHECK(message_has("out"));
+    CHECK(optsolver_solve(NULL, NULL, NULL, NULL) == OPTSOLVER_ERR_INVALID);
+    CHECK(message_has("out"));
+    optsolver_buffers nb;
+    memset(&nb, 0, sizeof nb);
+    nb.struct_size = sizeof nb;
+    CHECK(optsolver_solve_into(NULL, NULL, NULL, &nb, NULL) == OPTSOLVER_ERR_INVALID);
+    CHECK(message_has("out"));
     CHECK(optsolver_result_status(NULL) == 0);
     CHECK(optsolver_result_measure(NULL, 0, NULL) == OPTSOLVER_ERR_INVALID);
     CHECK(optsolver_caps_usable(NULL) == 0);

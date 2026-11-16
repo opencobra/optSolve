@@ -204,8 +204,10 @@ typedef struct optsolver_cone {
     size_t exponents_len;
 } optsolver_cone;
 
-/* A pointer may be NULL only when the length it describes is 0, and must be aligned for its
- * element type (a misaligned pointer is OPTSOLVER_ERR_INVALID). Give exactly one row-bound form
+/* An array pointer may be NULL only when the length it describes is 0, and must be aligned for
+ * its element type (a misaligned array pointer is OPTSOLVER_ERR_INVALID). Structure pointers are
+ * not checked for alignment. A NULL required top-level argument (env, problem, buffers, out) is
+ * OPTSOLVER_ERR_INVALID naming it; options, Q and F may be NULL. Give exactly one row-bound form
  * (row_sense and b, or b_l and b_u) when m > 0, and exactly one of A.row_indices and
  * A_row_indices_i32 when A has nonzeros. A's dimensions are validated before any other array is
  * read. The problem is validated before any environment is created. */
@@ -281,7 +283,8 @@ int32_t optsolver_solve(optsolver_env *env, const optsolver_problem *problem,
 /* Validates, then creates and frees an environment of `backend` around one solve. */
 int32_t optsolver_solve_once(int32_t backend, const optsolver_problem *problem,
                              const optsolver_options *options, optsolver_result **out);
-/* Every supplied array is filled with NaN before the call (so also on an error return); the
+/* Once every supplied array passes its own checks (NULL with a nonzero length, misalignment,
+ * size), all of them are filled with NaN, so on any later error return they hold NaN; the
  * backend then writes what it returns; a wrong length is OPTSOLVER_ERR_INVALID naming the array,
  * before any solver call. The result's arrays for buffered quantities are empty. */
 int32_t optsolver_solve_into(optsolver_env *env, const optsolver_problem *problem,

@@ -242,9 +242,9 @@ unsafe fn out_array<'b>(a: optsolver_array, what: &'static str) -> Result<Option
         return Err(invalid(what, "misaligned pointer"));
     }
     // SAFETY: non-null, aligned, within isize::MAX, writable and unaliased by the contract.
-    let s = unsafe { core::slice::from_raw_parts_mut(a.data, a.len) };
-    s.fill(f64::NAN);
-    Ok(Some(s))
+    Ok(Some(unsafe {
+        core::slice::from_raw_parts_mut(a.data, a.len)
+    }))
 }
 
 /// Solves with `env`, the backend writing x (and y, z, row activity, s, z_l, z_u where
@@ -298,6 +298,24 @@ pub unsafe extern "C" fn optsolver_solve_into(
         let z_l = unsafe { out_array(b.z_l, "out.z_l") }?;
         // SAFETY: the contract.
         let z_u = unsafe { out_array(b.z_u, "out.z_u") }?;
+        // Every array passed its own checks: fill them all with NaN before anything else can
+        // fail, so on any later error return every supplied array holds NaN.
+        x.fill(f64::NAN);
+        let (mut y, mut z, mut row_activity, mut s, mut z_l, mut z_u) =
+            (y, z, row_activity, s, z_l, z_u);
+        for a in [
+            &mut y,
+            &mut z,
+            &mut row_activity,
+            &mut s,
+            &mut z_l,
+            &mut z_u,
+        ]
+        .into_iter()
+        .flatten()
+        {
+            a.fill(f64::NAN);
+        }
         let env = env_ref(env)?;
         // SAFETY: the contract.
         let mut o = unsafe { super::problem::options(options) }?;

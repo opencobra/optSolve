@@ -582,9 +582,13 @@ Problem: `optsolver_problem` (fields `struct_size`, `A`, `A_row_indices_i32`, `c
 (`kind`, `dim`, `exponents`, `exponents_len`). Every array is borrowed in place; `size_t` row
 indices, or `int32_t` through `A_row_indices_i32`. Options: `optsolver_options` (the Rust fields of
 the same names, NaN or `OPTSOLVER_UNSET` meaning unset, `memory_limit_gb`, and `raw` /
-`num_raw` of `optsolver_param`), filled unset by `optsolver_options_init`. Every pointer must be
-aligned for its element type and may be NULL only with length 0; anything else is
-`OPTSOLVER_ERR_INVALID` naming the field, before any solver call.
+`num_raw` of `optsolver_param`), filled unset by `optsolver_options_init`. Every array pointer
+(problem arrays and output buffers) must be aligned for its element type and may be NULL only with
+length 0; anything else is `OPTSOLVER_ERR_INVALID` naming the field, before any solver call.
+Structure pointers (`problem`, `options`, `buffers`, `Q`, `F`, handles) are not checked for
+alignment: pass properly aligned structures. A NULL required top-level argument (`env`,
+`problem`, `buffers`, `out`) is `OPTSOLVER_ERR_INVALID` naming it; `options`, `Q` and `F` may be
+NULL (unset, absent).
 
 Environments: `optsolver_env`, `optsolver_env_create`, `optsolver_env_free`,
 `optsolver_backend_compiled`. Solving: `optsolver_solve` (with a handle), `optsolver_solve_once`

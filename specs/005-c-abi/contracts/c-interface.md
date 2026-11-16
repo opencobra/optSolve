@@ -131,7 +131,9 @@ UTF-8; `solver_log`, `array_outputs`, `verification` outside {−1, 0, 1} and `c
 `buffers.struct_size` below the minimum; an output buffer NULL with a nonzero length or above the
 byte-size bound (added at Gate 3 review 3: the implementation already made these checks).
 A NULL pointer with length 0 becomes an empty slice (a dangling, aligned pointer), never a NULL
-passed to `slice::from_raw_parts`. Every slice built from a caller pointer is bounded by
+passed to `slice::from_raw_parts`. A NULL required top-level argument (`env`, `problem`,
+`buffers`, `out`) is `OPTSOLVER_ERR_INVALID` naming it; `options`, `Q` and `F` may be NULL;
+structure pointers are not checked for alignment (added at Gate 3 review 4). Every slice built from a caller pointer is bounded by
 `len · sizeof(element) ≤ PTRDIFF_MAX` and `cols + 1` must not overflow (else `OPTSOLVER_ERR_TOO_LARGE`).
 A is validated (dimensions, then its arrays) before any other array is sliced, so a dimension
 above the solvers' limit is `OPTSOLVER_ERR_TOO_LARGE` before the row and column data are touched.
@@ -207,7 +209,8 @@ void optsolver_result_free(optsolver_result *result);       /* NULL: no-op */
 
 `solve_into` passes each supplied array with its length to the Rust API, which rejects a wrong
 length as `OPTSOLVER_ERR_INVALID` naming the array before any solver call; it fills each supplied
-array with NaN — before the call, so on any error return the supplied arrays hold NaN — then the
+array with NaN — once every supplied array has passed its own checks (added at Gate 3 review 4),
+so on any later error return the supplied arrays hold NaN — then the
 backend writes the quantities it returns; the result object then holds the scalar and descriptive fields and its arrays for the
 buffered quantities are empty, as in the Rust API.
 
