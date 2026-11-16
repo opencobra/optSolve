@@ -1,7 +1,7 @@
 # Human Loop State
 
 ## Current State
-- Status: Gate 1 PASS (review 4); Gate 2A PASS (review 8, APPROVE_WITH_ADR); tasks and analysis written; Gate 2 PASS (review 7); implementation T001–T022 complete and validated; Gate 3 reviews 1 to 5 FAIL, each repaired; Gate 3 review 6 requested.
+- Status: Gate 1 PASS (review 4); Gate 2A PASS (review 8, APPROVE_WITH_ADR); tasks and analysis written; Gate 2 PASS (review 7); implementation T001–T022 complete and validated; Gate 3 PASS (review 6, 2026-11-16) after reviews 1 to 5 FAIL, each repaired. Accepted, awaiting integration (the maintainer's decision).
 - Active feature directory: specs/005-c-abi (worktree `../optSolver-005-c-abi`, branch `005-c-abi`)
 - Last completed bundle: Bundle 3 (implementation); Bundle 4 (verification and closeout) at Gate 3
 - Source code modified by this workflow: yes (approved scope T001–T022)
@@ -159,6 +159,7 @@ accepted open for the wall-time criterion only, with this rationale; every other
 is met as recorded. A resolving measurement (larger N, an idle machine, or timing the C layer's
 own work directly) is routed to the maintainer as a follow-up.
 | 2026-11-16 | Gate 3 review 5 | FAIL, one finding: new figures without N and spread | gate-reviews/gate-3-20261116T035611Z.md | N and spreads added (records only; no code change, no re-validation needed); Gate 3 review 6 requested |
+| 2026-11-16 | Gate 3 review 6 | PASS | gate-reviews/gate-3-20261116T040013Z.md | Feature accepted (closeout outcome "accept and close"); status "accepted, awaiting integration": integrating into `devel` and publishing are the maintainer's decisions (constitution VI-A). Follow-up for the maintainer: a resolving wall-time measurement for SC-003 (review 6 adds ten in-limit comparisons from a scratch copy) |
 
 **Recorded deviation (Governance, "Commits Carry In-Flight Manual Work")**: commit 710ae9a
 (feature artefacts) did not include or list the eleven tracked governance changes then in the
