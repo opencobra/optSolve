@@ -78,8 +78,8 @@ were possible — machine drift between separate processes, or a real cost — a
 switched to alternating Rust and C calls in one process precisely to separate them. The
 alternating runs (corrected at Gate 3 review 3: the three bundles at f9a30b2 gave median
 differences between −0.79 and +0.29 ms; across all nine alternating bundles recorded so far the
-range is −5.44 to +1.00 ms — the −5.44 ms value is a C path faster than the Rust path — every
-one within the limit except none, the largest positive 0.9993 ms)
+range is −5.44 to +1.00 ms — the −5.44 ms value is a C path faster than the Rust path — all
+within the limit, the largest positive difference 0.9993 ms)
 support the first reading; the failed runs themselves are not evidence either way.
 
 **Closeout reconciliation, additions after Gate 3 review 2 (constitution XIII-D)**:
