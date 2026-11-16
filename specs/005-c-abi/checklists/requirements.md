@@ -48,18 +48,17 @@
   (FR-020) now has an observable check (a caller structure of an earlier, shorter size is
   accepted).
 - [x] CHK014 User scenarios cover primary flows
-- [x] CHK015 Feature meets measurable outcomes defined in Success Criteria — verified at closeout,
-  before the Gate 3 reviews (2026-11-16) against the run bundles named in the implementation receipt: the agreement
-  criterion (SC-001) — every LP, QP, conic and certificate run bit-identical; heap (SC-002) — 0 B
-  difference, N = 3 per path, three bundles; wall time (SC-003) — 6 of 6 medians within
-  max(1 %, 1 ms), N = 5, with the resolution limit stated; environment reuse (SC-004) — one
-  environment for twenty solves; memory limit (SC-005) — Gurobi StoppedAtLimit/Memory in N = 3,
-  MOSEK unsupported; errors (SC-006) — every expressible invalid input, panic containment, both
-  leak checks with positive controls; link demonstration (SC-007) — static and shared builds with
-  the documented flags (the `runmat mex` build is the consumer's, as the criterion states).
+- [ ] CHK015 Feature meets measurable outcomes defined in Success Criteria — accepted open for the
+  wall-time criterion (SC-003) only, by the agent at Gate 3 (constitution VI-B), rationale and
+  evidence in human-loop.md ("Wall-time criterion (SC-003) — reading and checklist decision"):
+  one of six comparisons at 3e7aeb0 exceeded the 1 ms limit by 0.012 ms, and the measurement's
+  resolution at N = 5 is about the limit itself. Met, with evidence in the implementation receipts
+  and human-loop.md: agreement (SC-001), heap (SC-002), environment reuse (SC-004), memory limit
+  (SC-005), errors (SC-006), link demonstration (SC-007).
 - [x] CHK016 No implementation details leak into specification (see the first content-quality item,
   CHK001)
 
 ## Notes
 
-- The item on meeting the success criteria (CHK015) was resolved at Gate 3 (closeout).
+- The item on meeting the success criteria (CHK015) is accepted open for the wall-time criterion
+  only (routing recorded in human-loop.md).

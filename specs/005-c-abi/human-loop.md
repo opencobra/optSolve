@@ -1,7 +1,7 @@
 # Human Loop State
 
 ## Current State
-- Status: Gate 1 PASS (review 4); Gate 2A PASS (review 8, APPROVE_WITH_ADR); tasks and analysis written; Gate 2 PASS (review 7); implementation T001–T022 complete and validated; Gate 3 reviews 1 to 3 FAIL, each repaired; Gate 3 review 4 requested.
+- Status: Gate 1 PASS (review 4); Gate 2A PASS (review 8, APPROVE_WITH_ADR); tasks and analysis written; Gate 2 PASS (review 7); implementation T001–T022 complete and validated; Gate 3 reviews 1 to 4 FAIL, each repaired; Gate 3 review 5 requested.
 - Active feature directory: specs/005-c-abi (worktree `../optSolver-005-c-abi`, branch `005-c-abi`)
 - Last completed bundle: Bundle 3 (implementation); Bundle 4 (verification and closeout) at Gate 3
 - Source code modified by this workflow: yes (approved scope T001–T022)
@@ -18,6 +18,7 @@
 - tasks:          2026-11-16, after the Gate 2A PASS
 - analyze:        2026-11-16 (feature agent, speckit-analyze checks; summary in implementation-review.md)
 - implement:      2026-11-16, T001–T022 (agent-runs/20261116T022035Z-implement/implementation-receipt.md);
+                  repairs after Gate 3 review 4 (agent-runs/20261116T035155Z-gate3-repairs-3/implementation-receipt.md);
                   repairs after Gate 3 review 3 (agent-runs/20261116T033623Z-gate3-repairs-2/implementation-receipt.md);
                   repairs after Gate 3 reviews 1 and 2 (agent-runs/20261116T030638Z-gate3-repairs/implementation-receipt.md)
 
@@ -125,10 +126,35 @@ both (zero spread); overhead ratio (validation + optSolver load + extraction + v
 solve, Gurobi 0.023 (min 0.015, max 0.025) against 0.018 (min 0.014, max 0.023), MOSEK 0.015
 (min 0.010, max 0.019) against 0.018 (min 0.017, max 0.019) — both under the 0.05 limit;
 validation phase, Gurobi run 1.60e-4 s (min 1.52e-4, max 1.72e-4) against 7.90e-5 s (min 7.23e-5,
-max 1.75e-4), MOSEK run 1.46e-4 s against 1.50e-4 s. Reading: no regression. The validation code
+max 1.75e-4), MOSEK run 1.46e-4 s (min 1.40e-4, max 1.68e-4) against 1.50e-4 s (min 1.45e-4, max
+1.90e-4). Reading: no regression. The validation code
 (`CscRef::new`, `Problem::new`) is unchanged by this feature and independent of the backend, and
 feature 003's own MOSEK run measured it at 1.50e-4 s against 7.90e-5 s in its Gurobi run of the
-same session, so the Gurobi difference is variation between runs and sessions, not a change.
+same session, so the Gurobi difference is variation between runs and sessions, not a change. (The default
+benchmark at 3e7aeb0, below, measured the same validation code at 9.36e-5 and 6.70e-5 s.)
+| 2026-11-16 | Gate 3 review 4 | FAIL, two findings: five NULL top-level checks without failing-input tests (and an over-broad sentence in the interface document); two timing figures without spreads | gate-reviews/gate-3-20261116T034201Z.md | Tests added to tests/c/errors.c, the NULL and alignment rules stated in header, contract and document, output buffers NaN-filled only after every buffer passes its checks (3e7aeb0); spreads added; validation re-run; Gate 3 review 5 requested |
+
+**Validation after the Gate 3 review-4 repairs**: in-gate run at commit 3e7aeb0 with a clean tree,
+`results/005-c-abi/runs/20261116T034733Z-gate/summary.txt`: fmt, clippy `-D warnings`, `cargo test` ok for all eight feature combinations;
+five parallel C-interface repeats ok; 1.85.0 build ok; link demonstration (four runs) Optimal and
+Verified; default benchmark ok (`results/005-c-abi/runs/20261116T035104Z-bench`: heap during load
+78 536 B, overhead ratio 0.019 Gurobi and 0.013 MOSEK). C-path benchmark, three bundles: heap
+difference 0 B (N = 3 each, zero spread); wall-time median differences, N = 5 each: Gurobi +0.46,
++0.31, +0.15 ms (all within the limit); MOSEK −1.03, −1.32, +1.01 ms — the last is above the 1 ms
+limit, so the wall-time criterion (SC-003) FAILED in one of six comparisons in this run.
+
+**Wall-time criterion (SC-003) — reading and checklist decision**: over the fifteen alternating
+comparisons recorded (five sets of three bundles, two backends), the median differences range from
+−5.44 to +1.01 ms and change sign between bundles of the same commit; one exceeded the limit (by
+0.012 ms). The C layer adds no work inside the timed solve phase and its own work is a fixed number
+of small allocations (about 40 name conversions, measured by the heap profiler). Reading: the
+measurement's resolution at N = 5 on this shared machine (single-call spread up to tens of
+milliseconds) is about ±1 ms, the size of the limit itself, so the criterion is neither shown met
+nor shown violated; there is no evidence of a systematic C-layer cost. Decision (agent, constitution
+VI-B, for the Gate 3 reviewer to check): the success-criteria item (CHK015) is re-opened and
+accepted open for the wall-time criterion only, with this rationale; every other success criterion
+is met as recorded. A resolving measurement (larger N, an idle machine, or timing the C layer's
+own work directly) is routed to the maintainer as a follow-up.
 
 **Recorded deviation (Governance, "Commits Carry In-Flight Manual Work")**: commit 710ae9a
 (feature artefacts) did not include or list the eleven tracked governance changes then in the
@@ -159,7 +185,7 @@ rather than rewritten.
 - Exploration: none (direct request; see spec Exploration field)
 - Gate reviews: specs/005-c-abi/gate-reviews/
 - Implementation receipt(s): specs/005-c-abi/agent-runs/20261116T022035Z-implement/implementation-receipt.md
-  (T001–T022); specs/005-c-abi/agent-runs/20261116T033623Z-gate3-repairs-2/implementation-receipt.md (Gate 3 review-3 repairs); specs/005-c-abi/agent-runs/20261116T030638Z-gate3-repairs/implementation-receipt.md (Gate 3 repairs)
+  (T001–T022); specs/005-c-abi/agent-runs/20261116T035155Z-gate3-repairs-3/implementation-receipt.md (Gate 3 review-4 repairs); specs/005-c-abi/agent-runs/20261116T033623Z-gate3-repairs-2/implementation-receipt.md (Gate 3 review-3 repairs); specs/005-c-abi/agent-runs/20261116T030638Z-gate3-repairs/implementation-receipt.md (Gate 3 repairs)
 - Implementation review: specs/005-c-abi/implementation-review.md
 
 ## Open Risks and Ambiguities
@@ -175,4 +201,6 @@ rather than rewritten.
   `runmat mex` build is demonstrated by the COBRA consumer (SC-007).
 
 ## Checklist Routing (constitution VI-B)
-- requirements.md, the success-criteria item (CHK015): resolved at Gate 3 (see the checklist).
+- requirements.md, the success-criteria item (CHK015): accepted open at Gate 3 for the wall-time
+  criterion (SC-003) only, rationale in "Wall-time criterion (SC-003) — reading and checklist
+  decision"; follow-up routed to the maintainer.
