@@ -1,9 +1,9 @@
 # Human Loop State
 
 ## Current State
-- Status: Gate 1 PASS (review 4); Gate 2A PASS (review 8, APPROVE_WITH_ADR); tasks and analysis written; Gate 2 PASS (review 7); implementation T001–T022 complete and validated; Gate 3 review 1 FAIL repaired; Gate 3 review 2 requested.
+- Status: Gate 1 PASS (review 4); Gate 2A PASS (review 8, APPROVE_WITH_ADR); tasks and analysis written; Gate 2 PASS (review 7); implementation T001–T022 complete and validated; Gate 3 reviews 1 and 2 FAIL, repaired; Gate 3 review 3 requested.
 - Active feature directory: specs/005-c-abi (worktree `../optSolver-005-c-abi`, branch `005-c-abi`)
-- Last completed bundle: Bundle 2 (up to Gate 2)
+- Last completed bundle: Bundle 3 (implementation); Bundle 4 (verification and closeout) at Gate 3
 - Source code modified by this workflow: yes (approved scope T001–T022)
 - Committed: yes, on branch 005-c-abi before each gate review (a first attempt was refused by the
   session's tool permissions; a later attempt succeeded).
@@ -17,7 +17,8 @@
 - plan:           2026-11-15 — plan, research, data model, contract, quickstart, architecture delta, ADR-0004 (proposed)
 - tasks:          2026-11-16, after the Gate 2A PASS
 - analyze:        2026-11-16 (feature agent, speckit-analyze checks; summary in implementation-review.md)
-- implement:      2026-11-16, T001–T022 (agent-runs/20261116T022035Z-implement/implementation-receipt.md)
+- implement:      2026-11-16, T001–T022 (agent-runs/20261116T022035Z-implement/implementation-receipt.md);
+                  repairs after Gate 3 reviews 1 and 2 (agent-runs/20261116T030638Z-gate3-repairs/implementation-receipt.md)
 
 ## Gate Reviews And Decisions
 | Date (UTC) | Gate | Decision or verdict (with rationale) | Review file | Consequence |
@@ -65,6 +66,32 @@ generalises into a rule.
 wall-time runs "passed 4 of 6"; their run bundles had been deleted after a benchmark defect (the C
 path minimised a maximisation instance) was fixed, so the claim had no evidence. Withdrawn
 2026-11-16; the alternating-run measurements in the receipt replace it.
+| 2026-11-16 | Gate 3 review 2 | FAIL, four findings: receipt ledger (Final response no longer verbatim, no receipt for the repair run); an attribution deleted without being withdrawn and no record of why the method changed; Gurobi version in the suppression list; incomplete reconciliation | gate-reviews/gate-3-20261116T030058Z.md | First receipt restored verbatim; repair receipt written; withdrawals and method change recorded (below); version-free suppression list, leak trials re-run; reconciliation completed (below); Gate 3 review 3 requested |
+
+**Withdrawn attribution and method change (constitution XV-A)**: the first receipt attributed the
+failed separate-process wall-time runs to "the solvers' own solve phase, not the C layer's work".
+That reading rested on unretained runs and is withdrawn (2026-11-16). What is recorded: in those
+runs the per-phase load and extraction medians of the two paths agreed while the solve phase
+differed by a few milliseconds, and the C layer adds no code inside the solve phase; two readings
+were possible — machine drift between separate processes, or a real cost — and the method was
+switched to alternating Rust and C calls in one process precisely to separate them. The
+alternating runs (six bundles, all within the limit, median differences between −0.79 and +0.29 ms)
+support the first reading; the failed runs themselves are not evidence either way.
+
+**Closeout reconciliation, additions after Gate 3 review 2 (constitution XIII-D)**:
+- Duplication remaining: each backend's `solve_into` checks its buffer lengths itself
+  (src/gurobi/solve.rs, src/mosek/solve.rs); Gurobi's now mirrors MOSEK's conic-dual check. Kept
+  under ADR-0002 decision 2; owner: the maintainer, if a later feature extracts a shared check
+  into `core.result`.
+- Documentation invalidated: the spec's FR-021 list omits the Gurobi conic-dual check, and User
+  Story 3 says "toy-sized" where the memory-limit criterion uses iDopaNeuroC_problem_LP; a spec
+  revision needs a Gate 1 re-review — owner: the next feature that revises this spec, or the
+  maintainer.
+- Unowned components: `tests/contract.rs` and `tests/contract/` (including the new
+  `tests/contract/f005.rs`) have no component in components.yaml (pre-existing gap); owner: the
+  maintainer's next architecture reconciliation.
+- Behavioural integration evidence (Principle II): the C programs are real callers linked against
+  the static and shared libraries; see the implementation receipts and the gate run directories.
 
 **Recorded deviation (Governance, "Commits Carry In-Flight Manual Work")**: commit 710ae9a
 (feature artefacts) did not include or list the eleven tracked governance changes then in the
@@ -95,6 +122,7 @@ rather than rewritten.
 - Exploration: none (direct request; see spec Exploration field)
 - Gate reviews: specs/005-c-abi/gate-reviews/
 - Implementation receipt(s): specs/005-c-abi/agent-runs/20261116T022035Z-implement/implementation-receipt.md
+  (T001–T022); specs/005-c-abi/agent-runs/20261116T030638Z-gate3-repairs/implementation-receipt.md (Gate 3 repairs)
 - Implementation review: specs/005-c-abi/implementation-review.md
 
 ## Open Risks and Ambiguities

@@ -303,8 +303,8 @@ fn commit() -> String {
     if dirty {
         // The working tree's content as a tree hash (tracked and untracked, not ignored), so an
         // uncommitted run names exactly what it measured (feature 005, Gate 3).
-        let index =
-            std::env::temp_dir().join(format!("optsolver-bench-index-{}", std::process::id()));
+        let index = std::path::Path::new(env!("CARGO_TARGET_TMPDIR"))
+            .join(format!("optsolver-bench-index-{}", std::process::id()));
         let git = |args: &[&str]| {
             Command::new("git")
                 .arg("-C")
