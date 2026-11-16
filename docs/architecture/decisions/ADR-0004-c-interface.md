@@ -29,7 +29,10 @@ still outside this repository (VIII).
 3. The public header `src/capi/optsolver.h` is written by hand and kept in agreement with the
    library by a licence-free test (layout, constants, prototypes). Its version is
    major.minor, with input structures carrying `struct_size` so minor versions can append fields.
-4. Errors cross as codes with a per-thread message; panics are contained at every entry point.
+4. Errors cross as codes with a per-thread message; panics are contained at every entry point,
+   silently: a panic hook installed once on first use writes nothing for panics inside entry
+   points (their message becomes the internal-error message) and passes every other panic to
+   the previously installed hook (feature 005 research R4).
 5. Environment handles may move between threads (one user at a time), on vendor evidence
    (feature 005 research R3): the Rust `gurobi::Env` and `mosek::Env` become `Send`, not `Sync`,
    superseding feature 001 research R15 and feature 002 research R2, which deferred `Send` to

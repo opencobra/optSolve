@@ -117,6 +117,18 @@ Gurobi 13.0.3 header (`$GUROBI_HOME/include/gurobi_c.h`), the Gurobi Optimizer R
   needed libraries (the build script's `rustc-link-lib`); at load time they are found through
   the dynamic loader's search (`LD_LIBRARY_PATH` or the system configuration). No rpath with an
   absolute machine path is written (constitution VII-F, Governance).
+- **Panic output** (Gate 2A review 5): `catch_unwind` does not silence Rust's panic hook, which
+  prints to standard error before unwinding (constitution III, FR-018). Decision: on the first
+  call of any C entry point, a hook is installed once (`std::sync::Once`) that wraps the
+  previously installed hook: while a thread is inside a C entry point (a thread-local flag set by
+  the entry guard), the hook writes nothing and stores the panic message, which becomes the
+  internal-error message; otherwise it calls the previous hook unchanged. Effects: in
+  `liboptsolver.a` and `liboptsolver.so` the Rust runtime is the library's own, so only the
+  library's panics are affected; a Rust program linking the rlib with `capi` enabled gets the
+  wrapper only after it first calls a C entry point, and its own panics outside entry points
+  still reach its previous hook. Tests: standard error is empty after `optsolver_test_panic`
+  (C program); a panic outside an entry point after the hook is installed still reaches a
+  previously installed hook (Rust unit test).
 - **Panics**: the crate does not set `panic = "abort"` (VII-F: no reliance on its own profile);
   every entry point contains unwinding with `catch_unwind`. A caller that builds the library with
   `panic = "abort"` loses containment; the header says so.
@@ -144,12 +156,13 @@ Gurobi 13.0.3 header (`$GUROBI_HOME/include/gurobi_c.h`), the Gurobi Optimizer R
   linear in the number of cones (`num_cones`).
 - Owned results stay as the Rust `Solution` inside an opaque `optsolver_result`; arrays are
   returned as pointers into its `Vec`s (no copy). Strings the Rust result holds as `String`
-  (solver name and version, raw status names, attribute and parameter names) are converted to
+  (solver name and version, raw status names, attribute and parameter names, string-valued
+  attributes and parameters) are converted to
   NUL-terminated copies lazily, on the first accessor call that needs them (a once-initialised
   cell in the result object), so they cost nothing unless read (constitution I): O(number of
-  names), independent of m, n and nnz. Cone-kind names come from the existing `ConeKind::name`
-  (with a static NUL-terminated table derived from it and checked against it by a unit test), not
-  a second list. Basis statuses are read per index (no converted array).
+  names), independent of m, n and nnz. Cone-kind and verification-measure names are converted from the
+  core's own strings (`ConeKind::name`, `Measure::name`) on first use into a process-wide cache,
+  not a second list. Basis statuses are read per index (no converted array).
 - Caller buffers: the C layer fills each supplied buffer with NaN (O(m + n + k) writes, no
   allocation) and then calls `Backend::solve_into`; an entry the backend did not write is NaN, so
   undefined content is never presented as data (spec Edge Cases).

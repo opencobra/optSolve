@@ -80,7 +80,7 @@ NaN writes on the caller-buffer path only; no printing (III)
   `Box`ed Rust values behind opaque pointers, freed only by their free function; `Env` lifetimes
   unchanged; `unsafe impl Send` (not `Sync`) for `gurobi::Env` and `mosek::Env`, each citing the
   vendor documentation (research R3, superseding feature 001 R15 and feature 002 R2 as recorded
-  in the spec's Clarifications); Gurobi environment and model creation and freeing under one lock in `gurobi::env`
+  in the spec's Clarifications); Gurobi environment creation and freeing under one lock in `gurobi::env`
   — environment creation and freeing only (`GRBemptyenvinternal`, `GRBstartenv`, `GRBfreeenv`),
   enforced by a private token type that only the locked helper creates, plus a source test with a
   negative case; model creation and loading are not locked, so loads stay parallel (research R3);
@@ -138,7 +138,12 @@ NaN writes on the caller-buffer path only; no printing (III)
   (earlier decision searched: the BACKENDS list in `tests/standards.rs`, constitution VII-A
   "confined to FFI modules" — admitted, not reversed).
 - **Notation** (XII-C): C field names use the inventory symbols (`A`, `c`, `l`, `u`, `b`, `b_l`,
-  `b_u`, `Q`, `F`, `g`, `x`, `y`, `z`, `z_l`, `z_u`, `s`, `gamma`, `m`, `n`, `k`); no new symbol.
+  `b_u`, `Q`, `F`, `g`, `x`, `y`, `z`, `z_l`, `z_u`, `s`, `gamma`, `m`, `n`, `k`) or descriptive
+  names; no new symbol. Two objects the Rust API already names by letters outside the inventory —
+  the power-cone exponents (`alpha`, features 002–003) and the unbounded ray (`r`, feature 001) —
+  are named descriptively in C (`exponents`, `OPTSOLVER_CERT_RAY`), so the C interface freezes no
+  symbol the inventory lacks; the inventory gap in the Rust API is recorded in `human-loop.md` as
+  a human-reserved decision (Notation additions are amendments, VI-A).
 - **Provenance and licensing** (X): no new crate or fixture; vendor documentation cited in
   research with dates; no vendor header or library copied; the header is optSolver's own (MIT OR
   Apache-2.0).
@@ -282,4 +287,5 @@ specs/005-c-abi/requests/from-cobratoolbox-REQ-001.md   # record of the consumer
 | Violation | Why Needed | Simpler Alternative Rejected Because |
 |-----------|------------|-------------------------------------|
 | NaN-fill of caller buffers (O(m + n + k) writes) | spec Edge Cases: unwritten buffer entries must not look like data | leaving them untouched would present stale caller memory as results |
+| `optsolver_test_panic`, `optsolver_environments_created` (test-support entry points) | the panic-containment and environment-reuse criteria (SC-006, SC-004) need a real panic inside an entry point and a creation count observable from C | a test-only build would mean the shipped library is not the tested one; Rust-side tests cannot show containment across the C boundary |
 | NUL-terminated copies of result names | C needs terminated strings; Rust `String`s are not | changing the Rust result to `CString` would change the Rust API |

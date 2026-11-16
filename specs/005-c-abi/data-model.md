@@ -14,7 +14,7 @@ structures are defined in `contracts/c-interface.md`; this table maps each onto 
 | `b_l`, `b_u` | `RowBounds::Ranges { b_l, b_u }` | exactly one form |
 | `Q` | `with_Q(CscRef<usize>)` | lower triangle (Rust rule) |
 | `F`, `g`, `cones` | `ConicRef::new(F, g, &[Cone])`, `with_conic` | cones → `Vec<Cone>` (linear in `num_cones`) |
-| `optsolver_cone {kind 1..9, dim, alpha}` | `Cone::Quadratic(dim)` … `Cone::PositiveSemidefinite { order: dim }`; power cones `alpha` copied into the variant | exponential cones require dim 3 or 0 (dim ignored when 0) |
+| `optsolver_cone {kind 1..9, dim, exponents}` | `Cone::Quadratic(dim)` … `Cone::PositiveSemidefinite { order: dim }`; power cones' `exponents` copied into the variant's `alpha` | exponential cones require dim 3 or 0 (dim ignored when 0) |
 | `optsolver_options` fields | `Options` fields of the same names | NaN / `OPTSOLVER_UNSET` → `None` |
 | `threads` ≥ 0 | `Some(u32)` | above `u32::MAX` invalid |
 | `random_seed` with `random_seed_set` | `Some(i32)` | outside `i32` invalid |

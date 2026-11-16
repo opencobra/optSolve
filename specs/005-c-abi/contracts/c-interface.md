@@ -70,7 +70,8 @@ Verification overall: `OPTSOLVER_VERIFICATION_NOT_RUN` 0, `_VERIFIED` 1, `_FAILE
 `_PARTIALLY_VERIFIED` 3; measure verdict `OPTSOLVER_VERDICT_PASS` 0, `_FAIL` 1,
 `_NOT_EVALUATED` 2. Arrays: `OPTSOLVER_ARRAY_X` 0, `_Y` 1, `_Z` 2, `_Z_L` 3, `_Z_U` 4, `_S` 5,
 `_ROW_ACTIVITY` 6. Certificates: `OPTSOLVER_CERTIFICATE_NONE` 0, `_FARKAS` 1,
-`_UNBOUNDED_RAY` 2; certificate arrays `OPTSOLVER_CERT_Y` 0, `_Z` 1, `_S` 2, `_R` 3.
+`_UNBOUNDED_RAY` 2; certificate arrays `OPTSOLVER_CERT_Y` 0, `_Z` 1, `_S` 2 (Farkas row, bound and
+conic multipliers), `OPTSOLVER_CERT_RAY` 3 (the unbounded ray).
 Parameter value types: `OPTSOLVER_PARAM_INT` 1, `_DOUBLE` 2, `_STRING` 3.
 
 `const char *optsolver_status_name(int32_t)`, `optsolver_limit_reason_name(int32_t)`,
@@ -91,8 +92,8 @@ typedef struct optsolver_csc {
 typedef struct optsolver_cone {
     int32_t kind;               /* OPTSOLVER_CONE_* */
     size_t dim;                 /* dimension; for positive semidefinite, the order */
-    const double *alpha;        /* power cones: exponents of the leading coordinates */
-    size_t alpha_len;
+    const double *exponents;    /* power cones: exponents of the leading coordinates */
+    size_t exponents_len;
 } optsolver_cone;
 
 typedef struct optsolver_problem {
@@ -115,8 +116,15 @@ typedef struct optsolver_problem {
 ```
 
 A pointer may be NULL only when the length it describes is 0. Exactly one row-bound form is
-given (both or neither: `OPTSOLVER_ERR_INVALID`). All validation is the Rust API's; the C layer
-adds only the null and form checks and the bound `nnz · 8 ≤ isize::MAX`.
+given (both or neither: `OPTSOLVER_ERR_INVALID`). All validation of the problem is the Rust API's;
+the C layer adds only checks the Rust API cannot see, each returning `OPTSOLVER_ERR_INVALID`
+naming the field: a NULL pointer with a nonzero length; both or neither row-bound form; both or
+neither index width for A; `struct_size` below the minimum; the bound `nnz · 8 ≤ isize::MAX`
+(else `OPTSOLVER_ERR_TOO_LARGE`); unknown sense, backend, cone-kind, method, presolve and
+parameter-type codes; `threads` above `u32::MAX`; `random_seed` outside `int32_t`; an
+exponential-cone `dim` other than 3 or 0; a parameter name or string value that is not UTF-8.
+A NULL pointer with length 0 becomes an empty slice (a dangling, aligned pointer), never a NULL
+passed to `slice::from_raw_parts`. Each check has a failing-input test.
 
 ## Options (FR-004)
 
@@ -157,7 +165,7 @@ uint64_t optsolver_environments_created(void);               /* test support: co
 Thread rule: a handle may be used from any thread, by one thread at a time; different handles may
 be used concurrently; Gurobi creation and freeing are serialised by a lock in the Gurobi backend;
 MOSEK documents no guarantee for concurrent environment creation, so MOSEK environments should be
-created one at a time (unverified either way) (the Rust
+created and freed one at a time (concurrent creation and freeing unverified either way) (the Rust
 `gurobi::Env` and `mosek::Env` are `Send`, not `Sync`).
 
 ## Solving (FR-005 to FR-007)
@@ -223,8 +231,9 @@ int32_t optsolver_result_measure(const optsolver_result *r, size_t i, optsolver_
 Every pointer returned is owned by the result and valid until `optsolver_result_free`. Names held
 by the Rust result as Rust strings (solver name and version, raw status, attribute and parameter
 names, string-valued attributes and parameters) are converted to NUL-terminated strings on first
-read; verification measure names come from a static NUL-terminated table matching
-`verify::names` (checked by a unit test).
+read; verification measure names and cone-kind names are converted from the strings the core
+owns (`Measure::name`, `ConeKind::name`) on first use into a process-wide cache — no second list
+of names.
 
 ## Capabilities (FR-017)
 
