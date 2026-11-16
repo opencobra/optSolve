@@ -91,13 +91,15 @@ harness). Each story phase then carries its own independent test and needs only 
   with its tests: `optsolver_options_init`; C problem →
   `Problem` (both index widths, both row forms, Q, F/g/cones with `exponents`), C options →
   `Options`; every slice bounded (`len · size ≤ isize::MAX`, `cols + 1` overflow → TOO_LARGE); NULL
-  with length 0 → empty slice; built and validated before any environment. Tests: pointer identity
+  with length 0 → empty slice; built and validated before any environment, in a fixed order: A
+  (dimensions, then its arrays) is validated before any other array is sliced, so a dimension
+  above the solvers' limit is TOO_LARGE before the row and column data are touched. Tests: pointer identity
   of every slice (positive control, SC-002, XIV-D); every C-layer check of the contract fails with
   INVALID (or TOO_LARGE) naming the field — NULL with nonzero length, both and neither row forms,
   both and neither index widths with nonzeros, negative `int32` row index, bad sense, backend,
   cone-kind, method, presolve and parameter-type codes, `struct_size` too small, truncated
   options accepted with the rest unset (FR-020), `cols + 1` and nnz overflow, `threads` above
-  `u32::MAX`, `random_seed` outside `int32_t`, exponential-cone `dim` not 3 or 0, non-UTF-8 name.
+  `u32::MAX`, `random_seed` outside `int32_t`, exponential-cone `dim` not 3 or 0, non-UTF-8 parameter name, non-UTF-8 string value.
 - [ ] T007 `src/capi/env.rs` with its tests: `optsolver_env_create`, `optsolver_env_free`,
   `optsolver_backend_compiled`, `optsolver_capabilities`, `optsolver_env_capabilities`,
   `optsolver_caps_*`, `optsolver_caps_free`; usability from `Env::new`. Tests: not-compiled backend
@@ -123,8 +125,9 @@ harness). Each story phase then carries its own independent test and needs only 
   buffer → INVALID naming the array, before any solver call, and every supplied array then holds
   NaN (FR-005 edge case, FR-006); a raw parameter Gurobi rejects (`TimeLimit` = −1) →
   `OPTSOLVER_ERR_SOLVER` with `optsolver_last_error_solver_code` equal to the vendor code
-  (FR-010); one trial setting every option field through C with the effective parameters equal to
-  the Rust API's for the same options.
+  (FR-010); one trial setting every option field through C (except `memory_limit_gb`, whose C path is
+  covered by T013 and T014) with the effective parameters equal to the Rust API's for the same
+  options, and one solve with verification switched off reporting OPTSOLVER_VERIFICATION_NOT_RUN.
 - [ ] T009 `src/gurobi/solve.rs`: `solve_into` checks the conic-dual buffer length against k, as
   MOSEK does; licensed test in `tests/contract.rs` (written once, every backend): a wrong-length `s`
   is `Error::Invalid` naming `out.s`, no panic.
@@ -161,11 +164,13 @@ The lock and `Send` change this story relies on is T011 (foundational).
   option itself is added in T006). Tests: unit — mapping; licensed, in `tests/contract.rs`: value read
   back from the model, raw `SoftMemLimit` with the option → `ParameterConflict`, raw `MemLimit`
   with it accepted; MOSEK → `Unsupported { field: "memory_limit_gb", backend: "mosek" }` before
-  any solver call.
+  any solver call (meaning: no vendor optimisation or model call; the option check runs before
+  the model is loaded, whether or not an environment already exists); each licensed solve asserts
+  its verification verdict.
 - [ ] T014 [US3] Memory-limit trials (SC-005): Gurobi, `iDopaNeuroC_problem_LP`, one thread,
   `memory_limit_gb` = 1e-6, N = 3, through the Rust API (`tests/contract.rs`) and the C driver
   (`tests/c_interface.rs`) → `StoppedAtLimit`/`Memory` with `SoftMemLimit` in the effective
-  parameters; without the limit → Optimal; MOSEK through C → UNSUPPORTED naming the field. If
+  parameters; without the limit → Optimal with verdict Verified; MOSEK through C → UNSUPPORTED naming the field. If
   Gurobi does not stop, record the result and return to Gate 2A (research R2).
 
 ## Phase 6: User Story 4 — conic from C (P2)
@@ -181,7 +186,10 @@ The lock and `Send` change this story relies on is T011 (foundational).
   every C-layer failing input of T006 from C; every Rust-API invalid input a C caller can express —
   each `expect_invalid` case of `tests/contract.rs` mapped to a C call, or recorded as not
   expressible from C with the reason — returns INVALID (or TOO_LARGE) with a message naming the
-  input, and the environment-creation count shows no solver was reached (SC-006);
+  input, and the environment-creation count shows no solver was reached (SC-006); the too-large
+  dimension case of `tests/contract.rs` (`t020_dimension_too_large`) from C: A with `rows` above
+  2³¹ − 1 and zero columns → OPTSOLVER_ERR_TOO_LARGE before any environment, which T006's build
+  order makes expressible without caller memory for the row data;
   `optsolver_test_panic` → INTERNAL, the process continues, standard error empty; free functions
   accept NULL; message copies freed with `optsolver_string_free`. Leak checks with
   AddressSanitizer's leak checker (if the sanitizer is unavailable, recorded unverified):
@@ -191,7 +199,9 @@ The lock and `Send` change this story relies on is T011 (foundational).
   accessor, frees the result and a capabilities object, reports zero leaks attributable to
   optSolver (allocations inside the vendor libraries, if any, suppressed by a recorded suppression
   list naming each vendor frame), and its positive control (one deliberately unfreed result) is
-  reported as leaking (FR-016, SC-006, User Story 5 scenario 5; XIV-D, XV-C).
+  reported as leaking (FR-016, SC-006, User Story 5 scenario 5; XIV-D, XV-C). The leak runs use
+  the shared runner with a declared exception: standard error may carry the sanitizer's report and
+  nothing else.
 
 ## Phase 8: Benchmarks and link demonstration
 
@@ -203,13 +213,14 @@ The lock and `Send` change this story relies on is T011 (foundational).
   backends, `iDopaNeuroC_problem_LP`; output location resolved through `project.yml`
   (`structure.generated` plus the feature name) instead of the hard-coded feature-003 path; record
   effective parameters, versions, tree state, machine, profile.
-- [ ] T018 Link demonstration (SC-007): `tests/c/minimal.c`; release build; compile and run with
-  the documented flags, static and shared; commands and output in the run bundle.
+- [ ] T018 Link demonstration (SC-007): first write the building-and-linking part of
+  `docs/llm-interface.md` (compile, link and run-time flags; vendor libraries needed at load time
+  and never shipped); then `tests/c/minimal.c`, release build, compile and run with exactly those
+  documented flags, static and shared; commands and output in the run bundle.
 
 ## Phase 9: Polish and closeout
 
-- [ ] T019 `docs/llm-interface.md`: C interface section (building; compile, link and run-time
-  flags; vendor libraries needed at load time and never shipped; every function, type and
+- [ ] T019 `docs/llm-interface.md`: the rest of the C interface section (every function, type and
   constant; ownership; threads; versioning; panic hook), `memory_limit_gb`, Threading (`Send`).
 - [ ] T020 `docs/architecture/components.yaml` reconciled with the delta; `boundaries.yaml` gains
   the delta's forbidden edges; ADR-0004 checked against what was built.

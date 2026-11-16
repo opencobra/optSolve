@@ -57,8 +57,8 @@ checks; the first version of this analysis overstated coverage and said no confl
 | Heap (SC-002), wall time (SC-003) | T006, T017 |
 | Environment reuse (SC-004) | T012 |
 | Memory limit (SC-005) | T014 |
-| Errors, panic, leaks (SC-006) | T016 (every expressible invalid input; leak checks in both tiers with positive controls), T006 |
-| Link demonstration (SC-007) | T018 |
+| Errors, panic, leaks (SC-006) | T016 (every `expect_invalid` case mapped or recorded, and the too-large dimension case; leak checks in both tiers with positive controls), T006 (validation order) |
+| Link demonstration (SC-007) | T018 (documents the flags first, then builds with exactly them) |
 
 Test ordering: every implementing task carries its own tests (written first or in the same
 change); story phases need only the foundational phase, and each carries its own independent
@@ -68,6 +68,9 @@ trial runs with it.
 
 Findings:
 
+- Repaired after the fifth Gate 2 review: the too-large dimension case was not mapped through C
+  (now T016, with T006's validation order); the link demonstration preceded the documentation of
+  its flags (now written first in T018).
 - Repaired after the fourth Gate 2 review: the leak check covered no environment or result and
   its control could not run without a licence (now two leak checks, unlicensed and licensed, each
   with a working control); the interface-document drift test could not pass at the end of the
