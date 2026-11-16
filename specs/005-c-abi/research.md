@@ -59,41 +59,40 @@ Gurobi 13.0.3 header (`$GUROBI_HOME/include/gurobi_c.h`), the Gurobi Optimizer R
 - **Rust types**: `gurobi::Env` and `mosek::Env` become `Send` (not `Sync`) through
   `unsafe impl Send`, each citing the evidence above in its `SAFETY` comment (constitution VII-B).
   This supersedes feature 001 research R15 and feature 002 research R2, which deferred `Send` to
-  exactly this check (spec Clarifications, constitution XV-E). Because Gurobi says environment
-  creation and deletion are not thread-safe, `gurobi::env` gains one process-wide `Mutex<()>`
-  held across `GRBemptyenvinternal` … `GRBstartenv` in `Env::new` and across `GRBfreeenv` in
-  `Drop`; this also closes a hazard that existed before (two threads each creating their own
-  environment concurrently). MOSEK states no such restriction; no lock is added there
-  (unverified that MOSEK environment creation is thread-safe; not needed by the C interface,
-  whose consumer creates environments one at a time). Not `Sync`: "Multiple threads cannot work
-  simultaneously within the same environment". A compile-time test asserts `Send` and a
-  doc-test-style compile-fail note records `!Sync`.
-- **Inference, unverified** (Gate 2A review 2): the Gurobi article says "create and delete
-  environments in the main thread" and gives no reason. The design reads the instruction as
-  "never concurrently with another creation or deletion", which a process-wide lock guarantees, and
-  allows creation and freeing on any thread under that lock. The vendor does not say a lock
-  suffices; this is recorded as an accepted risk in the `SAFETY` comment of `unsafe impl Send for
-  gurobi::Env`, and a licensed test creates, uses and frees environments on several threads
-  concurrently (task list) — evidence of absence of a fault in that run only, not proof. Whether
-  the model's own environment copy (made when `GRBXloadmodel` creates a model, freed by
-  `GRBfreemodel`) counts as environment creation is not stated by the vendor; the same lock is
-  therefore also held around model creation and model freeing in `gurobi::load` and in the test
-  helper model of `gurobi::callback` (no lock around optimisation, so concurrent solves on
-  different environments still run in parallel).
-- **One locked helper** (Gate 2A review 3): the rule is crate-wide — every call of
-  `GRBemptyenvinternal`, `GRBstartenv`, `GRBfreeenv`, `GRBXloadmodel` and `GRBfreemodel`, in
-  library code and in unit tests (which run on parallel threads of one process), is made inside
-  `gurobi::env::lifecycle(|| …)`, a `pub(crate)` function that holds the one `static Mutex<()>`
-  for the duration of the closure. `Env::new` makes its whole creation sequence (create, set
-  `OutputFlag`, start, free on failure) one `lifecycle` call, so the non-re-entrant mutex is never
-  taken twice; `Drop` is one call. Present sites: `Env::new` and `Drop` (src/gurobi/env.rs), the
-  unit test creating an empty environment (src/gurobi/env.rs:160-165), the unit test of
-  `configure_new_environment` (src/gurobi/params.rs:389-396), model creation and freeing in
-  src/gurobi/load.rs, and the test-helper model in src/gurobi/callback.rs. A source test in
-  `tests/standards.rs` fails if any line naming one of the five functions (outside `ffi.rs`) is
-  not inside a `lifecycle(` call. Poisoning: a panic while the lock is held cannot leave the
+  exactly this check (spec Clarifications, constitution XV-E); the module documentation of both
+  `env.rs` files that says the environments are not `Send` is rewritten. Not `Sync`: "Multiple
+  threads cannot work simultaneously within the same environment". A compile-time test asserts
+  `Send`.
+- **Gurobi environment lifecycle lock** (scope narrowed at Gate 2A review 4): Gurobi says
+  "environment creation and deletion are not thread-safe". One process-wide `Mutex<()>` in
+  `gurobi::env` serialises environment creation and freeing — the calls `GRBemptyenvinternal`,
+  `GRBstartenv` and `GRBfreeenv` — and nothing else. Model creation and freeing are NOT locked:
+  the vendor's recommended pattern ("Pass each additional thread an initialized environment for
+  its exclusive use") has each thread build and free models in its own environment concurrently,
+  so model creation on distinct environments is the documented use, and loading stays parallel.
+  Cost: environment creation (including licence acquisition in `GRBstartenv`) on one thread
+  blocks environment creation or freeing on another; environments are created once per session
+  by the intended callers (the COBRA gateway keeps one), so the cost is one licence check's wait
+  at most, and it never blocks loading or solving. Two inferences are recorded as unverified and
+  as an accepted risk in the `SAFETY` comment of `unsafe impl Send for gurobi::Env`: that "create
+  and delete environments in the main thread" (no reason given by the vendor) is satisfied by
+  "never concurrently with another creation or deletion", and that a model's internal environment
+  copy is not "environment creation" in that sense. A licensed test creates, uses and frees
+  environments on several threads concurrently and moves environments between threads — evidence
+  of no fault in that run only, not proof.
+- **Enforcement by type, not text** (Gate 2A reviews 3 and 4): the lock guard is a private type
+  `Lifecycle` that only `gurobi::env::lifecycle(|t: &Lifecycle| …)` constructs (holding the mutex
+  for the closure). The private functions that call the three vendor functions — `empty(&Lifecycle)`,
+  `start(&Lifecycle, …)` and `free(&Lifecycle, …)` — require the token, so an unlocked call does not
+  compile. `Env::new` runs its whole sequence (create, set `OutputFlag`, start, and on failure free)
+  in one `lifecycle` call and frees on its error paths with the same token, so the non-re-entrant
+  mutex is never taken twice; `Drop` is one call. The two unit tests that create environments
+  (src/gurobi/env.rs:160-165, src/gurobi/params.rs:389-396) go through `lifecycle` and `free`.
+  A source test in `tests/standards.rs` checks the remaining hole — that the three vendor names
+  appear (outside `ffi.rs`) only in `src/gurobi/env.rs` — and is shown to fail on a synthetic
+  source with a stray call (XV-C). Poisoning: a panic while the lock is held cannot leave the
   vendor's state half-changed by Rust (the vendor calls do not unwind), so a poisoned lock is
-  recovered with `PoisonError::into_inner` and used normally.
+  recovered with `PoisonError::into_inner`.
 - **MOSEK environment creation**: MOSEK documents no restriction and no guarantee for concurrent
   `MSK_makeenv`; unverified. No lock is added; the header states that MOSEK environments should
   be created one at a time, which the consumer (one environment per backend, created once) does.
@@ -121,6 +120,11 @@ Gurobi 13.0.3 header (`$GUROBI_HOME/include/gurobi_c.h`), the Gurobi Optimizer R
 - **Panics**: the crate does not set `panic = "abort"` (VII-F: no reliance on its own profile);
   every entry point contains unwinding with `catch_unwind`. A caller that builds the library with
   `panic = "abort"` loses containment; the header says so.
+- **Cost to Rust dependents** (Gate 2A review 4 observation): Cargo builds every crate type a
+  dependency lists, so a Rust crate depending on optsolver also builds the two extra libraries
+  (link time, no behaviour change). Accepted for now; if a Rust dependent appears, the
+  alternative is the separate crate rejected above (a human decision under the Technical
+  Constraints). Unverified: the measured extra build time (to be recorded at closeout).
 - **Crate types and the additive feature** (Gate 1 observation): Cargo cannot select crate types
   by feature, so `[lib] crate-type = ["lib", "staticlib", "cdylib"]` is unconditional; what is
   behind the `capi` feature is the C entry points. Without `capi`, `cargo build` also produces
@@ -149,9 +153,9 @@ Gurobi 13.0.3 header (`$GUROBI_HOME/include/gurobi_c.h`), the Gurobi Optimizer R
 - Caller buffers: the C layer fills each supplied buffer with NaN (O(m + n + k) writes, no
   allocation) and then calls `Backend::solve_into`; an entry the backend did not write is NaN, so
   undefined content is never presented as data (spec Edge Cases).
-- Errors: the entry point returns a code; the message is stored per thread (thread-local) and
-  read with `optsolver_last_error_message()`, valid until the next call on that thread
-  (FR-010: one thread's failure cannot overwrite another's message).
+- Errors: the entry point returns a code; the message is stored per thread (thread-local), so one
+  thread's failure cannot overwrite another's (FR-010); `optsolver_last_error_message()` returns a
+  caller-owned copy freed with `optsolver_string_free` (FR-016, User Story 5 scenario 5).
 - Usability (FR-017): `optsolver_capabilities(backend, &caps)` creates and frees a temporary
   environment and reports usable or the vendor's reason; `optsolver_env_capabilities(env, &caps)`
   reads a kept environment without creating another.

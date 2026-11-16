@@ -81,10 +81,10 @@ NaN writes on the caller-buffer path only; no printing (III)
   unchanged; `unsafe impl Send` (not `Sync`) for `gurobi::Env` and `mosek::Env`, each citing the
   vendor documentation (research R3, superseding feature 001 R15 and feature 002 R2 as recorded
   in the spec's Clarifications); Gurobi environment and model creation and freeing under one lock in `gurobi::env`
-  — crate-wide rule: every call of `GRBemptyenvinternal`, `GRBstartenv`, `GRBfreeenv`,
-  `GRBXloadmodel` and `GRBfreemodel`, in library code and unit tests alike, runs inside the single
-  locked helper `gurobi::env::lifecycle` (research R3), checked by a source test — the lock's
-  sufficiency an accepted, recorded risk; errors as codes, panics contained with
+  — environment creation and freeing only (`GRBemptyenvinternal`, `GRBstartenv`, `GRBfreeenv`),
+  enforced by a private token type that only the locked helper creates, plus a source test with a
+  negative case; model creation and loading are not locked, so loads stay parallel (research R3);
+  the lock's sufficiency is an accepted, recorded risk; errors as codes, panics contained with
   `catch_unwind` at every entry point (VII-C); validation before the first FFI call is the Rust
   API's, plus the C layer's null and length checks before building slices (VII-D); no vendor
   declaration added (VII-E); lints unchanged, `links` unchanged, no new build-script variable
@@ -195,7 +195,12 @@ conforming alternative is the plan itself: a translation module and a hand heade
   tests/common/compare.rs).
 - *Disposition*: reuse — every behaviour is reached through the existing API; extend `Options`
   by one field and `gurobi::params::apply` by one mapping; new only for the C translation.
-- *Duplication left in place*: the C layer re-checks null pointers and the row-bound form, which
+- *Duplication left in place*: each backend checks its `solve_into` buffer lengths itself
+  (src/gurobi/solve.rs:56-91, src/mosek/solve.rs:55-75); the copies have drifted (Gurobi lacks the
+  conic-dual check). Left in place, with Gurobi's copy completed, because ADR-0002 decision 2
+  keeps backends free of shared code and the check is a few lines whose lengths depend on the
+  backend's own dimension reading; extraction into `core.result` would be a refactor of untouched
+  MOSEK code outside this feature's need (V). The C layer re-checks null pointers and the row-bound form, which
   the Rust API cannot see (it receives slices); no validation rule of the Rust API is repeated.
   One gap in the Rust API is closed where it lives rather than in the C layer: Gurobi's
   `solve_into` does not check the length of the conic-dual buffer `s` (src/gurobi/solve.rs:56-91;
@@ -255,18 +260,15 @@ src/capi/problem.rs           # new: C structures → Problem (borrowed), Option
 src/capi/env.rs               # new: environment handle, capabilities
 src/capi/result.rs            # new: solve entry points and result accessors
 src/options.rs                # memory_limit_gb
-src/gurobi/env.rs             # Send; creation/freeing lock
-src/gurobi/load.rs            # model creation and freeing under the lock
-src/gurobi/callback.rs        # test-helper model creation and freeing under the lock
-src/gurobi/params.rs          # (also) unit-test environment creation and freeing under the lock
-tests/standards.rs            # (also) every Gurobi lifecycle call inside env::lifecycle
-src/mosek/env.rs              # Send
-src/gurobi/params.rs          # SoftMemLimit
+src/gurobi/env.rs             # Send; lifecycle lock with Lifecycle token; docs rewritten
+src/mosek/env.rs              # Send; docs rewritten
+src/gurobi/params.rs          # SoftMemLimit; its environment unit test through env::lifecycle
 src/gurobi/solve.rs           # solve_into checks the conic-dual buffer length (as MOSEK does)
 tests/c_interface.rs          # new: agreement, unlicensed and licensed C tests
 tests/c/                      # new: C test programs (placement: C test sources)
 tests/common/cdata.rs         # new: toy-instance writer, C-result reader (shared harness)
-tests/standards.rs            # src/capi/ admitted as FFI module; header names in drift test
+tests/standards.rs            # src/capi/ admitted as FFI module; header names in drift test;
+                              # Gurobi lifecycle calls only in src/gurobi/env.rs (with negative test)
 benches/c_interface.rs        # new: heap and wall-time criteria (SC-002, SC-003)
 docs/llm-interface.md         # C interface section
 docs/architecture/            # components.yaml, repo_folder_organisation.md, ADR-0004

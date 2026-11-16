@@ -17,7 +17,11 @@ rule) increments the major part; a compatible addition (a new function, a new co
 appended to an input structure) increments the minor part. A caller compiled against a given major and minor
 version works with any library of the same major version and an equal or higher minor version. Input structures begin with `struct_size`
 (= `sizeof` the caller's structure); the library reads only the fields that size covers and
-treats absent trailing fields as unset.
+treats absent trailing fields as unset. Minimum sizes in version 1.0 (a smaller `struct_size` is
+`OPTSOLVER_ERR_INVALID`): `optsolver_problem` and `optsolver_buffers` — the full 1.0 structure
+(every field is needed); `optsolver_options` — up to and including `struct_size` only (every
+option may be absent, meaning unset). A test passes an options structure truncated after
+`time_limit` and checks the remaining fields are treated as unset (FR-020).
 
 ## Codes (FR-010)
 
@@ -32,12 +36,15 @@ treats absent trailing fields as unset.
 | `OPTSOLVER_ERR_INTERNAL` | 6 | a contained panic |
 
 ```c
-const char *optsolver_last_error_message(void);  /* this thread's last failure; "" if none */
+char *optsolver_last_error_message(void);        /* copy of this thread's last failure message, or NULL */
+void optsolver_string_free(char *s);             /* frees a string the library returned; NULL: no-op */
 int32_t optsolver_last_error_solver_code(void);  /* vendor code of the last OPTSOLVER_ERR_SOLVER, else 0 */
 ```
 
-The message is the Rust error's `Display` text (it names the input, field or parameter); it is
-owned by the library, per thread, valid until the next `optsolver_` call on the same thread.
+The message is the Rust error's `Display` text (it names the input, field or parameter). The
+library records it per thread (a failure on one thread never overwrites another thread's); each
+call of `optsolver_last_error_message` returns a new caller-owned copy, freed with
+`optsolver_string_free` (FR-016).
 
 ## Backends, statuses and other codes
 
@@ -176,7 +183,8 @@ void optsolver_result_free(optsolver_result *result);       /* NULL: no-op */
 
 `solve_into` passes each supplied array with its length to the Rust API, which rejects a wrong
 length as `OPTSOLVER_ERR_INVALID` naming the array before any solver call; it fills each supplied
-array with NaN, then the backend writes the quantities it returns; the result object then holds the scalar and descriptive fields and its arrays for the
+array with NaN — before the call, so on any error return the supplied arrays hold NaN — then the
+backend writes the quantities it returns; the result object then holds the scalar and descriptive fields and its arrays for the
 buffered quantities are empty, as in the Rust API.
 
 ## Reading a result (FR-005)
@@ -212,7 +220,11 @@ size_t optsolver_result_measure_count(const optsolver_result *r);
 int32_t optsolver_result_measure(const optsolver_result *r, size_t i, optsolver_measure *out);
 ```
 
-Every pointer returned is owned by the result and valid until `optsolver_result_free`.
+Every pointer returned is owned by the result and valid until `optsolver_result_free`. Names held
+by the Rust result as Rust strings (solver name and version, raw status, attribute and parameter
+names, string-valued attributes and parameters) are converted to NUL-terminated strings on first
+read; verification measure names come from a static NUL-terminated table matching
+`verify::names` (checked by a unit test).
 
 ## Capabilities (FR-017)
 

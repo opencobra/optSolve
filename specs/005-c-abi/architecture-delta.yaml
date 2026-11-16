@@ -44,17 +44,11 @@ components_modified:
   - id: core.options
     change: memory_limit_gb field (Option<f64>), listed in set_shared_fields
   - id: gurobi.params
-    change: memory_limit_gb → SoftMemLimit in apply and MAPPINGS
+    change: memory_limit_gb → SoftMemLimit in apply and MAPPINGS; its environment unit test goes through env::lifecycle
   - id: gurobi.env
-    change: Env is Send (not Sync), vendor-cited; pub(crate) lifecycle helper holding one process-wide lock, used by every call of GRBemptyenvinternal, GRBstartenv, GRBfreeenv, GRBXloadmodel, GRBfreemodel (library code and unit tests, incl. the empty-environment unit test)
+    change: Env is Send (not Sync), vendor-cited; one process-wide lock serialising environment creation and freeing (GRBemptyenvinternal, GRBstartenv, GRBfreeenv only), enforced by a private Lifecycle token that only the locked helper creates; module docs rewritten
   - id: mosek.env
-    change: Env is Send (not Sync), vendor-cited
-  - id: gurobi.load
-    change: model creation (GRBXloadmodel) and freeing (GRBfreemodel) under the gurobi::env lock
-  - id: gurobi.callback
-    change: test-helper model creation and freeing under the gurobi::env lock
-  - id: gurobi.params
-    change: (also) its unit test creating and freeing an environment goes through env::lifecycle
+    change: Env is Send (not Sync), vendor-cited; module docs rewritten
   - id: gurobi.solve
     change: solve_into checks the conic-dual buffer length (closing a validation gap; MOSEK already checks)
   - id: test.harness
@@ -66,7 +60,7 @@ components_modified:
   - id: manifest  # not a component id in components.yaml; listed for completeness
     change: Cargo.toml crate-type lib + staticlib + cdylib; feature capi; [[test]] c_interface; [[bench]] c_interface
   - id: test.standards  # not a component id in components.yaml (tests/standards.rs); listed for completeness
-    change: src/capi/ admitted as an FFI module for unsafe and extern "C" definitions; drift test covers the header's names; every Gurobi lifecycle call inside env::lifecycle
+    change: src/capi/ admitted as an FFI module for unsafe and extern "C" definitions; drift test covers the header's names; the three Gurobi environment lifecycle functions named only in src/gurobi/env.rs (with a negative test)
 
 components_removed: []
 

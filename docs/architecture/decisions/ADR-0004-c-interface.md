@@ -33,13 +33,19 @@ still outside this repository (VIII).
 5. Environment handles may move between threads (one user at a time), on vendor evidence
    (feature 005 research R3): the Rust `gurobi::Env` and `mosek::Env` become `Send`, not `Sync`,
    superseding feature 001 research R15 and feature 002 research R2, which deferred `Send` to
-   that check. Gurobi environment creation and freeing, and model creation and freeing (which
-   copy and free a model environment), are serialised by one lock in `gurobi::env`: every such
-   call in the crate, unit tests included, runs inside the helper `gurobi::env::lifecycle`,
-   protecting Rust callers too. Gurobi's article advises creating and deleting environments in the main
-   thread; that a lock suffices instead is an inference, unverified, recorded as an accepted
-   risk and exercised by a licensed concurrency test (research R3).
+   that check. Gurobi environment creation and freeing are serialised by one lock in
+   `gurobi::env`, enforced by a token type only the locked helper creates, protecting Rust callers
+   too; model creation and loading are not locked. Gurobi's article advises creating and deleting
+   environments in the main thread; that a lock suffices instead, and that a model's internal
+   environment copy is not covered by that advice, are inferences, unverified, recorded as an
+   accepted risk and exercised by a licensed concurrency test (research R3).
 6. The memory limit is a solver-independent option: Gurobi `SoftMemLimit`; unsupported on MOSEK.
+7. Earlier decisions changed: ADR-0001 decision 2 ("two layers") gains a third, the C layer
+   `capi`, above the core and the backends, depending on both and depended on by neither;
+   ADR-0001 decision 3 and ADR-0002's consequence that `unsafe` code lives only in backend
+   modules are widened: `src/capi/` is also an FFI module (it exports `extern "C"` functions and
+   dereferences caller pointers), with the same `SAFETY` discipline and no `extern` declaration
+   blocks.
 
 ## Consequences
 

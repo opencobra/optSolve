@@ -35,4 +35,4 @@ constant in a minor version).
 
 Inputs: borrowed for the call only. Library-allocated: `optsolver_env`, `optsolver_result`,
 `optsolver_caps` — each freed by its own `_free`, NULL a no-op. Strings returned by accessors
-belong to their object; the error message belongs to the calling thread's slot.
+belong to their object; `optsolver_last_error_message` returns a caller-owned copy freed with `optsolver_string_free`.
