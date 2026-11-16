@@ -529,7 +529,12 @@ fn vendor_flags() -> Vec<String> {
             v.push(format!("-L{h}/lib"));
             v.push(format!("-Wl,-rpath,{h}/lib"));
         }
-        v.push("-lgurobi130".into());
+        // The library name from the version declared in project.yml, as build.rs derives it.
+        if let Some(version) = option_env!("OPTSOLVER_GUROBI_DECLARED_VERSION") {
+            let mut parts = version.split('.');
+            let (major, minor) = (parts.next().unwrap_or(""), parts.next().unwrap_or(""));
+            v.push(format!("-lgurobi{major}{minor}"));
+        }
     }
     if cfg!(feature = "mosek") {
         if let Ok(b) = std::env::var("MOSEK_BINDIR") {
@@ -559,8 +564,12 @@ pub fn build_c(name: &str, link: Link, extra: &[&str]) -> Result<PathBuf, String
     let lib = library_dir()?;
     let out_dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("c_interface");
     std::fs::create_dir_all(&out_dir).map_err(|e| e.to_string())?;
-    let tag = if extra.is_empty() { "" } else { "-san" };
-    let exe = out_dir.join(format!("{name}-{link:?}{tag}"));
+    let tag: String = extra
+        .iter()
+        .map(|f| f.trim_start_matches('-').replace(['=', '/'], "_"))
+        .collect::<Vec<_>>()
+        .join("-");
+    let exe = out_dir.join(format!("{name}-{link:?}-{tag}"));
     let tool = ccompiler::compiler(&out_dir);
     let mut cmd = tool.to_command();
     cmd.arg("-std=c11")
@@ -597,12 +606,7 @@ pub fn build_c(name: &str, link: Link, extra: &[&str]) -> Result<PathBuf, String
 
 /// The driver, compiled once per link kind per test process.
 pub fn driver(link: Link) -> Result<PathBuf, Failed> {
-    static S: OnceLock<Result<PathBuf, String>> = OnceLock::new();
-    static D: OnceLock<Result<PathBuf, String>> = OnceLock::new();
-    let cell = if link == Link::Static { &S } else { &D };
-    cell.get_or_init(|| build_c("driver", link, &[]))
-        .clone()
-        .map_err(fail)
+    program("driver", link, &[])
 }
 
 /// What a C program printed.
@@ -716,8 +720,24 @@ pub fn compare_paths(
 }
 
 /// The C error-path program and others, compiled on demand.
+/// Builds each (program, link, flags) once per test process, so that parallel trials never
+/// relink an executable another trial is running ("Text file busy", found at Gate 3).
 pub fn program(name: &'static str, link: Link, extra: &[&str]) -> Result<PathBuf, Failed> {
-    build_c(name, link, extra).map_err(fail)
+    use std::collections::HashMap;
+    use std::sync::{Arc, Mutex};
+    type Cell = Arc<OnceLock<Result<PathBuf, String>>>;
+    static BUILT: OnceLock<Mutex<HashMap<String, Cell>>> = OnceLock::new();
+    let key = format!("{name}|{link:?}|{}", extra.join(" "));
+    let cell = {
+        let mut map = BUILT
+            .get_or_init(|| Mutex::new(HashMap::new()))
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        Arc::clone(map.entry(key).or_default())
+    };
+    cell.get_or_init(|| build_c(name, link, extra))
+        .clone()
+        .map_err(fail)
 }
 
 /// The value of an effective parameter the driver wrote, by name.

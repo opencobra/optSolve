@@ -334,7 +334,9 @@ int32_t optsolver_result_measure(const optsolver_result *result, size_t i, optso
 
 typedef struct optsolver_caps optsolver_caps;
 /* Creates and frees a temporary environment; a compiled-in backend that cannot be used gives
- * OPTSOLVER_OK and a not-usable object with the reason; not compiled in: OPTSOLVER_ERR_UNSUPPORTED. */
+ * OPTSOLVER_OK and a not-usable object with the reason (its problem classes, cones, options and
+ * version are then empty: they are read from a usable environment); not compiled in:
+ * OPTSOLVER_ERR_UNSUPPORTED. */
 int32_t optsolver_capabilities(int32_t backend, optsolver_caps **out);
 int32_t optsolver_env_capabilities(const optsolver_env *env, optsolver_caps **out);
 int32_t optsolver_caps_usable(const optsolver_caps *caps);

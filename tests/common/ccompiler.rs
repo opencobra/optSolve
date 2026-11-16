@@ -1,7 +1,6 @@
-//! C compiler discovery for tests (feature 005, task T003): one copy, used by the header
-//! conformance tests and the C-interface tests. Extracted from the two copies formerly in
-//! tests/header_conformance.rs and tests/header_conformance_mosek.rs. Included with `#[path]`
-//! by tests that do not compile the whole shared module.
+//! C compiler discovery for tests: one copy, used by the header conformance tests and the
+//! C-interface tests. Included with `#[path]` by tests that do not compile the whole shared
+//! module.
 
 #![allow(dead_code)]
 
@@ -58,3 +57,8 @@ pub fn syntax_only(out_dir: &Path, include: &Path, source: &Path) -> Command {
     cmd.arg("-I").arg(include).arg(source).current_dir(out_dir);
     cmd
 }
+
+// History
+//
+// Feature 005 (task T003) extracted this module from the two copies formerly in
+// tests/header_conformance.rs and tests/header_conformance_mosek.rs.

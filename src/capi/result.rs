@@ -885,6 +885,70 @@ pub struct CPathLp<'a> {
     pub sense: crate::problem::Sense,
 }
 
+/// Reads every accessor of a live result (names, raw statuses, parameters, attributes,
+/// measures, basis, certificate arrays, iteration counts), discarding the values.
+///
+/// # Safety
+/// `out` must be a live result from the library.
+unsafe fn read_every_accessor(out: *const optsolver_result, m: usize, n: usize) {
+    let mut code = 0i64;
+    let mut v = optsolver_value {
+        r#type: 0,
+        int_value: 0,
+        double_value: 0.0,
+        string_value: core::ptr::null(),
+    };
+    let mut ms = optsolver_measure {
+        name: core::ptr::null(),
+        absolute: 0.0,
+        relative: 0.0,
+        tolerance: 0.0,
+        verdict: 0,
+        required: 0,
+    };
+    let (mut d, mut it, mut len) = (0.0f64, 0i64, 0usize);
+    // Each accessor call: `out` is a live result by this function's contract, and every
+    // out-pointer refers to a writable local.
+    macro_rules! acc {
+        ($e:expr) => {{
+            // SAFETY: see the comment above the macro.
+            unsafe { $e }
+        }};
+    }
+    std::hint::black_box(acc!(optsolver_result_solver_name(out)));
+    std::hint::black_box(acc!(optsolver_result_solver_version(out)));
+    for i in 0..acc!(optsolver_result_raw_status_count(out)) {
+        std::hint::black_box(acc!(optsolver_result_raw_status(out, i, &mut code)));
+    }
+    for i in 0..acc!(optsolver_result_parameter_count(out)) {
+        std::hint::black_box(acc!(optsolver_result_parameter(out, i, &mut v)));
+    }
+    for i in 0..acc!(optsolver_result_attribute_count(out)) {
+        std::hint::black_box(acc!(optsolver_result_attribute(out, i, &mut v)));
+    }
+    for i in 0..acc!(optsolver_result_measure_count(out)) {
+        std::hint::black_box(acc!(optsolver_result_measure(out, i, &mut ms)));
+    }
+    if acc!(optsolver_result_has_basis(out)) == 1 {
+        for j in 0..n {
+            std::hint::black_box(acc!(optsolver_result_basis_variable(out, j)));
+        }
+        for i in 0..m {
+            std::hint::black_box(acc!(optsolver_result_basis_row(out, i)));
+        }
+    }
+    for w in 0..4 {
+        std::hint::black_box(acc!(optsolver_result_certificate_array(out, w, &mut len)));
+    }
+    std::hint::black_box(acc!(optsolver_result_bound(out, &mut d)));
+    std::hint::black_box(acc!(optsolver_result_simplex_iterations(out, &mut d)));
+    std::hint::black_box(acc!(optsolver_result_barrier_iterations(out, &mut it)));
+    std::hint::black_box(acc!(optsolver_result_verification(out)));
+    std::hint::black_box(acc!(optsolver_result_limit_reason(out)));
+    std::hint::black_box(acc!(optsolver_result_returned(out)));
+    std::hint::black_box(acc!(optsolver_result_certificate(out)));
+}
+
 /// Caller buffers for [`solve_lp_through_c`]: x, y, z and row activity.
 pub type CPathBuffers<'a> = (&'a mut [f64], &'a mut [f64], &'a mut [f64], &'a mut [f64]);
 
@@ -911,6 +975,23 @@ pub fn solve_lp_through_c(
     method: i32,
     buffers: Option<CPathBuffers<'_>>,
 ) -> std::result::Result<CPathOutcome, String> {
+    // Every slice must have the length the C structures will declare for it, so that the C
+    // layer's reads stay inside the slices (the SAFETY comments below rely on this check).
+    let nnz = lp.A_col_ptrs.last().copied();
+    let lengths_ok = lp.A_col_ptrs.len() == lp.n + 1
+        && nnz == Some(lp.A_row_indices.len())
+        && lp.A_values.len() == lp.A_row_indices.len()
+        && [lp.c.len(), lp.l.len(), lp.u.len()]
+            .iter()
+            .all(|&k| k == lp.n)
+        && lp.b_l.len() == lp.m
+        && lp.b_u.len() == lp.m
+        && buffers.as_ref().is_none_or(|(x, y, z, a)| {
+            x.len() == lp.n && z.len() == lp.n && y.len() == lp.m && a.len() == lp.m
+        });
+    if !lengths_ok {
+        return Err("solve_lp_through_c: slice lengths do not match m and n".into());
+    }
     let problem = optsolver_problem {
         struct_size: u32::try_from(size_of::<optsolver_problem>()).unwrap_or(u32::MAX),
         A: optsolver_csc {
@@ -949,7 +1030,8 @@ pub fn solve_lp_through_c(
     let mut out = core::ptr::null_mut();
     let rc = match buffers {
         None => {
-            // SAFETY: every pointer refers to live Rust data for the call.
+            // SAFETY: every pointer refers to live Rust data whose length matches the structure
+            // (checked above) for the call.
             unsafe { optsolver_solve(env.0, &problem, &o, &mut out) }
         }
         Some((x, y, z, act)) => {
@@ -971,7 +1053,8 @@ pub fn solve_lp_through_c(
                 z_l: none,
                 z_u: none,
             };
-            // SAFETY: every pointer refers to live, distinct Rust data for the call.
+            // SAFETY: every pointer refers to live, distinct Rust data whose length matches the
+            // structure (checked above) for the call.
             unsafe { optsolver_solve_into(env.0, &problem, &o, &b, &mut out) }
         }
     };
@@ -992,6 +1075,9 @@ pub fn solve_lp_through_c(
     let has_objective = unsafe { optsolver_result_objective(out, &mut objective) } == 1;
     // SAFETY: `out` is a live result.
     let timings = unsafe { optsolver_result_timings(out) };
+    // Every other accessor, so the benchmark measures the C layer's lazy name conversions too.
+    // SAFETY: `out` is a live result until freed below.
+    unsafe { read_every_accessor(out, lp.m, lp.n) };
     let outcome = CPathOutcome {
         status,
         objective: has_objective.then_some(objective),

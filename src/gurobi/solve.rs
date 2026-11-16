@@ -81,8 +81,7 @@ impl Backend for Env {
                 return Err(bad("out.row_activity", r.len(), m));
             }
         }
-        // Conic-dual buffer length k (feature 005: closes a gap; a wrong length used to panic
-        // at extraction, MOSEK already checked it).
+        // Conic-dual buffer length k (as MOSEK's solve_into checks it).
         let k = match problem {
             ProblemRef::Usize(p) => p.k(),
             ProblemRef::I32(p) => p.k(),
@@ -527,3 +526,9 @@ impl Env {
         })
     }
 }
+
+// History
+//
+// Feature 005 added the conic-dual buffer length check to `solve_into`: before it, a
+// wrong-length `s` buffer panicked at extraction (`copy_from_slice`), while MOSEK's `solve_into`
+// already returned `Error::Invalid`.

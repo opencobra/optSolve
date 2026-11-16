@@ -724,6 +724,71 @@ mod tests {
     }
 
     #[test]
+    fn sense_form_q_and_conic_slices_are_the_callers_arrays() {
+        // The remaining borrowed arrays: row sense and b, Q, F and g (the cone descriptors and
+        // power-cone exponents are the documented small copies).
+        let d = lp();
+        let sense = *b"<<";
+        let b = [5.0, 5.0];
+        let (qcp, qri, qva) = ([0usize, 1, 2], [0usize, 1], [1.0, 1.0]);
+        let (fcp, fri, fva, g) = ([0usize, 1, 2], [1usize, 2], [1.0, 1.0], [1.0, 0.0, 0.0]);
+        let q = optsolver_csc {
+            rows: 2,
+            cols: 2,
+            col_ptrs: qcp.as_ptr(),
+            row_indices: qri.as_ptr(),
+            values: qva.as_ptr(),
+        };
+        let f = optsolver_csc {
+            rows: 3,
+            cols: 2,
+            col_ptrs: fcp.as_ptr(),
+            row_indices: fri.as_ptr(),
+            values: fva.as_ptr(),
+        };
+        let cone = [optsolver_cone {
+            kind: OPTSOLVER_CONE_QUADRATIC,
+            dim: 3,
+            exponents: core::ptr::null(),
+            exponents_len: 0,
+        }];
+        let mut p = problem(&d);
+        p.b_l = core::ptr::null();
+        p.b_u = core::ptr::null();
+        p.row_sense = sense.as_ptr().cast();
+        p.b = b.as_ptr();
+        p.Q = &q;
+        p.F = &f;
+        p.g = g.as_ptr();
+        p.cones = cone.as_ptr();
+        p.num_cones = 1;
+        // SAFETY: every array is alive for the call.
+        unsafe {
+            with_problem(&p, |r| {
+                let ProblemRef::Usize(pr) = r else {
+                    panic!("usize problem expected")
+                };
+                let RowBounds::SenseRhs { sense: s, b: bb } = pr.rows() else {
+                    panic!("sense form expected")
+                };
+                assert_eq!(s.as_ptr(), sense.as_ptr());
+                assert_eq!(bb.as_ptr(), b.as_ptr());
+                let qq = pr.Q().expect("Q");
+                assert_eq!(qq.col_ptrs().as_ptr(), qcp.as_ptr());
+                assert_eq!(qq.row_indices().as_ptr(), qri.as_ptr());
+                assert_eq!(qq.values().as_ptr(), qva.as_ptr());
+                let k = pr.conic().expect("conic");
+                assert_eq!(k.F().col_ptrs().as_ptr(), fcp.as_ptr());
+                assert_eq!(k.F().row_indices().as_ptr(), fri.as_ptr());
+                assert_eq!(k.F().values().as_ptr(), fva.as_ptr());
+                assert_eq!(k.g().as_ptr(), g.as_ptr());
+                Ok(())
+            })
+        }
+        .unwrap();
+    }
+
+    #[test]
     fn c_layer_checks_name_the_field() {
         let d = lp();
         let mut p = problem(&d);

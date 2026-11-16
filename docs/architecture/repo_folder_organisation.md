@@ -13,7 +13,7 @@ Whether a path is tracked is stated in `.gitignore` only.
 | Library source | `src/` | The single crate `optsolver`; backends are modules behind features (specified, not yet created). |
 | Public C header | `src/capi/` | Source of the module that implements it; callers compile with `-I` pointing there. |
 | Integration tests | `tests/` | Unit tests sit beside the code they test. |
-| C test sources | `tests/c/` | C programs compiled by the integration tests against the public C header. |
+| C test sources | `tests/c/` | C programs compiled by the integration tests against the public C header, and their inputs (for example the leak checker's suppression list). |
 | Benchmarks (source) | `benches/` | Benchmark code is source. |
 | Test fixtures (small) | `tests/fixtures/` | Inputs, not generated output. |
 | Large test models | not in Git object history | Fetched or located at run time; provenance recorded (X). IX-G. |

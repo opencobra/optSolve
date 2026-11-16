@@ -1219,7 +1219,7 @@ fn t010_lp_qp_toys(b: &dyn Backend) -> Result<(), Failed> {
 }
 
 fn t010_certificates(b: &dyn Backend) -> Result<(), Failed> {
-    let mut seen = 0;
+    let (mut seen, mut exact) = (0, 0);
     for name in ["infeasible", "unbounded"] {
         let toy = Toy::load(name)?;
         if !supported(&toy, b) {
@@ -1231,13 +1231,15 @@ fn t010_certificates(b: &dyn Backend) -> Result<(), Failed> {
             r.options = cdata::deterministic(&p);
             r.options.push(("opt_certificates", 1.0));
             r.buffers = buffers;
-            compare_paths(
+            if compare_paths(
                 b,
                 Link::Static,
                 &p,
                 &r,
                 &format!("t010-cert-{name}-{}-{buffers}", r.backend),
-            )?;
+            )? {
+                exact += 1;
+            }
             let c = run_driver(
                 Link::Static,
                 &p,
@@ -1263,7 +1265,12 @@ fn t010_certificates(b: &dyn Backend) -> Result<(), Failed> {
             seen += 1;
         }
     }
-    ensure(seen > 0, "no certificate instance ran")
+    ensure(seen > 0, "no certificate instance ran")?;
+    eprintln!(
+        "t010 certificates ({}): {seen} C-versus-Rust runs, {exact} bit-identical",
+        b.capabilities().backend
+    );
+    Ok(())
 }
 
 fn t012_reuse(b: &dyn Backend) -> Result<(), Failed> {
@@ -1400,7 +1407,7 @@ fn t014_memory_limit(b: &dyn Backend) -> Result<(), Failed> {
 
 fn t015_conic_toys(b: &dyn Backend) -> Result<(), Failed> {
     let mut failures = Vec::new();
-    let mut ran = 0;
+    let (mut ran, mut exact) = (0, 0);
     for toy in toys()? {
         let ToyData::Jtask(_) = &toy.data else {
             continue;
@@ -1433,12 +1440,18 @@ fn t015_conic_toys(b: &dyn Backend) -> Result<(), Failed> {
             r.buffers = buffers;
             let label = format!("t015-{}-{}-b{buffers}", toy.name, r.backend);
             ran += 1;
-            if let Err(e) = compare_paths(b, Link::Static, &p, &r, &label) {
-                failures.push(format!("{label}: {e:?}"));
+            match compare_paths(b, Link::Static, &p, &r, &label) {
+                Ok(true) => exact += 1,
+                Ok(false) => {}
+                Err(e) => failures.push(format!("{label}: {e:?}")),
             }
         }
     }
     ensure(ran > 0, "no conic toy ran")?;
+    eprintln!(
+        "t015 ({}): {ran} C-versus-Rust runs, {exact} bit-identical",
+        b.capabilities().backend
+    );
     ensure(failures.is_empty(), format!("{failures:#?}"))
 }
 

@@ -522,15 +522,16 @@ This produces `target/release/liboptsolver.a` and `target/release/liboptsolver.s
 `-I <optSolver>/src/capi`. Link one of them:
 
 - Static: `<optSolver>/target/release/liboptsolver.a` (or `-L<optSolver>/target/release
-  -l:liboptsolver.a`), then the vendor libraries `-L$GUROBI_HOME/lib -lgurobi130` and
-  `-L$MOSEK_BINDIR -lmosek64` (for the backends compiled in), then the Rust runtime's system
+  -l:liboptsolver.a`), then the vendor libraries `-L$GUROBI_HOME/lib -lgurobi<major><minor>` (the
+  Gurobi version declared in `.specify/memory/project.yml`, `domain.solvers.gurobi`; the build
+  script derives the same name) and `-L$MOSEK_BINDIR -lmosek64` (for the backends compiled in), then the Rust runtime's system
   libraries `-lgcc_s -lutil -lrt -lpthread -lm -ldl -lc` (x86_64 Linux; `cargo rustc --lib
   --crate-type staticlib -- --print native-static-libs` prints them for other targets).
 - Shared: `-L<optSolver>/target/release -loptsolver`; the shared library records the vendor
   libraries itself.
 
-At run time the vendor shared libraries (`libgurobi130.so`; `libmosek64.so.11.2` and the
-`libtbb.so.12` beside it) and, for the shared form, `liboptsolver.so` must be found by the dynamic
+At run time the vendor shared libraries (Gurobi's `libgurobi<major><minor>.so`; MOSEK's
+`libmosek64.so` and the `libtbb.so` beside it, of the versions declared in `project.yml`) and, for the shared form, `liboptsolver.so` must be found by the dynamic
 loader: put their directories on `LD_LIBRARY_PATH`, or pass `-Wl,-rpath,<dir>` when linking. The
 vendor libraries and licences are never shipped with optSolver. A library built with a backend
 needs that vendor library at load time even if only the other backend is used. With `runmat mex`

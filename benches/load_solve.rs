@@ -301,7 +301,26 @@ fn commit() -> String {
         .map(|o| !o.stdout.is_empty())
         .unwrap_or(true);
     if dirty {
-        format!("{head}+uncommitted")
+        // The working tree's content as a tree hash (tracked and untracked, not ignored), so an
+        // uncommitted run names exactly what it measured (feature 005, Gate 3).
+        let index =
+            std::env::temp_dir().join(format!("optsolver-bench-index-{}", std::process::id()));
+        let git = |args: &[&str]| {
+            Command::new("git")
+                .arg("-C")
+                .arg(&root)
+                .env("GIT_INDEX_FILE", &index)
+                .args(args)
+                .output()
+                .ok()
+                .filter(|o| o.status.success())
+        };
+        let tree = git(&["add", "-A"])
+            .and_then(|_| git(&["write-tree"]))
+            .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+            .unwrap_or_default();
+        let _ = std::fs::remove_file(&index);
+        format!("{head}+uncommitted (working tree {tree})")
     } else {
         head
     }
@@ -777,6 +796,37 @@ mod capi_suite {
                         .collect::<Vec<_>>()
                         .join(",")
                 };
+                // The effective parameters and solver version of the configuration measured.
+                let A = CscRef::new(mp.m, mp.n, &mp.col_ptrs, &mp.row_indices, &mp.values)
+                    .map_err(|e| e.to_string())?;
+                let rows = RowBounds::Ranges {
+                    b_l: &b_l,
+                    b_u: &b_u,
+                };
+                let p = Problem::new(A, &c, mp.objective_sense, rows, &mp.l, &mp.u)
+                    .map_err(|e| e.to_string())?;
+                let mut o = Options::default();
+                o.threads = Some(1);
+                o.method = Some(Method::DualSimplex);
+                let s = rust_env
+                    .backend()
+                    .solve((&p).into(), &mut o)
+                    .map_err(|e| e.to_string())?;
+                let params: Vec<String> = s
+                    .effective_parameters
+                    .iter()
+                    .map(|(k, v)| match v {
+                        ParamValue::Int(i) => format!("{k}={i}"),
+                        ParamValue::Double(d) => format!("{k}={d}"),
+                        ParamValue::Str(t) => format!("{k}={t}"),
+                    })
+                    .collect();
+                eprintln!(
+                    "config\t{} {}: {}",
+                    s.solver.name,
+                    s.solver.version,
+                    params.join(" ")
+                );
                 let mut out = format!("env_creation={env_s:e}");
                 for (k, p) in ["rust", "c"].iter().enumerate() {
                     out += &format!(
@@ -813,7 +863,8 @@ mod capi_suite {
         };
         let dir = run_dir(&format!("{stamp}-capi"));
         std::fs::create_dir_all(&dir).expect("run bundle directory");
-        let run = |spec: String| -> String {
+        let mut config = Vec::new();
+        let mut run = |spec: String| -> String {
             let out = Command::new(&exe)
                 .env(ENV, &spec)
                 .output()
@@ -823,6 +874,11 @@ mod capi_suite {
                 "child {spec} failed: {}",
                 String::from_utf8_lossy(&out.stderr)
             );
+            for l in String::from_utf8_lossy(&out.stderr).lines() {
+                if let Some(rest) = l.strip_prefix("config\t") {
+                    config.push(rest.to_string());
+                }
+            }
             let line = String::from_utf8_lossy(&out.stdout)
                 .lines()
                 .last()
@@ -831,8 +887,15 @@ mod capi_suite {
             format!("{spec}|{line}")
         };
         let mut lines = Vec::new();
+        let dims = {
+            let f = common::fixtures::load_corpus_fixture(INSTANCE).expect("fixture");
+            (f.problem.m, f.problem.n, f.problem.values.len())
+        };
         let mut summary = format!(
-            "# C path versus Rust path (feature 005, SC-002, SC-003)\n\nInstance {INSTANCE} (seeded objective, seed 1, ranges form, one thread, dual simplex); commit {}; machine {}; profile {}\n\n",
+            "# C path versus Rust path (feature 005, SC-002, SC-003)\n\nInstance {INSTANCE} (LP, m = {}, n = {}, nnz = {}; provenance record in tests/fixtures; seeded objective, seed 1, ranges form, one thread, dual simplex); commit {}; machine {}; profile {}\n\n",
+            dims.0,
+            dims.1,
+            dims.2,
             commit(),
             machine(),
             profile()
@@ -904,6 +967,12 @@ mod capi_suite {
             }
             summary += &s;
             summary += "\n";
+        }
+        summary += "## Effective configuration (Rust path; the C path passes the same options)\n\n";
+        config.sort();
+        config.dedup();
+        for c in config {
+            summary += &format!("- {c}\n");
         }
         std::fs::write(dir.join("records.txt"), lines.join("\n") + "\n").expect("records");
         std::fs::write(dir.join("summary.md"), &summary).expect("summary");
