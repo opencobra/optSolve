@@ -1,7 +1,7 @@
 # Human Loop State
 
 ## Current State
-- Status: Gate 1 PASS (review 4); Gate 1 PASS; Gate 2A PASS (review 8, APPROVE_WITH_ADR); tasks and analysis written; Gate 2 review 1 FAIL repaired; Gate 2 review 2 requested.
+- Status: Gate 1 PASS (review 4); Gate 2A PASS (review 8, APPROVE_WITH_ADR); tasks and analysis written; Gate 2 review 1 FAIL repaired; Gate 2 review 2 requested.
 - Active feature directory: specs/005-c-abi (worktree `../optSolver-005-c-abi`, branch `005-c-abi`)
 - Last completed bundle: Bundle 2 (up to Gate 2)
 - Source code modified by this workflow: no
