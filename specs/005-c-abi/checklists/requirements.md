@@ -48,12 +48,18 @@
   (FR-020) now has an observable check (a caller structure of an earlier, shorter size is
   accepted).
 - [x] CHK014 User scenarios cover primary flows
-- [ ] CHK015 Feature meets measurable outcomes defined in Success Criteria — not checkable before
-  implementation; routed to Gate 3 (closeout).
+- [x] CHK015 Feature meets measurable outcomes defined in Success Criteria — verified at Gate 3
+  (2026-11-16) against the run bundles named in the implementation receipt: the agreement
+  criterion (SC-001) — every LP, QP, conic and certificate run bit-identical; heap (SC-002) — 0 B
+  difference, N = 3 per path, three bundles; wall time (SC-003) — 6 of 6 medians within
+  max(1 %, 1 ms), N = 5, with the resolution limit stated; environment reuse (SC-004) — one
+  environment for twenty solves; memory limit (SC-005) — Gurobi StoppedAtLimit/Memory in N = 3,
+  MOSEK unsupported; errors (SC-006) — every expressible invalid input, panic containment, both
+  leak checks with positive controls; link demonstration (SC-007) — static and shared builds with
+  the documented flags (the `runmat mex` build is the consumer's, as the criterion states).
 - [x] CHK016 No implementation details leak into specification (see the first content-quality item,
   CHK001)
 
 ## Notes
 
-- The item on meeting the success criteria (CHK015) is routed to Gate 3 (closeout), where the
-  success criteria are measured.
+- The item on meeting the success criteria (CHK015) was resolved at Gate 3 (closeout).

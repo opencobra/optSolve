@@ -1,7 +1,7 @@
 # Human Loop State
 
 ## Current State
-- Status: Gate 1 PASS (review 4); Gate 2A PASS (review 8, APPROVE_WITH_ADR); tasks and analysis written; Gate 2 PASS (review 7); implementation T001–T022 complete and validated; Gate 3 review requested.
+- Status: Gate 1 PASS (review 4); Gate 2A PASS (review 8, APPROVE_WITH_ADR); tasks and analysis written; Gate 2 PASS (review 7); implementation T001–T022 complete and validated; Gate 3 review 1 FAIL repaired; Gate 3 review 2 requested.
 - Active feature directory: specs/005-c-abi (worktree `../optSolver-005-c-abi`, branch `005-c-abi`)
 - Last completed bundle: Bundle 2 (up to Gate 2)
 - Source code modified by this workflow: yes (approved scope T001–T022)
@@ -59,6 +59,12 @@ both from one problem description" — the sense defect; feature-specific to thi
 in the receipt, no promotion. (2) The C-compiler discovery helper is now shared (tests/common).
 (3) The `#[doc(hidden)] pub mod` pattern for a second interface is recorded in ADR-0004. Nothing
 generalises into a rule.
+| 2026-11-16 | Gate 3 review 1 | FAIL, ten findings: relink race in the leak trials; incomplete zero-copy control; safe benchmark helper without length checks; bit-identity not reported for conic and certificate runs; benchmark claims broader than measured; unbundled wall-time claim, unstated resolution, no regression check; CHK015 open; history prose inline; incomplete bundles; Gurobi library name restated | gate-reviews/gate-3-20261116T023304Z.md | Repairs in c9cf95b; evidence re-run at f9a30b2 (clean tree); claim withdrawn (below); CHK015 resolved; Gate 3 review 2 requested |
+
+**Withdrawn claim (constitution XV-A)**: the first implementation receipt said separate-process
+wall-time runs "passed 4 of 6"; their run bundles had been deleted after a benchmark defect (the C
+path minimised a maximisation instance) was fixed, so the claim had no evidence. Withdrawn
+2026-11-16; the alternating-run measurements in the receipt replace it.
 
 **Recorded deviation (Governance, "Commits Carry In-Flight Manual Work")**: commit 710ae9a
 (feature artefacts) did not include or list the eleven tracked governance changes then in the
@@ -104,4 +110,4 @@ rather than rewritten.
   `runmat mex` build is demonstrated by the COBRA consumer (SC-007).
 
 ## Checklist Routing (constitution VI-B)
-- requirements.md, the success-criteria item (CHK015) → Gate 3 (closeout).
+- requirements.md, the success-criteria item (CHK015): resolved at Gate 3 (see the checklist).
