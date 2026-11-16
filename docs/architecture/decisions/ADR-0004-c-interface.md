@@ -52,6 +52,10 @@ still outside this repository (VIII).
 
 ## Consequences
 
+- The Rust side of the C interface is reachable from Rust as `optsolver::capi`
+  (`#[doc(hidden)] pub`, feature `capi`) so that tests and the benchmark can use it; it is not part
+  of the documented Rust API and may change with any release.
+
 - Building the library also builds static and shared libraries; without `capi` they export no C
   symbol. A shared library built with a backend needs that vendor library at load time.
 - A Rust-API change that affects the C interface must update the header, the contract and the
