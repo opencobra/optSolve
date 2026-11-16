@@ -39,7 +39,7 @@ criterion (SC-003: at most max(1 %, 1 ms) extra wall time)
 **Constraints**: zero copies of input arrays (FR-003); no allocation proportional to nnz; O(m + n + k)
 NaN writes on the caller-buffer path only; no printing (III)
 
-**Scale/Scope**: about 45 C functions; one new module; header ~450 lines
+**Scale/Scope**: about 60 C functions; one new module; header ~450 lines
 
 ## Constitution Check
 
@@ -183,7 +183,7 @@ ownership) and capi → gurobi.solve/mosek.solve (solving through their `Backend
 
 **Alternatives considered**: (1) a separate crate `optsolver-capi` — cleaner crate types but
 contradicts "One crate" (Technical Constraints; an amendment is a human decision); (2) cbindgen
-generation — adds a tool for ~45 declarations, while the agreement test gives the same safety;
+generation — adds a tool for about 60 declarations, while the agreement test gives the same safety;
 (3) copying input into owned Rust buffers in the C layer — violates IV; (4) the smallest
 conforming alternative is the plan itself: a translation module and a hand header.
 
@@ -195,7 +195,7 @@ conforming alternative is the plan itself: a translation module and a hand heade
 - *Inspected* (plus `gurobi::env` and `mosek::env` in full for the `Send` change): `Backend` (src/backend.rs:78-88), `CscRef::new` (src/problem.rs:69), `Problem::new`,
   `with_gamma`, `with_Q`, `with_conic` (src/problem.rs:190-265), `ConicRef::new` (src/conic.rs:366),
   `Options` (src/options.rs:94-125), `options::check::check` (src/options/check.rs:20), `Solution`
-  and `SolutionBuffers` (src/result.rs:151-312), `gurobi::Env::new` (src/gurobi/env.rs:115),
+  and `SolutionBuffers` (src/result.rs:151-312), `gurobi::Env::new` (src/gurobi/env.rs:109),
   `mosek::Env::new` (src/mosek/env.rs:108), `gurobi::params::apply` (src/gurobi/params.rs:189),
   `gurobi::status::translate` (src/gurobi/status.rs:34), `solve_into` buffer checks
   (src/gurobi/solve.rs:56-91, src/mosek/solve.rs:55-75), the shared harness (tests/common/toy.rs,
@@ -247,7 +247,9 @@ conforming alternative is the plan itself: a translation module and a hand heade
   option reaching `SoftMemLimit` (effective-parameter list) and the status `StoppedAtLimit`/
   `Memory` (licensed probe; if no instance triggers the soft limit, recorded unverified).
 
-**Verdict**: issued by the Gate 2A compliance review (see `gate-reviews/` and `human-loop.md`).
+**Verdict**: `APPROVE_WITH_ADR` — Gate 2A compliance review 8, 2026-11-16 (UTC),
+`gate-reviews/gate-2A-20261116T004341Z.md`, after seven `REVISE_ARCHITECTURE` reviews whose
+findings were repaired (listed in `human-loop.md`); ADR-0004 written.
 
 ## Project Structure
 

@@ -1,9 +1,9 @@
 # Human Loop State
 
 ## Current State
-- Status: Gate 1 PASS (review 4); Gate 2A reviews 1 to 7 REVISE_ARCHITECTURE, each repaired; Gate 2A review 8 requested.
+- Status: Gate 1 PASS (review 4); Gate 1 PASS; Gate 2A PASS (review 8, APPROVE_WITH_ADR); tasks and analysis written; Gate 2 review requested.
 - Active feature directory: specs/005-c-abi (worktree `../optSolver-005-c-abi`, branch `005-c-abi`)
-- Last completed bundle: Bundle 1; Bundle 2 in progress (plan written, Gate 2A open)
+- Last completed bundle: Bundle 2 (up to Gate 2)
 - Source code modified by this workflow: no
 - Committed: yes, on branch 005-c-abi before each gate review (a first attempt was refused by the
   session's tool permissions; a later attempt succeeded).
@@ -15,8 +15,8 @@
                   (spec Clarifications), plus the unit of the memory limit
 - checklist:      requirements checklist 15/16; the success-criteria item (CHK015) routed to Gate 3
 - plan:           2026-11-15 — plan, research, data model, contract, quickstart, architecture delta, ADR-0004 (proposed)
-- tasks:
-- analyze:
+- tasks:          2026-11-16, after the Gate 2A PASS
+- analyze:        2026-11-16 (feature agent, speckit-analyze checks; summary in implementation-review.md)
 - implement:
 
 ## Gate Reviews And Decisions
@@ -36,6 +36,7 @@
 | 2026-11-16 | Gate 2A review 5 | REVISE_ARCHITECTURE (FAIL), three findings: contained panics still print through Rust's panic hook; the plan's lock sentence contradicted itself; the Notation answer missed `alpha` and `r` | gate-reviews/gate-2A-20261116T001606Z.md | Repairs: silent wrapping panic hook (research R4, ADR decision 4, two tests); lock sentence fixed; C names `exponents` and `OPTSOLVER_CERT_RAY`, inventory gap routed to the maintainer. Observations folded in: C-layer checks listed with tests, names from the core's strings, test-support functions in Complexity Tracking, empty-slice rule, MOSEK freeing unverified |
 | 2026-11-16 | Gate 2A review 6 | REVISE_ARCHITECTURE (FAIL), two findings: reuse not assessed for the new test and benchmark components (comparison rule, compiler discovery, benchmark machinery); the private capi module unreachable by its tests and benchmark | gate-reviews/gate-2A-20261116T002649Z.md | Repairs: comparison rule as a new function in compare.rs; compiler discovery extracted to tests/common/ccompiler.rs with both header-conformance tests migrating; load_solve bench extended instead of a new bench; optsolver::capi doc(hidden) pub, declared in the delta with its edges. Observations routed to tasks |
 | 2026-11-16 | Gate 2A review 7 | REVISE_ARCHITECTURE (FAIL), one finding: delta and plan still declared a [[bench]] c_interface target contradicting the extend-load_solve decision | gate-reviews/gate-2A-20261116T003521Z.md | Repair: no new bench target; C-path scenarios under cfg(feature = "capi") in load_solve, its [[bench]] entry unchanged; [[test]] c_interface entry stated. Observations folded in: contract states aliasing, slice bounds, validate-before-environment and core-derived names; bench output path through project.yml; mosek.h memory items corrected; boundaries.yaml in scope. Closeout: FR-021 omits the Gurobi conic-dual length check (report as repaired defect) |
+| 2026-11-16 | Gate 2A review 8 | APPROVE_WITH_ADR (PASS); names `capi`, "C interface", `src/capi/optsolver.h` approved (XIII-F) | gate-reviews/gate-2A-20261116T004341Z.md | ADR-0004 accepted; delta verdict set; task generation permitted. Observations routed to tasks (header parameter names `result`/`caps`, freeing on another thread, cold and environment-creation phases in the bench, visible skips for new licensed tests, early library-build check) and to closeout (conic-dual check as a repaired defect; components and boundaries reconciliation; consumer adoption; User Story 3 wording) |
 
 **Recorded deviation (Governance, "Commits Carry In-Flight Manual Work")**: commit 710ae9a
 (feature artefacts) did not include or list the eleven tracked governance changes then in the

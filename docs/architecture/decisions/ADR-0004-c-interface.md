@@ -1,7 +1,7 @@
 # ADR-0004: A C Interface Over The Solver-Independent API
 
-- **Status**: Accepted when the Gate 2A compliance review of feature 005 issues
-  `APPROVE_WITH_ADR` (review file named in `specs/005-c-abi/human-loop.md`)
+- **Status**: Accepted — Gate 2A compliance review 8 of feature 005 issued `APPROVE_WITH_ADR` on
+  2026-11-16 (`specs/005-c-abi/gate-reviews/gate-2A-20261116T004341Z.md`)
 - **Date**: 2026-11-15
 - **Decided by**: the feature-005 agent under constitution 3.0.0 (VI-A, XIII-F), checked by the
   Gate 2A compliance review
@@ -49,6 +49,11 @@ still outside this repository (VIII).
    modules are widened: `src/capi/` is also an FFI module (it exports `extern "C"` functions and
    dereferences caller pointers), with the same `SAFETY` discipline and no `extern` declaration
    blocks.
+
+## Alternatives considered
+
+A separate `optsolver-capi` crate, header generation with cbindgen, and copying input in the C
+layer were rejected; see `specs/005-c-abi/plan.md`, Architecture Impact, and research R4.
 
 ## Consequences
 

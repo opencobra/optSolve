@@ -108,7 +108,7 @@ Gurobi 13.0.3 header (`$GUROBI_HOME/include/gurobi_c.h`), the Gurobi Optimizer R
   export no C symbol; the Rust API is unchanged.
 - **Alternatives rejected**: a second crate `optsolver-capi` (cleaner build, but the constitution
   states "One crate, optsolver" — changing that is an amendment, a human decision); generating
-  the header with cbindgen (a new tool and build dependency for about forty declarations; drift is
+  the header with cbindgen (a new tool and build dependency for about sixty declarations; drift is
   caught by the agreement test instead, R6).
 - **Static library**: links no vendor library; the caller adds `-lgurobi130 -lmosek64` and the
   Rust runtime's native libraries (`cargo rustc --crate-type staticlib -- --print

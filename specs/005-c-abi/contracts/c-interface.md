@@ -2,7 +2,8 @@
 
 Header `src/capi/optsolver.h` (C11, `<stddef.h>` and `<stdint.h>` only). Library `liboptsolver.a`
 and `liboptsolver.so`, built with `cargo build --release --features capi,gurobi,mosek`.
-Every name is prefixed `optsolver_` (functions, types) or `OPTSOLVER_` (constants).
+Parameter names in prototypes are descriptive (`result`, `caps`, `env`); they are not part of the
+ABI. Every name is prefixed `optsolver_` (functions, types) or `OPTSOLVER_` (constants).
 
 ## Version (FR-015)
 
@@ -207,34 +208,34 @@ buffered quantities are empty, as in the Rust API.
 ## Reading a result (FR-005)
 
 ```c
-int32_t optsolver_result_status(const optsolver_result *r);
-int32_t optsolver_result_limit_reason(const optsolver_result *r);
-int32_t optsolver_result_returned(const optsolver_result *r);
-const double *optsolver_result_array(const optsolver_result *r, int32_t which, size_t *len);
-int32_t optsolver_result_objective(const optsolver_result *r, double *value);  /* 1 present, 0 absent */
-int32_t optsolver_result_bound(const optsolver_result *r, double *value);
-int32_t optsolver_result_simplex_iterations(const optsolver_result *r, double *value);
-int32_t optsolver_result_barrier_iterations(const optsolver_result *r, int64_t *value);
+int32_t optsolver_result_status(const optsolver_result *result);
+int32_t optsolver_result_limit_reason(const optsolver_result *result);
+int32_t optsolver_result_returned(const optsolver_result *result);
+const double *optsolver_result_array(const optsolver_result *result, int32_t which, size_t *len);
+int32_t optsolver_result_objective(const optsolver_result *result, double *value);  /* 1 present, 0 absent */
+int32_t optsolver_result_bound(const optsolver_result *result, double *value);
+int32_t optsolver_result_simplex_iterations(const optsolver_result *result, double *value);
+int32_t optsolver_result_barrier_iterations(const optsolver_result *result, int64_t *value);
 typedef struct optsolver_timings { double load, solve, extraction, verification; } optsolver_timings;
-optsolver_timings optsolver_result_timings(const optsolver_result *r);
-int32_t optsolver_result_has_basis(const optsolver_result *r);
-int32_t optsolver_result_basis_variable(const optsolver_result *r, size_t j); /* OPTSOLVER_BASIS_* or -1 */
-int32_t optsolver_result_basis_row(const optsolver_result *r, size_t i);
-int32_t optsolver_result_certificate(const optsolver_result *r);              /* OPTSOLVER_CERTIFICATE_* */
-const double *optsolver_result_certificate_array(const optsolver_result *r, int32_t which, size_t *len);
-size_t optsolver_result_raw_status_count(const optsolver_result *r);
-const char *optsolver_result_raw_status(const optsolver_result *r, size_t i, int64_t *code);
-const char *optsolver_result_solver_name(const optsolver_result *r);
-const char *optsolver_result_solver_version(const optsolver_result *r);
+optsolver_timings optsolver_result_timings(const optsolver_result *result);
+int32_t optsolver_result_has_basis(const optsolver_result *result);
+int32_t optsolver_result_basis_variable(const optsolver_result *result, size_t j); /* OPTSOLVER_BASIS_* or -1 */
+int32_t optsolver_result_basis_row(const optsolver_result *result, size_t i);
+int32_t optsolver_result_certificate(const optsolver_result *result);              /* OPTSOLVER_CERTIFICATE_* */
+const double *optsolver_result_certificate_array(const optsolver_result *result, int32_t which, size_t *len);
+size_t optsolver_result_raw_status_count(const optsolver_result *result);
+const char *optsolver_result_raw_status(const optsolver_result *result, size_t i, int64_t *code);
+const char *optsolver_result_solver_name(const optsolver_result *result);
+const char *optsolver_result_solver_version(const optsolver_result *result);
 typedef struct optsolver_value { int32_t type; int64_t int_value; double double_value; const char *string_value; } optsolver_value;
-size_t optsolver_result_attribute_count(const optsolver_result *r);
-const char *optsolver_result_attribute(const optsolver_result *r, size_t i, optsolver_value *value);
-size_t optsolver_result_parameter_count(const optsolver_result *r);
-const char *optsolver_result_parameter(const optsolver_result *r, size_t i, optsolver_value *value);
-int32_t optsolver_result_verification(const optsolver_result *r);             /* OPTSOLVER_VERIFICATION_* */
+size_t optsolver_result_attribute_count(const optsolver_result *result);
+const char *optsolver_result_attribute(const optsolver_result *result, size_t i, optsolver_value *value);
+size_t optsolver_result_parameter_count(const optsolver_result *result);
+const char *optsolver_result_parameter(const optsolver_result *result, size_t i, optsolver_value *value);
+int32_t optsolver_result_verification(const optsolver_result *result);             /* OPTSOLVER_VERIFICATION_* */
 typedef struct optsolver_measure { const char *name; double absolute, relative, tolerance; int32_t verdict, required; } optsolver_measure;
-size_t optsolver_result_measure_count(const optsolver_result *r);
-int32_t optsolver_result_measure(const optsolver_result *r, size_t i, optsolver_measure *out);
+size_t optsolver_result_measure_count(const optsolver_result *result);
+int32_t optsolver_result_measure(const optsolver_result *result, size_t i, optsolver_measure *out);
 ```
 
 Every pointer returned is owned by the result and valid until `optsolver_result_free`. Names held
@@ -251,16 +252,16 @@ typedef struct optsolver_caps optsolver_caps;
 int32_t optsolver_backend_compiled(int32_t backend);           /* 1 or 0 */
 int32_t optsolver_capabilities(int32_t backend, optsolver_caps **out);   /* temporary environment */
 int32_t optsolver_env_capabilities(const optsolver_env *env, optsolver_caps **out);
-int32_t optsolver_caps_usable(const optsolver_caps *c);
-const char *optsolver_caps_reason(const optsolver_caps *c);    /* "" when usable */
-uint32_t optsolver_caps_problem_classes(const optsolver_caps *c);  /* OPTSOLVER_CLASS_* bits */
-uint32_t optsolver_caps_cones(const optsolver_caps *c);        /* bit (1 << kind) per cone kind */
-int32_t optsolver_caps_certificates(const optsolver_caps *c);
-int32_t optsolver_caps_basis(const optsolver_caps *c);
-size_t optsolver_caps_option_count(const optsolver_caps *c);
-const char *optsolver_caps_option(const optsolver_caps *c, size_t i);  /* shared field name */
-const char *optsolver_caps_solver_name(const optsolver_caps *c);
-const char *optsolver_caps_solver_version(const optsolver_caps *c);
+int32_t optsolver_caps_usable(const optsolver_caps *caps);
+const char *optsolver_caps_reason(const optsolver_caps *caps);    /* "" when usable */
+uint32_t optsolver_caps_problem_classes(const optsolver_caps *caps);  /* OPTSOLVER_CLASS_* bits */
+uint32_t optsolver_caps_cones(const optsolver_caps *caps);        /* bit (1 << kind) per cone kind */
+int32_t optsolver_caps_certificates(const optsolver_caps *caps);
+int32_t optsolver_caps_basis(const optsolver_caps *caps);
+size_t optsolver_caps_option_count(const optsolver_caps *caps);
+const char *optsolver_caps_option(const optsolver_caps *caps, size_t i);  /* shared field name */
+const char *optsolver_caps_solver_name(const optsolver_caps *caps);
+const char *optsolver_caps_solver_version(const optsolver_caps *caps);
 void optsolver_caps_free(optsolver_caps *c);
 ```
 

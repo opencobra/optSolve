@@ -2,7 +2,7 @@
 # docs/architecture/components.yaml (reconciled in feature 003).
 schema: 1
 feature: 005-c-abi
-verdict: PENDING  # issued by the Gate 2A compliance review (constitution VI-A, XIII-C)
+verdict: APPROVE_WITH_ADR  # Gate 2A compliance review 8, 2026-11-16, gate-reviews/gate-2A-20261116T004341Z.md; ADR-0004
 
 adr_required:
   reason: >
