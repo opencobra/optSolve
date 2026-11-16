@@ -46,7 +46,7 @@ checks; the first version of this analysis overstated coverage and said no confl
 | Header agreement (FR-013) | T004 |
 | C-level tests (FR-014) | T003, T004, T010, T012, T014 to T016 |
 | Versioning (FR-015) | T005, T016 |
-| Ownership (FR-016) | T005, T008, T016 (leaks, NULL frees, message copies) |
+| Ownership (FR-016) | T005, T008, T016 (unlicensed leak check of error paths and message copies; licensed leak check of environment, result and capabilities; positive controls for both) |
 | Capabilities, usable or not with reason (FR-017) | T007 (not compiled, usable, compiled but not usable; the last possibly unverified) |
 | No output (FR-018) | T005, T010, T016 |
 | Interface document (FR-019) | T002, T019 |
@@ -57,7 +57,7 @@ checks; the first version of this analysis overstated coverage and said no confl
 | Heap (SC-002), wall time (SC-003) | T006, T017 |
 | Environment reuse (SC-004) | T012 |
 | Memory limit (SC-005) | T014 |
-| Errors, panic, leaks (SC-006) | T016 (every expressible invalid input), T006 |
+| Errors, panic, leaks (SC-006) | T016 (every expressible invalid input; leak checks in both tiers with positive controls), T006 |
 | Link demonstration (SC-007) | T018 |
 
 Test ordering: every implementing task carries its own tests (written first or in the same
@@ -68,6 +68,10 @@ trial runs with it.
 
 Findings:
 
+- Repaired after the fourth Gate 2 review: the leak check covered no environment or result and
+  its control could not run without a licence (now two leak checks, unlicensed and licensed, each
+  with a working control); the interface-document drift test could not pass at the end of the
+  foundational phase (names now documented in the task that introduces them, prose in T019).
 - Repaired after the third Gate 2 review: certificates through C untested; no negative control for
   the empty-output assertion or the leak checker; in-process C calls would have needed `unsafe`
   outside `src/capi/` (now a safe hidden helper for the bench, and driver-based tests).

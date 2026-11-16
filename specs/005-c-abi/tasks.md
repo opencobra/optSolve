@@ -27,7 +27,11 @@ harness). Each story phase then carries its own independent test and needs only 
   `tests/standards.rs`: admit `src/capi/` as an FFI module (definitions only, no extern blocks) and
   extend the interface-document drift test to the header's `optsolver_`/`OPTSOLVER_` names; both
   checks shown to fail on a synthetic violation (XV-C). The agreement test of T004 and these checks
-  pass once the foundational phase is complete (the phase is not done until they do).
+  pass once the foundational phase is complete (the phase is not done until they do); to make that
+  possible, T004 and T006 add the names they introduce to `docs/llm-interface.md` in the same
+  change (a reference list of every header function, type and constant, and `memory_limit_gb`),
+  and T019 writes the prose sections. A source check that every `extern "C" fn` in `src/capi/`
+  runs its body inside `guard` (with a negative test) is added here too.
 
 ## Phase 2: Foundational (blocks every story; each task with its tests)
 
@@ -52,6 +56,7 @@ harness). Each story phase then carries its own independent test and needs only 
   panic-hook notes, MOSEK creation and freeing unverified, link-flag pointer) together with its
   agreement test in `tests/c_interface.rs`: `tests/c/layout.c` prints `sizeof`/`offsetof` of every
   field and every constant, compared with `optsolver::capi` `size_of`/`offset_of!`/constants;
+  the header's names added to `docs/llm-interface.md` (reference list);
   prototypes parsed from the header compared with the `src/capi/` definitions through one type
   table; the test shown to fail on an altered copy of the header (FR-013).
 - [ ] T011 (foundational; placed here so that every licensed trial runs with the lock) `src/gurobi/env.rs`: private token `Lifecycle` created only by
@@ -82,7 +87,7 @@ harness). Each story phase then carries its own independent test and needs only 
   threads failing with different errors (one a solver error from a fake backend error value) each
   read back their own message and vendor code (FR-010).
 - [ ] T006 `src/options.rs`: `memory_limit_gb: Option<f64>` (in `set_shared_fields`, `Debug`,
-  per-backend documentation; unit test), needed by the C options mapping. `src/capi/problem.rs`
+  per-backend documentation, named in `docs/llm-interface.md`; unit test), needed by the C options mapping. `src/capi/problem.rs`
   with its tests: `optsolver_options_init`; C problem →
   `Problem` (both index widths, both row forms, Q, F/g/cones with `exponents`), C options →
   `Options`; every slice bounded (`len · size ≤ isize::MAX`, `cols + 1` overflow → TOO_LARGE); NULL
@@ -111,7 +116,10 @@ harness). Each story phase then carries its own independent test and needs only 
   are plain C structs filled by the library; `#[non_exhaustive]` has no meaning across C, and
   additions follow the versioning rule. Tests, all through `tests/c/driver.c` from
   `tests/c_interface.rs` (no `unsafe` in test code; licensed where a solve is needed): every
-  accessor on a toy LP equals the Rust `Solution` field; absent arrays NULL/0; wrong-length output
+  accessor on a toy LP equals the Rust `Solution` field by the comparison rule, except fields that
+  differ between runs by nature (the four timings: non-negative and finite) and the effective
+  parameters (equal as lists); an empty problem (zero rows; zero columns) through C behaves as the
+  Rust API; absent arrays NULL/0; wrong-length output
   buffer → INVALID naming the array, before any solver call, and every supplied array then holds
   NaN (FR-005 edge case, FR-006); a raw parameter Gurobi rejects (`TimeLimit` = −1) →
   `OPTSOLVER_ERR_SOLVER` with `optsolver_last_error_solver_code` equal to the vendor code
@@ -175,15 +183,21 @@ The lock and `Send` change this story relies on is T011 (foundational).
   expressible from C with the reason — returns INVALID (or TOO_LARGE) with a message naming the
   input, and the environment-creation count shows no solver was reached (SC-006);
   `optsolver_test_panic` → INTERNAL, the process continues, standard error empty; free functions
-  accept NULL; message copies freed with `optsolver_string_free`; the program runs under
-  AddressSanitizer's leak checker with zero leaks, and a positive control — the same program
-  built with one deliberate unfreed result — is reported as leaking (XIV-D, XV-C) (if the
-  sanitizer is unavailable, recorded unverified).
+  accept NULL; message copies freed with `optsolver_string_free`. Leak checks with
+  AddressSanitizer's leak checker (if the sanitizer is unavailable, recorded unverified):
+  (a) unlicensed — `errors.c` reports zero leaks, and its positive control (the same program built
+  with one deliberately unfreed error-message copy) is reported as leaking; (b) licensed — a
+  leak-checked run of `tests/c/driver.c` that creates and frees an environment, solves, reads every
+  accessor, frees the result and a capabilities object, reports zero leaks attributable to
+  optSolver (allocations inside the vendor libraries, if any, suppressed by a recorded suppression
+  list naming each vendor frame), and its positive control (one deliberately unfreed result) is
+  reported as leaking (FR-016, SC-006, User Story 5 scenario 5; XIV-D, XV-C).
 
 ## Phase 8: Benchmarks and link demonstration
 
 - [ ] T017 `benches/load_solve.rs`: C-path scenarios under `#[cfg(feature = "capi")]` through
-  the safe helper of T008 (no `unsafe` in the bench); heap criterion (SC-002: dhat, process per scenario, N = 3, plus the
+  the safe helper of T008 (no `unsafe` in the bench), measuring the owned path with every
+  accessor read, and the buffer path (the zero-copy claim and the NaN-fill cost); heap criterion (SC-002: dhat, process per scenario, N = 3, plus the
   allocation-count comparison as positive control) and wall-time criterion (SC-003: N = 5 warm with
   spread; environment creation and the cold run as their own phases; per-phase timings), both
   backends, `iDopaNeuroC_problem_LP`; output location resolved through `project.yml`
