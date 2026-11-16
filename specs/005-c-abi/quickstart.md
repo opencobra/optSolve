@@ -10,7 +10,7 @@ command line; the vendor library directories on `LD_LIBRARY_PATH` for the licens
    c_interface`. Expected: every toy instance on every supporting backend agrees with the Rust API
    through both the owned and the caller-buffer path; one environment per backend in the reuse
    trial; Gurobi memory-limit trial `StoppedAtLimit`/`Memory`; MOSEK memory limit `Unsupported`.
-3. Benchmarks (SC-002, SC-003): `cargo bench --features capi,gurobi,mosek --bench c_interface`;
+3. Benchmarks (SC-002, SC-003): `cargo bench --features capi,gurobi,mosek --bench load_solve` (C-path scenarios);
    run bundle under `results/005-c-abi/runs/`.
 4. Link demonstration (SC-007): build the release libraries, then compile `tests/c/minimal.c`
    with the flags in `docs/llm-interface.md` ("C interface: building and linking"), static and

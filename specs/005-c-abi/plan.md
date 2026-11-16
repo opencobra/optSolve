@@ -33,7 +33,8 @@ Linux)
 
 **Project Type**: library
 
-**Performance Goals**: SC-002 (≤ 4 KiB extra heap), SC-003 (≤ max(1 %, 1 ms) extra wall time)
+**Performance Goals**: the heap criterion (SC-002: at most 4 KiB extra heap) and the wall-time
+criterion (SC-003: at most max(1 %, 1 ms) extra wall time)
 
 **Constraints**: zero copies of input arrays (FR-003); no allocation proportional to nnz; O(m + n + k)
 NaN writes on the caller-buffer path only; no printing (III)
@@ -99,7 +100,7 @@ NaN writes on the caller-buffer path only; no printing (III)
   Narrowest unlicensed: `cargo test --features capi --test c_interface -- unlicensed`; licensed:
   `-- toy`. Comparison trials use the spec's deterministic configuration (threads = 1; dual
   simplex for LP, barrier for QP and conic) on both paths, and the spec's tolerance rule,
-  implemented once in the shared test module (`tests/common/cdata.rs`). Failing-input tests: every C-layer check (null pointer, both or neither row form,
+  implemented once in the shared comparison module (`tests/common/compare.rs`, research R7). Failing-input tests: every C-layer check (null pointer, both or neither row form,
   int32 and size_t index both given, bad sense, bad cone kind, bad parameter type, nnz overflow)
   plus representative Rust-API invalid inputs through C; also a structure-size prefix too small
   for the fields the library requires, an unknown backend, method, presolve or parameter-type
@@ -173,7 +174,8 @@ behind features, all in crate `optsolver` (components.yaml); no C-exported symbo
 design's RunMat adapter lives outside the repository.
 
 **Proposed delta**: see `architecture-delta.yaml` — added `capi` (src/capi/), `capi.header`
-(src/capi/optsolver.h), `test.c_interface`, `bench.c_interface`; modified `core.options`, `gurobi.env` (Send; creation/freeing lock), `mosek.env` (Send),
+(src/capi/optsolver.h), `test.c_interface`; modified `bench.load_solve` (C-path scenarios),
+`test.header_conformance` (shared compiler discovery), `core.options`, `gurobi.env` (Send; creation/freeing lock), `mosek.env` (Send),
 `gurobi.params`, `gurobi.solve` (conic-dual buffer length check), `test.harness`, `docs.llm_interface`, the placement document, the manifest and
 `tests/standards.rs`. New edges capi → core.*, capi → gurobi.env/mosek.env (environment creation and
 ownership) and capi → gurobi.solve/mosek.solve (solving through their `Backend` implementations). Public interfaces: `Options::memory_limit_gb`; `Send` for both `Env` types; C interface ABI
@@ -200,6 +202,12 @@ conforming alternative is the plan itself: a translation module and a hand heade
   tests/common/compare.rs).
 - *Disposition*: reuse — every behaviour is reached through the existing API; extend `Options`
   by one field and `gurobi::params::apply` by one mapping; new only for the C translation.
+- *Test and benchmark reuse* (Gate 2A review 6): comparison — new function in the owner
+  `tests/common/compare.rs`, `judge` (compare.rs:85) and `toy::objectives_agree` (toy.rs:203)
+  kept for cross-solver use (different rule); compiler discovery — extracted from
+  tests/header_conformance.rs:20-75 and tests/header_conformance_mosek.rs:21-66 into
+  `tests/common/ccompiler.rs`, both migrating now; benchmark — `benches/load_solve.rs` extended,
+  its machinery (lines 22-295) reused (research R7).
 - *Duplication left in place*: each backend checks its `solve_into` buffer lengths itself
   (src/gurobi/solve.rs:56-91, src/mosek/solve.rs:55-75); the copies have drifted (Gurobi lacks the
   conic-dual check). Left in place, with Gurobi's copy completed, because ADR-0002 decision 2
@@ -229,8 +237,9 @@ conforming alternative is the plan itself: a translation module and a hand heade
   - *Disposition of replaced implementations*: the founding design's RunMat adapter (never
     created) is superseded; recorded in ADR-0004.
 - *Reachability and direction* (XIII-E): C callers reach `#[unsafe(no_mangle)] extern "C"`
-  symbols exported from the static and shared libraries; the module is private in Rust (no Rust
-  visibility change); dependency direction capi → core/backends only, no cycle.
+  symbols exported from the static and shared libraries; Rust tests and the benchmark reach the
+  same module as `optsolver::capi`, `#[doc(hidden)] pub` behind the `capi` feature (not part of the
+  documented Rust API; research R6); dependency direction capi → core/backends only, no cycle.
 - *Cross-boundary contract* (XIII-H): the C layer consumes only public Rust items (`Backend`,
   `Problem`, `Options`, `Solution`, `Capabilities`, `Env::new`); no private detail.
 - *Behavioural integration evidence* (Principle II): the C programs are linked against the
@@ -272,9 +281,12 @@ src/gurobi/solve.rs           # solve_into checks the conic-dual buffer length (
 tests/c_interface.rs          # new: agreement, unlicensed and licensed C tests
 tests/c/                      # new: C test programs (placement: C test sources)
 tests/common/cdata.rs         # new: toy-instance writer, C-result reader (shared harness)
+tests/common/compare.rs       # C-versus-Rust agreement rule (new function)
+tests/common/ccompiler.rs     # new: compiler discovery, extracted
+tests/header_conformance.rs, tests/header_conformance_mosek.rs  # use ccompiler.rs
 tests/standards.rs            # src/capi/ admitted as FFI module; header names in drift test;
                               # Gurobi lifecycle calls only in src/gurobi/env.rs (with negative test)
-benches/c_interface.rs        # new: heap and wall-time criteria (SC-002, SC-003)
+benches/load_solve.rs         # C-path scenarios: heap and wall-time criteria (SC-002, SC-003)
 docs/llm-interface.md         # C interface section
 docs/architecture/            # components.yaml, repo_folder_organisation.md, ADR-0004
 specs/005-c-abi/requests/from-cobratoolbox-REQ-001.md   # record of the consumer's request

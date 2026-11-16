@@ -175,8 +175,13 @@ Gurobi 13.0.3 header (`$GUROBI_HOME/include/gurobi_c.h`), the Gurobi Optimizer R
 
 ## R6. Header agreement (FR-013)
 
-The header is written by hand (`src/capi/optsolver.h`). A licence-free test
-`tests/c_interface.rs` (i) compiles and runs a C program printing `sizeof`, `offsetof` of every
+The header is written by hand (`src/capi/optsolver.h`). The Rust side of the C interface is
+reachable from Rust as `optsolver::capi`, a `#[doc(hidden)] pub mod` behind the `capi` feature
+(Gate 2A review 6): its `#[repr(C)]` types, constants and `extern "C"` functions are visible to the
+integration test and the benchmark, which need them, but are not part of the documented, stable
+Rust API (the stable interface is the C header; the hidden path may change with any release and
+is excluded from the interface-document drift test, like other `#[doc(hidden)]` items). A
+licence-free test `tests/c_interface.rs` (i) compiles and runs a C program printing `sizeof`, `offsetof` of every
 field and every constant, and compares each with the Rust `size_of`, `offset_of!` and constants;
 (ii) parses the header's prototypes and the Rust `extern "C"` definitions in `src/capi/` and
 compares names and parameter and return types through one fixed type table; (iii) is shown to
@@ -190,8 +195,24 @@ fail on a deliberately altered copy of the header (XV-C).
 - Data exchange: the toy instances are read by the shared harness (`tests/common/toy.rs`, MPS and
   JTASK readers); the Rust test writes each instance in a small binary layout to a per-test
   directory under `CARGO_TARGET_TMPDIR`; the C driver reads it, solves through the C interface and
-  writes every result field; the Rust test compares with the Rust API's result through the shared
-  comparison helpers. Tests are written once and run on every backend supporting the instance.
+  writes every result field; the Rust test compares with the Rust API's result through the spec's comparison
+  rule, implemented once as a new function in the shared comparison module
+  `tests/common/compare.rs` (owner: the shared test harness). The existing `compare::judge`
+  (tests/common/compare.rs:85) and `toy::objectives_agree` (tests/common/toy.rs:203) compare
+  status, objective and verdict across *different* solvers, where vectors legitimately differ;
+  they are kept for that purpose and not reused for the C-versus-Rust rule, which compares the
+  same solver and so also compares vectors.
+- C compiler discovery: two copies exist (tests/header_conformance.rs:20-75,
+  tests/header_conformance_mosek.rs:21-66). Disposition: extract — one module
+  `tests/common/ccompiler.rs` (host triple, `cc` compiler configuration, compile-and-link and
+  compile-only helpers), used by the new test and by both header-conformance tests, which migrate
+  now (two consumers, bounded; each includes it with `#[path]` so they do not compile the whole
+  shared module).
+- Benchmark: extend `benches/load_solve.rs` (owner of the dedicated-process-per-scenario
+  machinery, `dhat` heap measurement, `commit`, `machine`, `profile`, `median_and_spread`,
+  benches/load_solve.rs:22-295) with C-path scenarios that call the `optsolver::capi` functions
+  in-process, so `dhat` measures the C path exactly as it measures the Rust path; no new bench
+  file, no duplicated machinery. Tests are written once and run on every backend supporting the instance.
 - Unlicensed tier: version, constants and layout, validation and error codes, panic containment,
   leak check (AddressSanitizer's leak checker on the C error-path program; verify availability
   in implementation, else record unverified).

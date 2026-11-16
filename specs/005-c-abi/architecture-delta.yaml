@@ -35,10 +35,6 @@ components_added:
     location: tests/c_interface.rs, tests/c/
     responsibility: header agreement, C programs compiled against the header and run against the libraries, comparison with the Rust API through the shared harness
     status: specified, not yet created
-  - id: bench.c_interface
-    location: benches/c_interface.rs
-    responsibility: C-path versus Rust-path heap and wall-time comparison (SC-002, SC-003)
-    status: specified, not yet created
 
 components_modified:
   - id: core.options
@@ -51,8 +47,12 @@ components_modified:
     change: Env is Send (not Sync), vendor-cited; module docs rewritten
   - id: gurobi.solve
     change: solve_into checks the conic-dual buffer length (closing a validation gap; MOSEK already checks)
+  - id: bench.load_solve
+    change: C-path scenarios (heap and wall-time criteria SC-002, SC-003) through optsolver::capi in-process, same machinery
+  - id: test.header_conformance  # tests/header_conformance.rs, tests/header_conformance_mosek.rs (not a component id); listed for completeness
+    change: compiler discovery through tests/common/ccompiler.rs
   - id: test.harness
-    change: toy-instance binary writer and C-result reader for the C driver; comparison reused unchanged
+    change: toy-instance binary writer and C-result reader for the C driver (cdata.rs); compare.rs gains the C-versus-Rust agreement rule (judge and objectives_agree kept for cross-solver comparison); new ccompiler.rs extracted from the two header-conformance tests
   - id: docs.llm_interface
     change: C interface section (every function, type and constant); memory_limit_gb; Threading section (Env is Send, not Sync)
   - id: docs.repo_folder_organisation  # Tier 1 placement document, not a component id; listed for completeness
@@ -72,8 +72,14 @@ dependency_edges_added:
     to: gurobi.env, mosek.env, gurobi.solve, mosek.solve
     reason: creates and owns backend environments behind an opaque handle and solves through their Backend implementations (feature-gated per backend)
   - from: test.c_interface
-    to: capi.header, test.harness
-    reason: compiles C programs against the header; reuses fixture loading and comparison
+    to: capi.header, capi, test.harness
+    reason: compiles C programs against the header; compares layout and constants with the Rust side through the hidden optsolver::capi path; reuses fixture loading, comparison and compiler discovery
+  - from: bench.load_solve
+    to: capi
+    reason: C-path scenarios call the optsolver::capi functions in-process so dhat measures them
+  - from: test.header_conformance
+    to: test.harness
+    reason: compiler discovery from tests/common/ccompiler.rs (two copies removed)
 
 dependency_edges_forbidden:
   - from: core.*
@@ -87,6 +93,7 @@ dependency_edges_forbidden:
     reason: the C layer reaches backends only through Backend and Env::new; never vendor calls or parameter setters (VII-G)
 
 public_interfaces_changed:
+  - optsolver::capi (doc(hidden), feature capi): the Rust side of the C interface, reachable for tests and benchmarks, not part of the documented Rust API
   - Options gains memory_limit_gb (non_exhaustive struct: additive)
   - gurobi::Env and mosek::Env become Send (not Sync): additive (supersedes feature 001 R15, feature 002 R2)
   - new C interface, ABI 1.0 (specs/005-c-abi/contracts/c-interface.md)
