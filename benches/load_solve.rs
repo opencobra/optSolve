@@ -777,9 +777,13 @@ mod capi_suite {
             "time" => {
                 // The Rust and C paths alternate in this one process (path "both"), so drift of
                 // the machine between processes does not enter the comparison.
+                // Environment creation of each path, timed separately (XIV-C).
                 let t = Instant::now();
                 let _e = Solver::new(solver)?;
-                let env_s = t.elapsed().as_secs_f64();
+                let env_rust = t.elapsed().as_secs_f64();
+                let t = Instant::now();
+                let _c = CEnv::new(code(solver))?;
+                let env_c = t.elapsed().as_secs_f64();
                 let mut walls: [Vec<f64>; 2] = [Vec::new(), Vec::new()];
                 let mut phases: [Vec<[f64; 3]>; 2] = [Vec::new(), Vec::new()];
                 for _ in 0..=N_REPETITIONS {
@@ -827,7 +831,7 @@ mod capi_suite {
                     s.solver.version,
                     params.join(" ")
                 );
-                let mut out = format!("env_creation={env_s:e}");
+                let mut out = format!("rust_env_creation={env_rust:e};c_env_creation={env_c:e}");
                 for (k, p) in ["rust", "c"].iter().enumerate() {
                     out += &format!(
                         ";{p}_cold={:e};{p}_warm={};{p}_load={};{p}_solve={};{p}_extraction={}",
@@ -924,7 +928,7 @@ mod capi_suite {
                     (
                         field(&l, &format!("{path}_warm")),
                         field(&l, &format!("{path}_cold")),
-                        field(&l, "env_creation"),
+                        field(&l, &format!("{path}_env_creation")),
                         field(&l, &format!("{path}_load")),
                         field(&l, &format!("{path}_solve")),
                         field(&l, &format!("{path}_extraction")),
@@ -932,7 +936,7 @@ mod capi_suite {
                 );
             }
             lines.push(l);
-            let (rp, _, _) = median_and_spread(&peak["rust"]);
+            let (rp, rplo, rphi) = median_and_spread(&peak["rust"]);
             let mut s = format!("## {solver}\n\n");
             for path in ["c", "cbuf"] {
                 let (cp, clo, chi) = median_and_spread(&peak[path]);
@@ -941,7 +945,7 @@ mod capi_suite {
                     median_and_spread(&blocks[path]).0,
                 );
                 s += &format!(
-                    "- SC-002 heap peak ({path}): C {cp:.0} B (min {clo:.0}, max {chi:.0}, N = 3) vs Rust {rp:.0} B (N = 3): difference {:.0} B, limit 4096 B → {}; allocation count C {cb:.0} vs Rust {rb:.0} (positive control: the C path ran)\n",
+                    "- SC-002 heap peak ({path}): C {cp:.0} B (min {clo:.0}, max {chi:.0}, N = 3) vs Rust {rp:.0} B (min {rplo:.0}, max {rphi:.0}, N = 3): difference {:.0} B, limit 4096 B → {}; allocation count C {cb:.0} vs Rust {rb:.0} (positive control: the C path ran)\n",
                     cp - rp,
                     if cp - rp <= 4096.0 { "PASS" } else { "FAIL" }
                 );
@@ -956,13 +960,17 @@ mod capi_suite {
             );
             for path in ["rust", "c"] {
                 let w = &wall[path];
+                let ph = |v: &[f64]| {
+                    let (a, b, c) = median_and_spread(v);
+                    format!("{a:.4e} s (min {b:.4e}, max {c:.4e})")
+                };
                 s += &format!(
-                    "- {path}: environment creation {:.4e} s (N = 1), cold call {:.4e} s (N = 1); warm per-phase medians load {:.4e} s, solve {:.4e} s, extraction {:.4e} s (N = 5)\n",
+                    "- {path}: environment creation {:.4e} s (N = 1), cold call {:.4e} s (N = 1); warm per-phase medians (N = 5) load {}, solve {}, extraction {}\n",
                     w.2.first().copied().unwrap_or(f64::NAN),
                     w.1.first().copied().unwrap_or(f64::NAN),
-                    median_and_spread(&w.3).0,
-                    median_and_spread(&w.4).0,
-                    median_and_spread(&w.5).0
+                    ph(&w.3),
+                    ph(&w.4),
+                    ph(&w.5)
                 );
             }
             summary += &s;

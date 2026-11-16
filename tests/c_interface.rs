@@ -819,6 +819,30 @@ fn t016_invalid_inputs() -> Result<(), Failed> {
             "unknown code",
         ),
         (
+            "bad_solver_log",
+            |_: &mut CProblem, r: &mut Run| r.options.push(("opt_solver_log", 2.0)),
+            "options.solver_log",
+            "is not",
+        ),
+        (
+            "bad_array_outputs",
+            |_: &mut CProblem, r: &mut Run| r.options.push(("opt_array_outputs", 2.0)),
+            "options.array_outputs",
+            "is not",
+        ),
+        (
+            "bad_verification",
+            |_: &mut CProblem, r: &mut Run| r.options.push(("opt_verification", 2.0)),
+            "options.verification",
+            "is not",
+        ),
+        (
+            "bad_certificates",
+            |_: &mut CProblem, r: &mut Run| r.options.push(("opt_certificates", 2.0)),
+            "options.certificates",
+            "is not",
+        ),
+        (
             "threads_too_large",
             |_, r| r.options.push(("opt_threads", 1e12)),
             "options.threads",

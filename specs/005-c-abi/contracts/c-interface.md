@@ -125,7 +125,11 @@ naming the field: a NULL pointer with a nonzero length; both or neither row-boun
 neither index width for A; `struct_size` below the minimum; the bound `nnz · 8 ≤ isize::MAX`
 (else `OPTSOLVER_ERR_TOO_LARGE`); unknown sense, backend, cone-kind, method, presolve and
 parameter-type codes; `threads` above `u32::MAX`; `random_seed` outside `int32_t`; an
-exponential-cone `dim` other than 3 or 0; a parameter name or string value that is not UTF-8.
+exponential-cone `dim` other than 3 or 0; a parameter name or string value that is NULL or not
+UTF-8; `solver_log`, `array_outputs`, `verification` outside {−1, 0, 1} and `certificates` outside
+{0, 1}; a pointer misaligned for its element type (input arrays and output buffers);
+`buffers.struct_size` below the minimum; an output buffer NULL with a nonzero length or above the
+byte-size bound (added at Gate 3 review 3: the implementation already made these checks).
 A NULL pointer with length 0 becomes an empty slice (a dangling, aligned pointer), never a NULL
 passed to `slice::from_raw_parts`. Every slice built from a caller pointer is bounded by
 `len · sizeof(element) ≤ PTRDIFF_MAX` and `cols + 1` must not overflow (else `OPTSOLVER_ERR_TOO_LARGE`).

@@ -204,7 +204,8 @@ typedef struct optsolver_cone {
     size_t exponents_len;
 } optsolver_cone;
 
-/* A pointer may be NULL only when the length it describes is 0. Give exactly one row-bound form
+/* A pointer may be NULL only when the length it describes is 0, and must be aligned for its
+ * element type (a misaligned pointer is OPTSOLVER_ERR_INVALID). Give exactly one row-bound form
  * (row_sense and b, or b_l and b_u) when m > 0, and exactly one of A.row_indices and
  * A_row_indices_i32 when A has nonzeros. A's dimensions are validated before any other array is
  * read. The problem is validated before any environment is created. */

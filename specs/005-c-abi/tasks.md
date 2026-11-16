@@ -99,7 +99,7 @@ harness). Each story phase then carries its own independent test and needs only 
   both and neither index widths with nonzeros, negative `int32` row index, bad sense, backend,
   cone-kind, method, presolve and parameter-type codes, `struct_size` too small, truncated
   options accepted with the rest unset (FR-020), `cols + 1` and nnz overflow, `threads` above
-  `u32::MAX`, `random_seed` outside `int32_t`, exponential-cone `dim` not 3 or 0, non-UTF-8 parameter name, non-UTF-8 string value.
+  `u32::MAX`, `random_seed` outside `int32_t`, exponential-cone `dim` not 3 or 0, non-UTF-8 parameter name, non-UTF-8 string value; added at Gate 3 review 3 (the checks existed but were untested): option flags outside their values, NULL raw name or string value, misaligned input and output pointers, output buffer NULL with nonzero length or too large, `buffers.struct_size` too small.
 - [x] T007 `src/capi/env.rs` with its tests: `optsolver_env_create`, `optsolver_env_free`,
   `optsolver_backend_compiled`, `optsolver_capabilities`, `optsolver_env_capabilities`,
   `optsolver_caps_*`, `optsolver_caps_free`; usability from `Env::new`. Tests: not-compiled backend

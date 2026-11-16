@@ -1088,3 +1088,111 @@ pub fn solve_lp_through_c(
     unsafe { optsolver_result_free(out) };
     Ok(outcome)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn what(e: Error) -> &'static str {
+        match e {
+            Error::Invalid { what, .. } | Error::TooLarge { what, .. } => what,
+            other => panic!("unexpected {other:?}"),
+        }
+    }
+
+    #[test]
+    fn output_arrays_are_checked_before_use() {
+        // SAFETY: the check rejects this array before any access.
+        let e = unsafe {
+            out_array(
+                optsolver_array {
+                    data: core::ptr::null_mut(),
+                    len: 3,
+                },
+                "out.y",
+            )
+        };
+        assert_eq!(what(e.unwrap_err()), "out.y");
+        let mut words = [0u64; 4];
+        let mis = words
+            .as_mut_ptr()
+            .cast::<u8>()
+            .wrapping_add(1)
+            .cast::<f64>();
+        // SAFETY: rejected before access.
+        let e = unsafe { out_array(optsolver_array { data: mis, len: 2 }, "out.z") };
+        assert_eq!(what(e.unwrap_err()), "out.z");
+        let mut one = [0.0f64];
+        // SAFETY: rejected (too large) before access.
+        let e = unsafe {
+            out_array(
+                optsolver_array {
+                    data: one.as_mut_ptr(),
+                    len: usize::MAX / 4,
+                },
+                "out.x",
+            )
+        };
+        assert!(matches!(
+            e.unwrap_err(),
+            Error::TooLarge { what: "out.x", .. }
+        ));
+    }
+
+    #[test]
+    fn buffers_struct_size_is_checked_before_any_environment() {
+        let before = optsolver_environments_created();
+        let b = optsolver_buffers {
+            struct_size: 4,
+            x: optsolver_array {
+                data: core::ptr::null_mut(),
+                len: 0,
+            },
+            y: optsolver_array {
+                data: core::ptr::null_mut(),
+                len: 0,
+            },
+            z: optsolver_array {
+                data: core::ptr::null_mut(),
+                len: 0,
+            },
+            row_activity: optsolver_array {
+                data: core::ptr::null_mut(),
+                len: 0,
+            },
+            s: optsolver_array {
+                data: core::ptr::null_mut(),
+                len: 0,
+            },
+            z_l: optsolver_array {
+                data: core::ptr::null_mut(),
+                len: 0,
+            },
+            z_u: optsolver_array {
+                data: core::ptr::null_mut(),
+                len: 0,
+            },
+        };
+        let mut out = core::ptr::null_mut();
+        // SAFETY: NULL environment and problem; the size check fails before either is used.
+        let rc = unsafe {
+            optsolver_solve_into(
+                core::ptr::null_mut(),
+                core::ptr::null(),
+                core::ptr::null(),
+                &b,
+                &mut out,
+            )
+        };
+        assert_eq!(rc, OPTSOLVER_ERR_INVALID);
+        let m = optsolver_last_error_message();
+        // SAFETY: from the library; NUL-terminated.
+        let s = unsafe { std::ffi::CStr::from_ptr(m) }
+            .to_string_lossy()
+            .into_owned();
+        // SAFETY: freed once.
+        unsafe { optsolver_string_free(m) };
+        assert!(s.contains("buffers.struct_size"), "{s}");
+        assert_eq!(optsolver_environments_created(), before);
+    }
+}

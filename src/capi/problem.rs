@@ -917,6 +917,60 @@ mod tests {
     }
 
     #[test]
+    fn option_flags_and_raw_strings_are_checked() {
+        let mut o = core::mem::MaybeUninit::<optsolver_options>::uninit();
+        // SAFETY: writable.
+        unsafe { optsolver_options_init(o.as_mut_ptr()) };
+        // SAFETY: initialised above.
+        let base = unsafe { o.assume_init() };
+        type Change = fn(&mut optsolver_options);
+        let cases: [(Change, &str); 4] = [
+            (|x| x.solver_log = 2, "options.solver_log"),
+            (|x| x.array_outputs = -2, "options.array_outputs"),
+            (|x| x.verification = 5, "options.verification"),
+            (|x| x.certificates = -1, "options.certificates"),
+        ];
+        for (change, what) in cases {
+            let mut x = base;
+            change(&mut x);
+            // SAFETY: valid structure.
+            assert_invalid(unsafe { options(&x) }.unwrap_err(), what);
+        }
+        let prm = [optsolver_param {
+            name: core::ptr::null(),
+            r#type: OPTSOLVER_PARAM_INT,
+            int_value: 1,
+            double_value: 0.0,
+            string_value: core::ptr::null(),
+        }];
+        let mut x = base;
+        x.raw = prm.as_ptr();
+        x.num_raw = 1;
+        // SAFETY: valid structure.
+        assert_invalid(unsafe { options(&x) }.unwrap_err(), "options.raw.name");
+        let prm = [optsolver_param {
+            name: c"Method".as_ptr(),
+            r#type: OPTSOLVER_PARAM_STRING,
+            ..prm[0]
+        }];
+        x.raw = prm.as_ptr();
+        // SAFETY: valid structure.
+        assert_invalid(
+            unsafe { options(&x) }.unwrap_err(),
+            "options.raw.string_value",
+        );
+    }
+
+    #[test]
+    fn misaligned_input_array_is_rejected() {
+        let words = [0u64; 4];
+        let misaligned = words.as_ptr().cast::<u8>().wrapping_add(1).cast::<f64>();
+        // SAFETY: the pointer is rejected before any read.
+        let e = unsafe { borrow(misaligned, 2, "c") }.unwrap_err();
+        assert_invalid(e, "c");
+    }
+
+    #[test]
     fn exponential_cone_dimension_is_checked() {
         let c = [optsolver_cone {
             kind: OPTSOLVER_CONE_PRIMAL_EXPONENTIAL,
