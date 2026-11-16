@@ -86,10 +86,10 @@ into a process-wide cache, not a second list.
 
 ```c
 typedef struct optsolver_csc {
-    size_t m, n;
-    const size_t *col_ptrs;     /* n + 1 */
-    const size_t *row_indices;  /* col_ptrs[n] */
-    const double *values;       /* col_ptrs[n] */
+    size_t rows, cols;          /* A: m x n; Q: n x n; F: k x n */
+    const size_t *col_ptrs;     /* cols + 1 */
+    const size_t *row_indices;  /* col_ptrs[cols] */
+    const double *values;       /* col_ptrs[cols] */
 } optsolver_csc;
 
 typedef struct optsolver_cone {
@@ -262,7 +262,7 @@ size_t optsolver_caps_option_count(const optsolver_caps *caps);
 const char *optsolver_caps_option(const optsolver_caps *caps, size_t i);  /* shared field name */
 const char *optsolver_caps_solver_name(const optsolver_caps *caps);
 const char *optsolver_caps_solver_version(const optsolver_caps *caps);
-void optsolver_caps_free(optsolver_caps *c);
+void optsolver_caps_free(optsolver_caps *caps);
 ```
 
 `optsolver_capabilities` returns `OPTSOLVER_OK` with a not-usable object (reason = the vendor

@@ -4,10 +4,15 @@
 contracts/c-interface.md, architecture-delta.yaml (Gate 2A: APPROVE_WITH_ADR, review 8,
 `gate-reviews/gate-2A-20261116T004341Z.md`).
 
-**Tests**: both tiers; benchmarks for the C path (Principles II, XIV). Tests are written before
-or with the behaviour they verify. Every new licensed Rust test skips visibly (an ignored trial
-naming the missing licence) when the backend's environment cannot be created, rather than
-panicking. Header prototypes use descriptive parameter names (`result`, `caps`).
+**Tests**: both tiers; benchmarks for the C path (Principles II, XIV). Each implementing task
+carries its own tests, written first or in the same change; a task is not done until its tests
+pass. Licensed Rust tests live in `harness = false` integration tests (`tests/contract.rs` for
+Rust-API behaviour, `tests/c_interface.rs` for the C interface) and skip visibly through the shared
+registry (an ignored trial naming the missing backend or licence), never by panicking. Header
+prototypes use descriptive parameter names (`result`, `caps`, `env`).
+
+**Organisation**: Phase 2 is foundational for every story (the C layer and the shared C test
+harness). Each story phase then carries its own independent test and needs only Phase 2.
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -16,161 +21,167 @@ panicking. Header prototypes use descriptive parameter names (`result`, `caps`).
 - [ ] T001 `Cargo.toml`: `[lib] crate-type = ["lib", "staticlib", "cdylib"]`; feature `capi = []`;
   `[[test]] name = "c_interface", harness = false, required-features = ["capi"]`; no new bench
   target (research R4, R7). Check: `cargo test --features capi --no-run` produces
-  `liboptsolver.a` and `liboptsolver.so` in the target directory (recorded in the run log) before
-  any C test relies on them.
-- [ ] T002 `src/lib.rs`: `#[cfg(feature = "capi")] #[doc(hidden)] pub mod capi;` (research R6;
-  symbols exported with `#[unsafe(no_mangle)]`). `tests/standards.rs`: admit `src/capi/` as an FFI module in the
-  unsafe/extern test (definitions only, no extern blocks), and add the header's
-  `optsolver_`/`OPTSOLVER_` names to the interface-document drift test.
+  `liboptsolver.a` and `liboptsolver.so` (recorded in the run log) before any C test relies on them.
+- [ ] T002 `src/lib.rs`: `#[cfg(feature = "capi")] #[doc(hidden)] pub mod capi;` (research R6).
+  `tests/standards.rs`: admit `src/capi/` as an FFI module (definitions only, no extern blocks) and
+  extend the interface-document drift test to the header's `optsolver_`/`OPTSOLVER_` names; both
+  checks shown to fail on a synthetic violation (XV-C).
 
-## Phase 2: Foundational (blocks every story)
+## Phase 2: Foundational (blocks every story; each task with its tests)
 
-- [ ] T003 [US3] `src/options.rs`: `memory_limit_gb: Option<f64>`, listed in `set_shared_fields`
-  and `Debug`; documented per backend (FR-011).
-- [ ] T004 [US3] `src/gurobi/params.rs`: `MAPPINGS` entry `memory_limit_gb` → `SoftMemLimit`;
-  `apply` sets it (FR-011, VII-G). Unit tests: applied value read back; raw `SoftMemLimit` with the
-  option is `ParameterConflict`; raw `MemLimit` with the option is accepted.
-- [ ] T005 [US3] MOSEK rejection test (no code change: absent from `mosek::params::MAPPINGS`):
-  unit test in `src/mosek/params.rs` tests that `options::check::check` returns
-  `Unsupported { field: "memory_limit_gb", backend: "mosek" }`.
-- [ ] T006 [US2] `src/gurobi/env.rs`: private token type `Lifecycle`, constructed only by
-  `pub(crate) fn lifecycle<T>(f: impl FnOnce(&Lifecycle) -> T) -> T`, which holds one process-wide
-  `static Mutex<()>` (poison recovered with `into_inner`); `empty`, `start` and a new `free` take
-  `&Lifecycle`; `Env::new` is one `lifecycle` call (create, `OutputFlag`, start, free on failure
-  with the same token); `Drop` is one call; the unit tests in src/gurobi/env.rs and
-  src/gurobi/params.rs go through `lifecycle` and `free`. `unsafe impl Send for Env` (Gurobi and
-  MOSEK) with `SAFETY` citing research R3 and the accepted risk; module docs of both `env.rs`
-  rewritten. `tests/standards.rs`: `GRBemptyenvinternal`, `GRBstartenv`, `GRBfreeenv` named only
-  in `src/gurobi/env.rs` outside `ffi.rs`, with a negative test on synthetic source. Compile-time
-  `Send` assertions. Licensed concurrency test: four threads each creating, solving a toy LP with,
-  and freeing Gurobi environments twenty times concurrently; environments created on one thread
-  and solved and freed on another, the freeing thread differing from the creating one (FR-008,
-  VII-B; evidence for that run only).
-- [ ] T007 `src/gurobi/solve.rs`: `solve_into` checks `out.s` length against k, as MOSEK does;
-  unit test with a wrong-length `s` (FR-005 edge case; plan, duplication).
-- [ ] T008 Header `src/capi/optsolver.h` per contracts/c-interface.md: every type, constant and
-  prototype, ownership and thread rules, version rule, panic-profile note, link flags pointer.
-- [ ] T009 `src/capi/mod.rs`: constants (one Rust `pub const` per header constant, reachable as `optsolver::capi::…` for the
-  layout test), error
-  codes, per-thread last error (`thread_local!` `CString`), `guard` helper wrapping each entry
-  point in `catch_unwind` with the thread-local in-entry flag and mapping `Error` → code; the
-  silent wrapping panic hook installed once (research R4) with a Rust unit test that a panic outside
-  an entry point still reaches a previously installed hook; `optsolver_abi_version`,
-  `optsolver_last_error_message` (caller-owned copy), `optsolver_string_free`,
-  `optsolver_last_error_solver_code`, name functions (status, limit-reason,
-  returned, verification, cone-kind and measure names converted from the core's own names from `ConeKind::name` / `Measure::name` into a process-wide cache),
-  `optsolver_test_panic`, `optsolver_environments_created` (atomic counter).
+- [ ] T003 Shared C test harness (owner: test harness). `tests/common/ccompiler.rs` extracted
+  from tests/header_conformance.rs:20-75 and tests/header_conformance_mosek.rs:21-66; both header
+  tests migrate and still pass. `tests/common/cdata.rs`: problem-file writer for toy instances and
+  the iDopaNeuroC LP, result-file reader, compile-and-run of a `tests/c/` program against the
+  static or shared library with captured standard output and error. `tests/c/driver.c`: generic C
+  driver (owned or buffer path, handle or one-shot, options and raw parameters from the file,
+  optional second thread for use and freeing, writes every result field and the error code,
+  message and vendor code). `tests/common/compare.rs`: new function implementing the spec's
+  comparison rule, with licence-free negative unit tests on synthetic results differing by one
+  tolerance step, status, limit reason, failed-measure names and array presence, and an
+  "everything failed" case reported as uninterpretable (XV-C).
+- [ ] T004 Header `src/capi/optsolver.h` per contracts/c-interface.md (types with `rows`/`cols`,
+  constants, prototypes, ownership, thread and aliasing rules, version rule, panic-profile and
+  panic-hook notes, MOSEK creation and freeing unverified, link-flag pointer) together with its
+  agreement test in `tests/c_interface.rs`: `tests/c/layout.c` prints `sizeof`/`offsetof` of every
+  field and every constant, compared with `optsolver::capi` `size_of`/`offset_of!`/constants;
+  prototypes parsed from the header compared with the `src/capi/` definitions through one type
+  table; the test shown to fail on an altered copy of the header (FR-013).
+- [ ] T005 `src/capi/mod.rs` with its tests: constants (`pub const`), error codes, per-thread last
+  error, `guard` (catch_unwind, thread-local in-entry flag, `Error` → code), the silent wrapping
+  panic hook (research R4), `optsolver_abi_version`, `optsolver_last_error_message`
+  (caller-owned copy) and `optsolver_string_free`, `optsolver_last_error_solver_code`, the name
+  functions (from the core's own names, cached), `optsolver_test_panic`,
+  `optsolver_environments_created`. Unit tests: version equals the header macros; every `Error`
+  variant → its code, `Solver` keeps the vendor code; code-by-code translation of every Rust enum
+  (status, limit reason, solution returned, basis, verification overall and verdict, cone kind,
+  problem class) to its C constant and back, unknown codes → `""` or UNKNOWN; every name function
+  for every code equals the core's name; a panic outside an entry point reaches a previously
+  installed hook; `optsolver_test_panic` returns INTERNAL with a message and writes nothing.
+- [ ] T006 `src/options.rs`: `memory_limit_gb: Option<f64>` (in `set_shared_fields`, `Debug`,
+  per-backend documentation; unit test), needed by the C options mapping. `src/capi/problem.rs`
+  with its tests: `optsolver_options_init`; C problem →
+  `Problem` (both index widths, both row forms, Q, F/g/cones with `exponents`), C options →
+  `Options`; every slice bounded (`len · size ≤ isize::MAX`, `cols + 1` overflow → TOO_LARGE); NULL
+  with length 0 → empty slice; built and validated before any environment. Tests: pointer identity
+  of every slice (positive control, SC-002, XIV-D); every C-layer check of the contract fails with
+  INVALID (or TOO_LARGE) naming the field — NULL with nonzero length, both and neither row forms,
+  both and neither index widths with nonzeros, negative `int32` row index, bad sense, backend,
+  cone-kind, method, presolve and parameter-type codes, `struct_size` too small, truncated
+  options accepted with the rest unset (FR-020), `cols + 1` and nnz overflow, `threads` above
+  `u32::MAX`, `random_seed` outside `int32_t`, exponential-cone `dim` not 3 or 0, non-UTF-8 name.
+- [ ] T007 `src/capi/env.rs` with its tests: `optsolver_env_create`, `optsolver_env_free`,
+  `optsolver_backend_compiled`, `optsolver_capabilities`, `optsolver_env_capabilities`,
+  `optsolver_caps_*`, `optsolver_caps_free`; usability from `Env::new`. Tests: not-compiled backend
+  → UNSUPPORTED (unlicensed); licensed: capabilities from C equal the Rust `Capabilities`
+  (classes, cones, certificates, basis, option names, solver version), usable with empty reason.
+- [ ] T008 `src/capi/result.rs` with its tests: `optsolver_solve`, `optsolver_solve_once`,
+  `optsolver_solve_into` (NaN fill, lengths to `SolutionBuffers`), every `optsolver_result_*`
+  accessor (names converted lazily), `optsolver_result_free`. Tests (in-process through
+  `optsolver::capi`, licensed where a solve is needed): every accessor on a toy LP equals the Rust
+  `Solution` field; absent arrays NULL/0; wrong-length output buffer → INVALID naming the array,
+  before any solver call (FR-005 edge case); a raw parameter Gurobi rejects (`TimeLimit` = −1) →
+  `OPTSOLVER_ERR_SOLVER` with `optsolver_last_error_solver_code` equal to the vendor code (FR-010).
+- [ ] T009 `src/gurobi/solve.rs`: `solve_into` checks the conic-dual buffer length against k, as
+  MOSEK does; licensed test in `tests/contract.rs` (written once, every backend): a wrong-length `s`
+  is `Error::Invalid` naming `out.s`, no panic.
 
-## Phase 3: User Story 5 — errors, ownership, versioning (P1, unlicensed)
+## Phase 3: User Story 1 — LP and QP from C (P1)
 
-### Tests first
+- [ ] T010 [US1] Toy comparison trials in `tests/c_interface.rs`, written once over the shared
+  registry: every LP and QP toy instance × backend supporting it × {owned, buffers} × {sense and
+  right-hand side, ranges} × {`size_t`, `int32` row indices}, through `tests/c/driver.c` linked to
+  the static and to the shared library, compared with the Rust API by the comparison rule under the
+  deterministic configuration; options reaching the solver (effective parameters equal), raw
+  parameters, parameter conflict, a non-optimal toy (infeasible, unbounded) as a status; standard
+  output and error of the driver empty on every trial (SC-001, acceptance scenarios 1 to 5, FR-018).
 
-- [ ] T010 [US5] `tests/common/ccompiler.rs` extracted from tests/header_conformance.rs:20-75 and
-  tests/header_conformance_mosek.rs:21-66 (both migrate, header tests still pass);
-  `tests/common/cdata.rs` (shared harness): compile a C program from `tests/c/` through it, `-I src/capi`, linked to the static or shared library Cargo
-  built (found from the test executable's directory), run it as a process with captured standard
-  output and error; writer of a toy instance in a binary layout and reader of the C driver's
-  result file; the comparison rule of the spec's Clarifications as one new function in
-  `tests/common/compare.rs`.
-- [ ] T011 [US5] `tests/c/layout.c` + agreement test in `tests/c_interface.rs`: prints `sizeof`,
-  `offsetof` of every field and every constant; compared with Rust `size_of`/`offset_of!` and
-  constants through `optsolver::capi`; prototype check parsing header prototypes against `src/capi/` definitions through one
-  type table; the check is shown to fail on an altered copy of the header (FR-013, XV-C).
-- [ ] T012 [US5] `tests/c/errors.c` + trials: version equals header macros; every C-layer
-  failing input (null required pointer, both and neither row-bound forms, both index widths, bad
-  sense, unknown backend, cone kind, method, presolve and parameter-type codes, `struct_size` too
-  small, nnz overflow, interior NUL in a parameter name, negative int32 row index) returns
-  `OPTSOLVER_ERR_INVALID` (or TOO_LARGE) with a message naming the input, before any solver call;
-  representative Rust-API invalid inputs (unsorted row indices, non-finite value, Q above the
-  diagonal) likewise; backend not compiled in → UNSUPPORTED; `optsolver_test_panic` → INTERNAL
-  and the process continues; free functions accept NULL; a shorter, earlier-size options
-  structure (options truncated after `time_limit`) is accepted with the rest unset, and a
-  too-small problem or buffers structure is INVALID (FR-020); run under AddressSanitizer's leak checker with zero leaks
-  (SC-006); standard output and error empty, including after the forced panic (FR-018); the
-  conversion checks of the contract (threads above `u32::MAX`, `random_seed` outside `int32_t`,
-  exponential-cone `dim` not 3 or 0, non-UTF-8 parameter name or value) each INVALID; NULL with
-  length 0 accepted as empty.
+## Phase 4: User Story 2 — zero copy, reuse and threads (P1)
 
-### Implementation
+- [ ] T011 [US2] `src/gurobi/env.rs`: private token `Lifecycle` created only by
+  `pub(crate) fn lifecycle<T>(f: impl FnOnce(&Lifecycle) -> T) -> T` (one process-wide
+  `static Mutex<()>`, poison recovered with `into_inner`); `empty`, `start`, new `free` take
+  `&Lifecycle`; `Env::new` one `lifecycle` call (free on failure with the same token); `Drop` one
+  call; the unit tests in src/gurobi/env.rs and src/gurobi/params.rs go through it. `unsafe impl
+  Send for Env` in src/gurobi/env.rs and src/mosek/env.rs with `SAFETY` citing research R3 and
+  the accepted risk; module docs rewritten. Tests: compile-time `Send` assertions;
+  `tests/standards.rs` — `GRBemptyenvinternal`, `GRBstartenv`, `GRBfreeenv` named only in
+  src/gurobi/env.rs outside `ffi.rs`, with a negative test on synthetic source; licensed
+  concurrency trial in `tests/contract.rs` (four threads creating, solving a toy LP with and
+  freeing Gurobi environments twenty times concurrently; environments created on one thread, used
+  and freed on another) (FR-008, VII-B; evidence for that run only).
+- [ ] T012 [US2] Reuse and thread trials in `tests/c_interface.rs`: the driver solves every toy
+  instance a backend supports through one handle and one-shot; `optsolver_environments_created`
+  increases by one for the handle sequence; results agree by the comparison rule; wall time of the
+  sequence and the one-shot solves recorded (informational, N = 1) (SC-004); a handle created on
+  one thread is used and freed on another (C driver, `pthread`) (FR-008). The pointer-identity test
+  of T006 is this story's zero-copy evidence (acceptance scenario 1).
 
-- [ ] T013 [US5] `src/capi/problem.rs`: `optsolver_options_init`; every slice bounded by
-  `len · size ≤ isize::MAX` and `n + 1` overflow rejected; the problem is built and validated
-  before any environment is created (`solve_once`), so invalid-input tests need no licence;
-  buffer aliasing documented as undefined behaviour in the header and `# Safety`; C problem →
-  `Problem` (both
-  index widths, both row forms, Q, F/g/cones) borrowing every array in place; C options →
-  `Options`. Unit test: every slice of the built `Problem` has the caller's address (positive
-  control, SC-002, XIV-D).
-- [ ] T014 [US5] `src/capi/env.rs`: `optsolver_env_create`, `optsolver_env_free`,
-  `optsolver_backend_compiled`, capabilities (`optsolver_capabilities`,
-  `optsolver_env_capabilities`, `optsolver_caps_*`, `optsolver_caps_free`), usability from
-  `Env::new` (FR-017).
-- [ ] T015 [US5] `src/capi/result.rs`: `optsolver_solve`, `optsolver_solve_once`,
-  `optsolver_solve_into` (NaN fill, lengths passed to `SolutionBuffers`), every
-  `optsolver_result_*` accessor (names converted to NUL-terminated strings lazily on first read),
-  `optsolver_result_free` (FR-005 to FR-007).
+## Phase 5: User Story 3 — memory limit (P2)
 
-## Phase 4: User Story 1 — LP and QP from C (P1, licensed)
+- [ ] T013 [US3] `src/gurobi/params.rs`: `MAPPINGS` entry and `apply` → `SoftMemLimit` (the
+  option itself is added in T006). Tests: unit — mapping; licensed, in `tests/contract.rs`: value read
+  back from the model, raw `SoftMemLimit` with the option → `ParameterConflict`, raw `MemLimit`
+  with it accepted; MOSEK → `Unsupported { field: "memory_limit_gb", backend: "mosek" }` before
+  any solver call.
+- [ ] T014 [US3] Memory-limit trials (SC-005): Gurobi, `iDopaNeuroC_problem_LP`, one thread,
+  `memory_limit_gb` = 1e-6, N = 3, through the Rust API (`tests/contract.rs`) and the C driver
+  (`tests/c_interface.rs`) → `StoppedAtLimit`/`Memory` with `SoftMemLimit` in the effective
+  parameters; without the limit → Optimal; MOSEK through C → UNSUPPORTED naming the field. If
+  Gurobi does not stop, record the result and return to Gate 2A (research R2).
 
-- [ ] T016 [US1] `tests/c/driver.c`: reads a problem file, solves through the C interface (owned
-  or buffer path, one-shot or handle, options from the file), writes every result field.
-- [ ] T017 [US1] Toy comparison trials in `tests/c_interface.rs`: every LP and QP toy instance ×
-  backend supporting it × {owned, buffers} × LP in both row-bound forms and both index widths,
-  compared with the Rust API by the shared rule under the deterministic configuration; options
-  reaching the solver (effective parameters equal), raw parameters, parameter conflict
-  (SC-001, acceptance scenarios 1 to 5); "everything failed" case reported as uninterpretable.
-  Capabilities (FR-017): from C, per compiled backend, usable, reason, problem classes, cone kinds,
-  certificates, basis, option names and solver version equal the Rust `Capabilities` of the same
-  backend; a backend not compiled in gives UNSUPPORTED (unlicensed, in T012).
+## Phase 6: User Story 4 — conic from C (P2)
 
-## Phase 5: User Story 2 — zero copy and environment reuse (P1, licensed)
+- [ ] T015 [US4] Conic toy comparison trials in `tests/c_interface.rs`: every conic toy instance ×
+  backend supporting its cone kinds × {owned, buffers}, conic duals included, by the comparison
+  rule; an unsupported cone kind → UNSUPPORTED naming it before any solver call (SC-001,
+  acceptance scenarios 1 and 2).
 
-- [ ] T018 [US2] Reuse trial: the driver solves every toy instance a backend supports through one
-  handle and one-shot; `optsolver_environments_created` increases by one for the sequence;
-  results agree (SC-004). Thread trial: handle created on one thread, used on another (C driver
-  with `pthread`, Rust API with `std::thread`) (FR-008).
+## Phase 7: User Story 5 — errors, ownership, versioning (P1)
 
-## Phase 6: User Story 3 — memory limit (P2, licensed)
-
-- [ ] T019 [US3] Gurobi: `iDopaNeuroC_problem_LP`, one thread, `memory_limit_gb` = 1e-6, N = 3,
-  through the Rust API and the C driver → `StoppedAtLimit`/`Memory`, effective parameters list
-  `SoftMemLimit`; without the limit → Optimal. MOSEK: `Unsupported` naming the field (SC-005).
-  If Gurobi does not stop, record the result and return to Gate 2A (research R2).
-
-## Phase 7: User Story 4 — conic from C (P2, licensed)
-
-- [ ] T020 [US4] Conic toy comparison trials (both backends where supported; unsupported cone kind
-  → UNSUPPORTED naming it before solving), conic duals included.
+- [ ] T016 [US5] `tests/c/errors.c` and its trials (unlicensed): version equals header macros;
+  every C-layer failing input of T006 from C; every Rust-API invalid input a C caller can express —
+  each `expect_invalid` case of `tests/contract.rs` mapped to a C call, or recorded as not
+  expressible from C with the reason — returns INVALID (or TOO_LARGE) with a message naming the
+  input, and the environment-creation count shows no solver was reached (SC-006);
+  `optsolver_test_panic` → INTERNAL, the process continues, standard error empty; free functions
+  accept NULL; message copies freed with `optsolver_string_free`; the program runs under
+  AddressSanitizer's leak checker with zero leaks (if the sanitizer is unavailable, recorded
+  unverified).
 
 ## Phase 8: Benchmarks and link demonstration
 
-- [ ] T021 `benches/load_solve.rs` extended with C-path scenarios through `optsolver::capi`: SC-002 (dhat heap, C path versus Rust path, process per
-  scenario, N = 3) and SC-003 (end-to-end wall time, N = 5 warm, spread; per-phase timings), both
-  backends, `iDopaNeuroC_problem_LP`; environment creation and the cold run recorded as their own
-  phases, separate from the warm runs (XIV-C); run bundle under the generated-output home for 005 (resolved through `project.yml`, `structure.generated`
-  plus the feature name, replacing the hard-coded feature-003 path at benches/load_solve.rs:630;
-  C-path scenarios under `#[cfg(feature = "capi")]`), with
+- [ ] T017 `benches/load_solve.rs`: C-path scenarios under `#[cfg(feature = "capi")]` through
+  `optsolver::capi`; heap criterion (SC-002: dhat, process per scenario, N = 3, plus the
+  allocation-count comparison as positive control) and wall-time criterion (SC-003: N = 5 warm with
+  spread; environment creation and the cold run as their own phases; per-phase timings), both
+  backends, `iDopaNeuroC_problem_LP`; output location resolved through `project.yml`
+  (`structure.generated` plus the feature name) instead of the hard-coded feature-003 path; record
   effective parameters, versions, tree state, machine, profile.
-- [ ] T022 SC-007: `tests/c/minimal.c`; release build; compile and run static and shared with
-  the documented flags; commands and output in `results/005-c-abi/runs/<UTC>-link/`.
+- [ ] T018 Link demonstration (SC-007): `tests/c/minimal.c`; release build; compile and run with
+  the documented flags, static and shared; commands and output in the run bundle.
 
-## Phase 9: Polish
+## Phase 9: Polish and closeout
 
-- [ ] T023 `docs/llm-interface.md`: C interface section (build, flags, every function, type and
-  constant, ownership, threads, versioning), `memory_limit_gb`, Threading section (`Send`).
-- [ ] T024 `docs/architecture/components.yaml` reconciled; ADR-0004 status Accepted; the delta's
-  forbidden edges considered for `boundaries.yaml`.
-- [ ] T025 In-gate checks: fmt; clippy -D warnings for `""`, `capi`, `capi,gurobi`, `capi,mosek`,
-  `capi,gurobi,mosek`; tests in every tier; doc tests; Rust 1.85 build; logged to
-  `results/005-c-abi/runs/<UTC>-gate/`.
-- [ ] T026 Implementation receipt; human-loop.md; hand-back facts for the consumer.
+- [ ] T019 `docs/llm-interface.md`: C interface section (building; compile, link and run-time
+  flags; vendor libraries needed at load time and never shipped; every function, type and
+  constant; ownership; threads; versioning; panic hook), `memory_limit_gb`, Threading (`Send`).
+- [ ] T020 `docs/architecture/components.yaml` reconciled with the delta; `boundaries.yaml` gains
+  the delta's forbidden edges; ADR-0004 checked against what was built.
+- [ ] T021 In-gate checks: `cargo fmt --check`; clippy `-D warnings` and `cargo test` for every
+  feature combination — `""`, `gurobi`, `mosek`, `gurobi,mosek`, `capi`, `capi,gurobi`,
+  `capi,mosek`, `capi,gurobi,mosek` (additivity, VIII); doc tests; Rust 1.85 build; extra build
+  time of the new crate types measured; all logged to the run bundle.
+- [ ] T022 Implementation receipt; `human-loop.md`; closeout items (conic-dual check reported as a
+  repaired defect; consumer adoption routed; User Story 3 wording); hand-back facts for the
+  consumer.
 
 ## Dependencies & Execution Order
 
-T001–T002 → T003–T009 → US5 (T010–T015) → US1 (T016–T017) → US2, US3, US4 (T018–T020, any
-order) → T021–T022 → T023–T026. Tests in each phase precede or accompany its implementation.
+T001–T002 → T003–T009 (foundational; T003 and T004 first) → each story phase (T010; T011–T012;
+T013–T014; T015; T016) needs only Phase 2 and may run in any order → T017–T018 → T019–T022.
 
 ## Implementation Strategy
 
-First independently testable slice: Phases 1–3 (unlicensed tier green). Approved scope proposed
-at Gate 2: all tasks.
+First independently testable slice: Phases 1 and 2 (unlicensed tier green, licensed accessor
+tests green). Scope proposed at Gate 2: all tasks.

@@ -1,7 +1,7 @@
 # Human Loop State
 
 ## Current State
-- Status: Gate 1 PASS (review 4); Gate 1 PASS; Gate 2A PASS (review 8, APPROVE_WITH_ADR); tasks and analysis written; Gate 2 review requested.
+- Status: Gate 1 PASS (review 4); Gate 1 PASS; Gate 2A PASS (review 8, APPROVE_WITH_ADR); tasks and analysis written; Gate 2 review 1 FAIL repaired; Gate 2 review 2 requested.
 - Active feature directory: specs/005-c-abi (worktree `../optSolver-005-c-abi`, branch `005-c-abi`)
 - Last completed bundle: Bundle 2 (up to Gate 2)
 - Source code modified by this workflow: no
@@ -37,6 +37,7 @@
 | 2026-11-16 | Gate 2A review 6 | REVISE_ARCHITECTURE (FAIL), two findings: reuse not assessed for the new test and benchmark components (comparison rule, compiler discovery, benchmark machinery); the private capi module unreachable by its tests and benchmark | gate-reviews/gate-2A-20261116T002649Z.md | Repairs: comparison rule as a new function in compare.rs; compiler discovery extracted to tests/common/ccompiler.rs with both header-conformance tests migrating; load_solve bench extended instead of a new bench; optsolver::capi doc(hidden) pub, declared in the delta with its edges. Observations routed to tasks |
 | 2026-11-16 | Gate 2A review 7 | REVISE_ARCHITECTURE (FAIL), one finding: delta and plan still declared a [[bench]] c_interface target contradicting the extend-load_solve decision | gate-reviews/gate-2A-20261116T003521Z.md | Repair: no new bench target; C-path scenarios under cfg(feature = "capi") in load_solve, its [[bench]] entry unchanged; [[test]] c_interface entry stated. Observations folded in: contract states aliasing, slice bounds, validate-before-environment and core-derived names; bench output path through project.yml; mosek.h memory items corrected; boundaries.yaml in scope. Closeout: FR-021 omits the Gurobi conic-dual length check (report as repaired defect) |
 | 2026-11-16 | Gate 2A review 8 | APPROVE_WITH_ADR (PASS); names `capi`, "C interface", `src/capi/optsolver.h` approved (XIII-F) | gate-reviews/gate-2A-20261116T004341Z.md | ADR-0004 accepted; delta verdict set; task generation permitted. Observations routed to tasks (header parameter names `result`/`caps`, freeing on another thread, cold and environment-creation phases in the bench, visible skips for new licensed tests, early library-build check) and to closeout (conic-dual check as a repaired defect; components and boundaries reconciliation; consumer adoption; User Story 3 wording) |
+| 2026-11-16 | Gate 2 review 1 | FAIL, six findings: test ordering; stories not independently testable; coverage gaps (all invalid inputs, wrong-length buffer, solver-error code, name functions, conic on both paths); comparison rule never shown to reject; additivity combinations incomplete; analysis overstated | gate-reviews/gate-2-20261116T005056Z.md | Repairs: tasks restructured (each task with its tests; foundational harness and driver; story phases independent); gaps covered; negative comparison tests; eight feature combinations; analysis corrected; contract fields `rows`/`cols`, `caps` |
 
 **Recorded deviation (Governance, "Commits Carry In-Flight Manual Work")**: commit 710ae9a
 (feature artefacts) did not include or list the eleven tracked governance changes then in the
@@ -65,7 +66,7 @@ rather than rewritten.
 - Exploration: none (direct request; see spec Exploration field)
 - Gate reviews: specs/005-c-abi/gate-reviews/
 - Implementation receipt(s):
-- Implementation review:
+- Implementation review: specs/005-c-abi/implementation-review.md
 
 ## Open Risks and Ambiguities
 - Bundle 0 (2026-11-15): features 001–003 are contained in devel (32e83ed); 004-milp-interface is

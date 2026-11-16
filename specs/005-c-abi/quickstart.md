@@ -16,7 +16,7 @@ command line; the vendor library directories on `LD_LIBRARY_PATH` for the licens
    with the flags in `docs/llm-interface.md` ("C interface: building and linking"), static and
    shared, and run it on `tests/fixtures/small/toy_lp_max` data. Commands recorded in the run
    bundle.
-5. Whole suite and in-gate checks: `cargo fmt --check`; `cargo clippy --all-targets --features
-   capi,gurobi,mosek -- -D warnings`; `cargo test` for feature sets `""`, `capi`, `capi,gurobi`,
-   `capi,mosek`, `capi,gurobi,mosek`; MSRV build `cargo +1.85 build --features capi` where the
+5. Whole suite and in-gate checks: `cargo fmt --check`; clippy with `-D warnings` and `cargo test`
+   for every feature set — `""`, `gurobi`, `mosek`, `gurobi,mosek`, `capi`, `capi,gurobi`,
+   `capi,mosek`, `capi,gurobi,mosek` (additivity: each `capi` set against its counterpart without); MSRV build `cargo +1.85 build --features capi` where the
    toolchain is installed.

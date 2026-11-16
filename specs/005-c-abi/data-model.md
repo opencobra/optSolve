@@ -5,7 +5,7 @@ structures are defined in `contracts/c-interface.md`; this table maps each onto 
 
 | C | Rust | Rule |
 |---|---|---|
-| `optsolver_problem.A` (`optsolver_csc`, `size_t` row indices) | `CscRef<usize>::new(m, n, col_ptrs, row_indices, values)` | borrowed; nnz = `col_ptrs[n]` |
+| `optsolver_problem.A` (`optsolver_csc`, `size_t` row indices) | `CscRef<usize>::new(rows, cols, col_ptrs, row_indices, values)` (A: rows = m, cols = n) | borrowed; nnz = `col_ptrs[cols]` |
 | `A_row_indices_i32` non-null | `CscRef<i32>::new(...)` → `ProblemRef::I32` | borrowed; `A.row_indices` must be NULL |
 | `c`, `l`, `u` | `Problem::new(.., c, sense, rows, l, u)` | length n, borrowed |
 | `sense` 1 / −1 | `Sense::Minimise` / `Sense::Maximise` | other values invalid |

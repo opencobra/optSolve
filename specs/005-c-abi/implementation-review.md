@@ -5,7 +5,7 @@
 Feature 005 adds a C interface (header `src/capi/optsolver.h`, static and shared libraries) over
 the solver-independent Rust API, the solver-independent memory limit `memory_limit_gb` (Gurobi
 `SoftMemLimit`; unsupported on MOSEK), and `Send` (not `Sync`) environments with serialised Gurobi
-environment creation and freeing. 26 tasks in `tasks.md`.
+environment creation and freeing. 22 tasks in `tasks.md`.
 
 ## Embedded Core Commands Completed
 
@@ -27,54 +27,63 @@ environment creation and freeing. 26 tasks in `tasks.md`.
 Performed by the feature agent with the `speckit-analyze` checks (coverage, consistency,
 ambiguity, constitution alignment). Classification: blocking / should-fix / acceptable / deferred.
 
-Requirement → task coverage (every functional requirement and success criterion has a task):
+Requirement → task coverage (revised after the first Gate 2 review, which found test ordering,
+story independence, five coverage gaps, an untested comparison rule and incomplete additivity
+checks; the first version of this analysis overstated coverage and said no conflict was found):
 
 | Requirement | Tasks |
 |---|---|
-| Thin translation (FR-001) | T013, T014, T015 |
-| Problem input (FR-002), zero copy (FR-003) | T013 (pointer-identity positive control), T017 |
-| Options (FR-004) | T013, T017 |
-| Result fields (FR-005), two result paths (FR-006) | T015, T017, T020 |
-| Environments and one-shot (FR-007) | T014, T018 |
-| Thread rule (FR-008) | T006, T018 |
-| Panic containment (FR-009), error codes and messages (FR-010) | T009, T012 |
-| Memory limit (FR-011) | T003, T004, T005, T019 |
-| Libraries and flags (FR-012) | T001, T022, T023 |
-| Header agreement (FR-013) | T011 |
-| C-level tests (FR-014) | T010 to T012, T016 to T020 |
-| Versioning (FR-015), ownership (FR-016) | T009, T012 |
-| Capabilities (FR-017) | T014, T012, T017 |
-| No output (FR-018) | T009 (silent hook), T012, T017 |
-| Interface document (FR-019) | T002, T023 |
-| Extension point (FR-020) | T012 |
-| Rust API preserved; listed changes (FR-021) | T003, T006, T007 |
-| Narrowest checks (FR-022) | T012, T017 |
-| Agreement (SC-001) | T017, T020 |
-| Heap (SC-002), wall time (SC-003) | T013, T021 |
-| Environment reuse (SC-004) | T018 |
-| Memory limit (SC-005) | T019 |
-| Errors, panic, leaks (SC-006) | T012 |
-| Link demonstration (SC-007) | T022 |
+| Thin translation (FR-001) | T005 to T008 |
+| Problem input (FR-002), zero copy (FR-003) | T006 (pointer-identity positive control), T010, T015 |
+| Options (FR-004) | T006, T010 |
+| Result fields (FR-005), two result paths (FR-006) | T008, T010, T015 |
+| Environments and one-shot (FR-007) | T007, T012 |
+| Thread rule (FR-008) | T011, T012 |
+| Panic containment (FR-009) | T005, T016 |
+| Error codes and messages, vendor code (FR-010) | T005, T008 (solver error), T016 |
+| Memory limit (FR-011) | T006, T013, T014 |
+| Libraries and flags (FR-012) | T001, T018, T019 |
+| Header agreement (FR-013) | T004 |
+| C-level tests (FR-014) | T003, T004, T010, T012, T014 to T016 |
+| Versioning (FR-015) | T005, T016 |
+| Ownership (FR-016) | T005, T008, T016 (leaks, NULL frees, message copies) |
+| Capabilities (FR-017) | T007 |
+| No output (FR-018) | T005, T010, T016 |
+| Interface document (FR-019) | T002, T019 |
+| Extension point (FR-020) | T006, T016 |
+| Rust API preserved; listed changes (FR-021) | T006, T009, T011, T013 |
+| Narrowest checks (FR-022) | T016, T010 |
+| Agreement (SC-001) | T010 (LP, QP), T015 (conic), both paths |
+| Heap (SC-002), wall time (SC-003) | T006, T017 |
+| Environment reuse (SC-004) | T012 |
+| Memory limit (SC-005) | T014 |
+| Errors, panic, leaks (SC-006) | T016 (every expressible invalid input), T006 |
+| Link demonstration (SC-007) | T018 |
+
+Test ordering: every implementing task carries its own tests (written first or in the same
+change); story phases need only the foundational phase, and each carries its own independent
+test. The comparison rule is shown to reject disagreements (T003). Additivity covers all eight
+feature combinations (T021).
 
 Findings:
 
-- Blocking: none.
-- Should-fix (folded into tasks before this review): capabilities had no test (added to T017 and
-  T012); constants must be `pub` for the layout test (T009); header parameter names (`result`,
-  `caps`) aligned in the contract.
-- Acceptable: Gurobi `solve_into` conic-dual length check (T007) is a repaired defect not listed in
+- Blocking: none remaining.
+- Repaired after the first Gate 2 review: test ordering; story independence (driver and harness
+  foundational, foundational tasks unlabelled); invalid-input coverage (all `expect_invalid`
+  cases mapped or recorded as not expressible); wrong-length buffer, solver-error code, name
+  functions, conic on both paths; negative tests of the comparison rule; additivity combinations;
+  C structure fields `rows`/`cols` and the `caps` parameter name in the contract.
+- Acceptable: Gurobi `solve_into` conic-dual length check (T009) is a repaired defect not listed in
   FR-021's Rust-API changes (it removes a panic on user input); reported at closeout.
 - Deferred to closeout (Gate 3): the success-criteria checklist item (CHK015); User Story 3's
-  "toy-sized" wording (a spec revision with Gate 1 re-review if changed); components and
-  boundaries reconciliation; consumer adoption (COBRA gateway, routed to the COBRA feature);
+  "toy-sized" wording; components and boundaries reconciliation (T020); consumer adoption
+  (COBRA gateway, routed to the COBRA feature); build-time cost of the new crate types (T021);
   existing Gurobi unit tests that panic without a licence (pre-existing Principle II gap).
-
-Constitution alignment: no conflict found; the gate reviews record the per-principle findings.
 
 ## Proposed Implementation Scope
 
-- Tasks proposed: all, T001 to T026.
-- First independently testable slice: Phases 1 to 3 (T001 to T015; unlicensed tier green).
+- Tasks proposed: all, T001 to T022.
+- First independently testable slice: Phases 1 and 2 (T001 to T009).
 - Files likely to change: Cargo.toml; src/lib.rs; src/capi/ (new: mod.rs, problem.rs, env.rs,
   result.rs, optsolver.h); src/options.rs; src/gurobi/env.rs, params.rs, solve.rs; src/mosek/env.rs,
   params.rs (test); tests/c_interface.rs, tests/c/, tests/common/ (cdata.rs, ccompiler.rs,
