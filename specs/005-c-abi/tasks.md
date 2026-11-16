@@ -4,7 +4,7 @@
 contracts/c-interface.md, architecture-delta.yaml (Gate 2A: APPROVE_WITH_ADR, review 8,
 `gate-reviews/gate-2A-20261116T004341Z.md`).
 
-**Tests**: both tiers; benchmarks for the C path (Principles II, XIV). Each implementing task
+**Tests**: both tiers; benchmarks for the C path (Principles II, Testing, Benchmarks, And Behavioural Evidence, and XIV, Evidentiary Preconditions For Performance Claims). Each implementing task
 carries its own tests, written first or in the same change; a task is not done until its tests
 pass. Licensed Rust tests live in `harness = false` integration tests (`tests/contract.rs` for
 Rust-API behaviour, `tests/c_interface.rs` for the C interface) and skip visibly through the shared
@@ -26,7 +26,7 @@ harness). Each story phase then carries its own independent test and needs only 
   `src/capi/mod.rs` (research R6).
   `tests/standards.rs`: admit `src/capi/` as an FFI module (definitions only, no extern blocks) and
   extend the interface-document drift test to the header's `optsolver_`/`OPTSOLVER_` names; both
-  checks shown to fail on a synthetic violation (XV-C). The agreement test of T004 and these checks
+  checks shown to fail on a synthetic violation (XV-C, A Guard Is Tested Against The Failure It Guards). The agreement test of T004 and these checks
   pass once the foundational phase is complete (the phase is not done until they do); to make that
   possible, T004 and T006 add the names they introduce to `docs/llm-interface.md` in the same
   change (a reference list of every header function, type and constant, and `memory_limit_gb`),
@@ -40,7 +40,7 @@ harness). Each story phase then carries its own independent test and needs only 
   tests migrate and still pass. `tests/common/cdata.rs`: problem-file writer for toy instances and
   the iDopaNeuroC LP, result-file reader, compile-and-run of a `tests/c/` program against the
   static or shared library (the library found by an upward search from the test executable for
-  the Cargo profile directory, never by counting parent levels, IX-I) with captured standard
+  the Cargo profile directory, never by counting parent levels: IX-I, Paths Are Resolved, Never Counted Or Stored) with captured standard
   output and error. `tests/c/driver.c`: generic C
   driver (owned or buffer path, handle or one-shot, options and raw parameters from the file,
   optional second thread for use and freeing, writes every result field and the error code,
@@ -48,9 +48,9 @@ harness). Each story phase then carries its own independent test and needs only 
   comparison rule, with licence-free unit tests on synthetic results: a difference just above the
   bound is rejected; one within it is accepted and reported as not bit-identical; a status, limit
   reason, failed-measure-name or array-presence difference is rejected; an "everything failed"
-  case is reported as uninterpretable (XV-C). The driver runner asserts empty standard output and
+  case is reported as uninterpretable (XV-C, A Guard Is Tested Against The Failure It Guards). The driver runner asserts empty standard output and
   error on every run, and a runner self-test with a C program writing to both streams shows the
-  assertion rejects it (XV-C).
+  assertion rejects it (XV-C, A Guard Is Tested Against The Failure It Guards).
 - [ ] T004 Header `src/capi/optsolver.h` per contracts/c-interface.md (types with `rows`/`cols`,
   constants, prototypes, ownership, thread and aliasing rules, version rule, panic-profile and
   panic-hook notes, MOSEK creation and freeing unverified, link-flag pointer) together with its
@@ -71,7 +71,7 @@ harness). Each story phase then carries its own independent test and needs only 
   concurrency trial in `tests/contract.rs` (four threads creating, solving a toy LP with and
   freeing Gurobi environments twenty times concurrently, each solve's verification verdict
   checked; environments created on one thread, used
-  and freed on another) (FR-008, VII-B; evidence for that run only).
+  and freed on another) (FR-008; VII-B, Every Native Handle Is Owned; evidence for that run only).
 - [ ] T005 `src/capi/mod.rs` with its tests: constants (`pub const`), error codes, per-thread last
   error, `guard` (catch_unwind, thread-local in-entry flag, `Error` → code), the silent wrapping
   panic hook (research R4), `optsolver_abi_version`, `optsolver_last_error_message`
@@ -91,10 +91,10 @@ harness). Each story phase then carries its own independent test and needs only 
   with its tests: `optsolver_options_init`; C problem →
   `Problem` (both index widths, both row forms, Q, F/g/cones with `exponents`), C options →
   `Options`; every slice bounded (`len · size ≤ isize::MAX`, `cols + 1` overflow → TOO_LARGE); NULL
-  with length 0 → empty slice; built and validated before any environment, in a fixed order: A
-  (dimensions, then its arrays) is validated before any other array is sliced, so a dimension
+  with length 0 → empty slice; built and validated before any environment, in a fixed order: A's
+  dimensions (checked before any slice is built, tested in T016), then A's arrays is validated before any other array is sliced, so a dimension
   above the solvers' limit is TOO_LARGE before the row and column data are touched. Tests: pointer identity
-  of every slice (positive control, SC-002, XIV-D); every C-layer check of the contract fails with
+  of every slice (positive control, SC-002; XIV-D, A Null Result Requires A Positive Control); every C-layer check of the contract fails with
   INVALID (or TOO_LARGE) naming the field — NULL with nonzero length, both and neither row forms,
   both and neither index widths with nonzeros, negative `int32` row index, bad sense, backend,
   cone-kind, method, presolve and parameter-type codes, `struct_size` too small, truncated
@@ -113,7 +113,7 @@ harness). Each story phase then carries its own independent test and needs only 
   `optsolver_solve_into` (NaN fill, lengths to `SolutionBuffers`), every `optsolver_result_*`
   accessor (names converted lazily), `optsolver_result_free`; and a `#[doc(hidden)]` safe helper
   in `src/capi/` that builds the C structures from Rust slices and calls the entry points, so the
-  benchmark (T017) reaches the C path in-process with no `unsafe` outside `src/capi/` (VII-A). The
+  benchmark (T017) reaches the C path in-process with no `unsafe` outside `src/capi/` (VII-A, Unsafe Code Is Confined And Argued). The
   `#[repr(C)]` output structures (`optsolver_timings`, `optsolver_value`, `optsolver_measure`)
   are plain C structs filled by the library; `#[non_exhaustive]` has no meaning across C, and
   additions follow the versioning rule. Tests, all through `tests/c/driver.c` from
@@ -155,7 +155,7 @@ The lock and `Send` change this story relies on is T011 (foundational).
   twenty; the count per backend recorded) and the same problems one-shot; `optsolver_environments_created`
   increases by one for the handle sequence; results agree by the comparison rule; wall time of the
   sequence and the one-shot solves recorded (informational, N = 1) (SC-004); a handle created on
-  one thread is used and freed on another (C driver, `pthread`) (FR-008). The pointer-identity test
+  one thread is used and freed on another (C driver, `pthread`), its verification verdict asserted (FR-008). The pointer-identity test
   of T006 is this story's zero-copy evidence (acceptance scenario 1).
 
 ## Phase 5: User Story 3 — memory limit (P2)
@@ -187,19 +187,23 @@ The lock and `Send` change this story relies on is T011 (foundational).
   each `expect_invalid` case of `tests/contract.rs` mapped to a C call, or recorded as not
   expressible from C with the reason — returns INVALID (or TOO_LARGE) with a message naming the
   input, and the environment-creation count shows no solver was reached (SC-006); the too-large
-  dimension case of `tests/contract.rs` (`t020_dimension_too_large`) from C: A with `rows` above
-  2³¹ − 1 and zero columns → OPTSOLVER_ERR_TOO_LARGE before any environment, which T006's build
-  order makes expressible without caller memory for the row data;
+  dimension cases of `tests/contract.rs` (`t020_dimension_too_large`, rows and columns) from C: A
+  with `rows` = 2³¹ and zero columns, and A with `cols` = 2³¹ and a one-element `col_ptrs` → each
+  OPTSOLVER_ERR_TOO_LARGE before any environment exists and without reading `col_ptrs` beyond its
+  first element or any row data (T006's validation order: dimensions first); the message names
+  the dimension as the Rust API does (`m` or `n`, the notation symbols for A's rows and columns),
+  which the C header documents as A's `rows` and `cols`;
   `optsolver_test_panic` → INTERNAL, the process continues, standard error empty; free functions
   accept NULL; message copies freed with `optsolver_string_free`. Leak checks with
   AddressSanitizer's leak checker (if the sanitizer is unavailable, recorded unverified):
   (a) unlicensed — `errors.c` reports zero leaks, and its positive control (the same program built
   with one deliberately unfreed error-message copy) is reported as leaking; (b) licensed — a
   leak-checked run of `tests/c/driver.c` that creates and frees an environment, solves, reads every
-  accessor, frees the result and a capabilities object, reports zero leaks attributable to
+  accessor, frees the result and a capabilities object (the solve's verification verdict asserted), reports
+  zero leaks attributable to
   optSolver (allocations inside the vendor libraries, if any, suppressed by a recorded suppression
   list naming each vendor frame), and its positive control (one deliberately unfreed result) is
-  reported as leaking (FR-016, SC-006, User Story 5 scenario 5; XIV-D, XV-C). The leak runs use
+  reported as leaking (FR-016, SC-006, User Story 5 scenario 5; XIV-D, A Null Result Requires A Positive Control; XV-C, A Guard Is Tested Against The Failure It Guards). The leak runs use
   the shared runner with a declared exception: standard error may carry the sanitizer's report and
   nothing else.
 
@@ -226,7 +230,7 @@ The lock and `Send` change this story relies on is T011 (foundational).
   the delta's forbidden edges; ADR-0004 checked against what was built.
 - [ ] T021 In-gate checks: `cargo fmt --check`; clippy `-D warnings` and `cargo test` for every
   feature combination — `""`, `gurobi`, `mosek`, `gurobi,mosek`, `capi`, `capi,gurobi`,
-  `capi,mosek`, `capi,gurobi,mosek` (additivity, VIII); doc tests; Rust 1.85 build; extra build
+  `capi,mosek`, `capi,gurobi,mosek` (additivity: VIII, Independence And Additive Backends); doc tests; Rust 1.85 build; extra build
   time of the new crate types measured; all logged to the run bundle.
 - [ ] T022 Implementation receipt; `human-loop.md`; closeout items (conic-dual check reported as a
   repaired defect; consumer adoption routed; User Story 3 wording); hand-back facts for the

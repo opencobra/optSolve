@@ -128,7 +128,7 @@ parameter-type codes; `threads` above `u32::MAX`; `random_seed` outside `int32_t
 exponential-cone `dim` other than 3 or 0; a parameter name or string value that is not UTF-8.
 A NULL pointer with length 0 becomes an empty slice (a dangling, aligned pointer), never a NULL
 passed to `slice::from_raw_parts`. Every slice built from a caller pointer is bounded by
-`len · sizeof(element) ≤ PTRDIFF_MAX` and `n + 1` must not overflow (else `OPTSOLVER_ERR_TOO_LARGE`).
+`len · sizeof(element) ≤ PTRDIFF_MAX` and `cols + 1` must not overflow (else `OPTSOLVER_ERR_TOO_LARGE`).
 A is validated (dimensions, then its arrays) before any other array is sliced, so a dimension
 above the solvers' limit is `OPTSOLVER_ERR_TOO_LARGE` before the row and column data are touched.
 The problem is built and validated before any environment is created, so invalid input is
