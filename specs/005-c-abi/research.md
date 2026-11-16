@@ -9,9 +9,10 @@ Gurobi 13.0.3 header (`$GUROBI_HOME/include/gurobi_c.h`), the Gurobi Optimizer R
 ## R1. MOSEK memory limit (spec Clarifications, FR-011)
 
 - **Decision**: rejected as unsupported before any solver call.
-- **Evidence**: `mosek.h` 11.2 has no memory-limit parameter; the only memory items are
-  `MSK_getmemusagetask`, `MSK_RES_ERR_SPACE` and the optimisation server's
-  `MSK_RES_TRM_SERVER_MAX_MEMORY` (Bundle 1 check). The C API manual, entry `MSKcallbackfunc`:
+- **Evidence**: `mosek.h` 11.2 has no memory-limit parameter; the memory-related items are
+  `MSK_getmemusagetask`, `MSK_RES_ERR_SPACE`, the optimisation server's
+  `MSK_RES_TRM_SERVER_MAX_MEMORY` and `MSK_IPAR_MIO_MEMORY_EMPHASIS_LEVEL` (a mixed-integer memory
+  emphasis, not a limit) (Bundle 1 check, corrected at Gate 2A review 7). The C API manual, entry `MSKcallbackfunc`:
   "The user must not call any MOSEK function directly or indirectly from the callback function.
   The only exception is the possibility to retrieve a current best integer solution from the
   mixed-integer optimizer". Polling `MSK_getmemusagetask` from the progress callback (COBRA's

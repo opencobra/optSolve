@@ -266,7 +266,9 @@ specs/005-c-abi/
 ### Source Code (repository root)
 
 ```text
-Cargo.toml                    # crate-type, feature capi, [[test]] c_interface, [[bench]] c_interface
+Cargo.toml                    # crate-type, feature capi, [[test]] c_interface (harness = false,
+                              # required-features = ["capi"]); no new [[bench]]: C-path scenarios
+                              # in load_solve under cfg(feature = "capi")
 src/capi/optsolver.h           # new: public C header (placement: public C header)
 src/lib.rs                    # mod capi behind feature
 src/capi/mod.rs               # new: codes, constants, errors, panic containment, version
@@ -288,7 +290,7 @@ tests/standards.rs            # src/capi/ admitted as FFI module; header names i
                               # Gurobi lifecycle calls only in src/gurobi/env.rs (with negative test)
 benches/load_solve.rs         # C-path scenarios: heap and wall-time criteria (SC-002, SC-003)
 docs/llm-interface.md         # C interface section
-docs/architecture/            # components.yaml, repo_folder_organisation.md, ADR-0004
+docs/architecture/            # components.yaml, boundaries.yaml (forbidden edges), repo_folder_organisation.md, ADR-0004
 specs/005-c-abi/requests/from-cobratoolbox-REQ-001.md   # record of the consumer's request
 ```
 

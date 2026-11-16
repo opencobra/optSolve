@@ -1,7 +1,7 @@
 # Human Loop State
 
 ## Current State
-- Status: Gate 1 PASS (review 4); Gate 2A reviews 1 to 6 REVISE_ARCHITECTURE, each repaired; Gate 2A review 7 requested.
+- Status: Gate 1 PASS (review 4); Gate 2A reviews 1 to 7 REVISE_ARCHITECTURE, each repaired; Gate 2A review 8 requested.
 - Active feature directory: specs/005-c-abi (worktree `../optSolver-005-c-abi`, branch `005-c-abi`)
 - Last completed bundle: Bundle 1; Bundle 2 in progress (plan written, Gate 2A open)
 - Source code modified by this workflow: no
@@ -35,6 +35,7 @@
 | 2026-11-16 | Gate 2A review 4 | REVISE_ARCHITECTURE (FAIL), five findings: lock check could not catch calls through helpers and had no negative test; lock cost on loading unjustified; duplicated buffer-length checks unrecorded; error-message ownership contradicted the spec; ADR did not name the decisions it changes | gate-reviews/gate-2A-20261116T000525Z.md | Repairs: lock narrowed to environment creation and freeing, enforced by a token type plus a source test with a negative case, cost stated; duplication recorded with reason (ADR-0002 decision 2); caller-owned message copy with optsolver_string_free; ADR decision 7; duplicates merged; observations (minimum structure sizes, NUL names, NaN before the check, build cost, env docs) folded in |
 | 2026-11-16 | Gate 2A review 5 | REVISE_ARCHITECTURE (FAIL), three findings: contained panics still print through Rust's panic hook; the plan's lock sentence contradicted itself; the Notation answer missed `alpha` and `r` | gate-reviews/gate-2A-20261116T001606Z.md | Repairs: silent wrapping panic hook (research R4, ADR decision 4, two tests); lock sentence fixed; C names `exponents` and `OPTSOLVER_CERT_RAY`, inventory gap routed to the maintainer. Observations folded in: C-layer checks listed with tests, names from the core's strings, test-support functions in Complexity Tracking, empty-slice rule, MOSEK freeing unverified |
 | 2026-11-16 | Gate 2A review 6 | REVISE_ARCHITECTURE (FAIL), two findings: reuse not assessed for the new test and benchmark components (comparison rule, compiler discovery, benchmark machinery); the private capi module unreachable by its tests and benchmark | gate-reviews/gate-2A-20261116T002649Z.md | Repairs: comparison rule as a new function in compare.rs; compiler discovery extracted to tests/common/ccompiler.rs with both header-conformance tests migrating; load_solve bench extended instead of a new bench; optsolver::capi doc(hidden) pub, declared in the delta with its edges. Observations routed to tasks |
+| 2026-11-16 | Gate 2A review 7 | REVISE_ARCHITECTURE (FAIL), one finding: delta and plan still declared a [[bench]] c_interface target contradicting the extend-load_solve decision | gate-reviews/gate-2A-20261116T003521Z.md | Repair: no new bench target; C-path scenarios under cfg(feature = "capi") in load_solve, its [[bench]] entry unchanged; [[test]] c_interface entry stated. Observations folded in: contract states aliasing, slice bounds, validate-before-environment and core-derived names; bench output path through project.yml; mosek.h memory items corrected; boundaries.yaml in scope. Closeout: FR-021 omits the Gurobi conic-dual length check (report as repaired defect) |
 
 **Recorded deviation (Governance, "Commits Carry In-Flight Manual Work")**: commit 710ae9a
 (feature artefacts) did not include or list the eleven tracked governance changes then in the
@@ -47,6 +48,9 @@ rather than rewritten.
   the worktree `../optSolver-devel`). It is committed on this feature branch (2f62cce); committing
   it to `devel` remains a human decision.
 - After Gate 3, integrating this feature into `devel`.
+- Confirming the instruction behind constitution 3.0.0: it reached this repository relayed by the
+  COBRA session (Gate 2A review 7 observation); the maintainer confirms it when committing 3.0.0
+  to `devel`.
 - Notation inventory (amendment, constitution XII-C): the Rust API names the power-cone exponents
   `alpha` (features 002–003) and the unbounded ray `r` (feature 001), neither in the Notation
   Convention, and `r` is also used informally for the order of a positive semidefinite cone. The

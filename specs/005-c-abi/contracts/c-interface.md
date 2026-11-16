@@ -76,8 +76,10 @@ Parameter value types: `OPTSOLVER_PARAM_INT` 1, `_DOUBLE` 2, `_STRING` 3.
 
 `const char *optsolver_status_name(int32_t)`, `optsolver_limit_reason_name(int32_t)`,
 `optsolver_returned_name(int32_t)`, `optsolver_verification_name(int32_t)`,
-`optsolver_cone_name(int32_t)` return static strings (`"Optimal"`, `"Memory"`, `"PartiallyVerified"`,
-`"rotated quadratic"` …), or `""` for an unknown code.
+`optsolver_cone_name(int32_t)` return NUL-terminated strings owned by the library for the process lifetime (`"Optimal"`,
+`"Memory"`, `"PartiallyVerified"`, `"rotated quadratic"` …), or `""` for an unknown code. They are
+derived from the core's own names (the Rust enum variant names and `ConeKind::name`) on first use
+into a process-wide cache, not a second list.
 
 ## Problem (FR-002, FR-003)
 
@@ -124,7 +126,14 @@ neither index width for A; `struct_size` below the minimum; the bound `nnz · 8 
 parameter-type codes; `threads` above `u32::MAX`; `random_seed` outside `int32_t`; an
 exponential-cone `dim` other than 3 or 0; a parameter name or string value that is not UTF-8.
 A NULL pointer with length 0 becomes an empty slice (a dangling, aligned pointer), never a NULL
-passed to `slice::from_raw_parts`. Each check has a failing-input test.
+passed to `slice::from_raw_parts`. Every slice built from a caller pointer is bounded by
+`len · sizeof(element) ≤ PTRDIFF_MAX` and `n + 1` must not overflow (else `OPTSOLVER_ERR_TOO_LARGE`).
+The problem is built and validated before any environment is created, so invalid input is
+reported identically with or without a licence. Each check has a failing-input test.
+
+Aliasing: output arrays in `optsolver_buffers` must not overlap each other or any input array;
+overlap is undefined behaviour (stated in the header and in the `# Safety` contract of
+`optsolver_solve_into`).
 
 ## Options (FR-004)
 

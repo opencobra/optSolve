@@ -48,7 +48,7 @@ components_modified:
   - id: gurobi.solve
     change: solve_into checks the conic-dual buffer length (closing a validation gap; MOSEK already checks)
   - id: bench.load_solve
-    change: C-path scenarios (heap and wall-time criteria SC-002, SC-003) through optsolver::capi in-process, same machinery
+    change: C-path scenarios (heap and wall-time criteria SC-002, SC-003) through optsolver::capi in-process under cfg(feature = "capi"), same machinery; run output location resolved through project.yml (structure.generated plus the feature name) instead of the hard-coded feature-003 folder
   - id: test.header_conformance  # tests/header_conformance.rs, tests/header_conformance_mosek.rs (not a component id); listed for completeness
     change: compiler discovery through tests/common/ccompiler.rs
   - id: test.harness
@@ -58,7 +58,7 @@ components_modified:
   - id: docs.repo_folder_organisation  # Tier 1 placement document, not a component id; listed for completeness
     change: roles public C header (src/capi/), C test sources (tests/c/), incoming cross-repository requests (specs/<feature>/requests/); no project.yml change
   - id: manifest  # not a component id in components.yaml; listed for completeness
-    change: Cargo.toml crate-type lib + staticlib + cdylib; feature capi; [[test]] c_interface; [[bench]] c_interface
+    change: Cargo.toml crate-type lib + staticlib + cdylib; feature capi; [[test]] c_interface (harness = false, required-features = ["capi"]); no new bench target: the C-path scenarios in benches/load_solve.rs are compiled under #[cfg(feature = "capi")] and its [[bench]] entry (required-features = ["gurobi"]) is unchanged
   - id: test.standards  # not a component id in components.yaml (tests/standards.rs); listed for completeness
     change: src/capi/ admitted as an FFI module for unsafe and extern "C" definitions; drift test covers the header's names; the three Gurobi environment lifecycle functions named only in src/gurobi/env.rs (with a negative test)
 
