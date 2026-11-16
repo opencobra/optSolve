@@ -158,6 +158,7 @@ field left unset means "solver default".
 | `certificates` | return infeasibility/unboundedness certificates |
 | `array_outputs` | return y, z, s, row activity, basis (default on) |
 | `verification` | run independent verification (default on) |
+| `memory_limit_gb` | memory limit in gigabytes (10⁹ bytes). Gurobi: `SoftMemLimit` — the solve stops with `Status::StoppedAtLimit` and `LimitReason::Memory` (checked only where Gurobi can stop gracefully, so use may exceed the limit between checks; `MemLimit` stays available through `raw`). MOSEK: `Error::Unsupported` (MOSEK 11.2 has no memory limit) |
 | `raw` | vendor parameters by name: `Vec<(String, ParamValue)>` with `ParamValue::Int`, `Double`, `Str` |
 | `cancel` | `Option<&AtomicBool>`: set it to interrupt the solve |
 | `progress` | `Option<&mut dyn FnMut(&Progress)>`: called during the solve |
@@ -253,9 +254,12 @@ validation), `Error::TooLarge { what, value }` (dimension above `MAX_DIMENSION`)
 
 ## Threading
 
-`Env` is neither `Send` nor `Sync` (the solvers' environments are not thread-safe): create one
-`Env` per thread. Problems borrow your data and are `Copy`; each solve builds and frees its own
-solver model.
+`gurobi::Env` and `mosek::Env` are `Send` but not `Sync`: an environment may be created on one
+thread and used or dropped on another, but used by one thread at a time; different environments
+may be used concurrently. Creating and dropping Gurobi environments is serialised by optSolver
+(Gurobi documents it as not thread-safe); MOSEK documents no guarantee for concurrent creation or
+dropping, so create MOSEK environments one at a time. Problems borrow your data and are `Copy`;
+each solve builds and frees its own solver model.
 
 ## Complete examples
 
@@ -496,6 +500,115 @@ assert!(solution.x.is_empty() && (x[0] - 3.0).abs() < 1e-6 && (x[1] - 1.0).abs()
 let _ = calls;
 # Ok::<(), optsolver::Error>(())
 ```
+
+## C interface
+
+optSolver has a C interface over this API (feature 005, ADR-0004): header
+`src/capi/optsolver.h`, interface version 1.0 (`OPTSOLVER_ABI_VERSION_MAJOR`,
+`OPTSOLVER_ABI_VERSION_MINOR`, `optsolver_abi_version()` returning `(major << 16) | minor`). It is a
+translation only: the same validation, statuses, parameters and verification as the Rust API. The
+header documents every rule in full; this section names every item.
+
+### C interface: building and linking
+
+Build the libraries (with the backends you need; the build needs `GUROBI_HOME` and `MOSEK_BINDIR`
+as for the Rust crate):
+
+```text
+cargo build --release --features capi,gurobi,mosek
+```
+
+This produces `target/release/liboptsolver.a` and `target/release/liboptsolver.so`. Compile with
+`-I <optSolver>/src/capi`. Link one of them:
+
+- Static: `<optSolver>/target/release/liboptsolver.a` (or `-L<optSolver>/target/release
+  -l:liboptsolver.a`), then the vendor libraries `-L$GUROBI_HOME/lib -lgurobi130` and
+  `-L$MOSEK_BINDIR -lmosek64` (for the backends compiled in), then the Rust runtime's system
+  libraries `-lgcc_s -lutil -lrt -lpthread -lm -ldl -lc` (x86_64 Linux; `cargo rustc --lib
+  --crate-type staticlib -- --print native-static-libs` prints them for other targets).
+- Shared: `-L<optSolver>/target/release -loptsolver`; the shared library records the vendor
+  libraries itself.
+
+At run time the vendor shared libraries (`libgurobi130.so`; `libmosek64.so.11.2` and the
+`libtbb.so.12` beside it) and, for the shared form, `liboptsolver.so` must be found by the dynamic
+loader: put their directories on `LD_LIBRARY_PATH`, or pass `-Wl,-rpath,<dir>` when linking. The
+vendor libraries and licences are never shipped with optSolver. A library built with a backend
+needs that vendor library at load time even if only the other backend is used. With `runmat mex`
+the same `-I`, `-L` and `-l` flags are passed (`--linker-argument` for `-Wl,...`).
+
+### C interface: items
+
+Codes: `OPTSOLVER_OK`, `OPTSOLVER_ERR_INVALID`, `OPTSOLVER_ERR_TOO_LARGE`,
+`OPTSOLVER_ERR_UNSUPPORTED`, `OPTSOLVER_ERR_PARAMETER_CONFLICT`, `OPTSOLVER_ERR_SOLVER` (vendor code
+from `optsolver_last_error_solver_code()`), `OPTSOLVER_ERR_INTERNAL` (a contained panic). The
+message of the calling thread's last failure: `optsolver_last_error_message()` returns a
+caller-owned copy, freed with `optsolver_string_free()`.
+
+Constants: backends `OPTSOLVER_BACKEND_GUROBI`, `OPTSOLVER_BACKEND_MOSEK`; senses
+`OPTSOLVER_SENSE_MINIMISE`, `OPTSOLVER_SENSE_MAXIMISE`; `OPTSOLVER_UNSET`; statuses
+`OPTSOLVER_STATUS_OPTIMAL`, `OPTSOLVER_STATUS_INFEASIBLE`, `OPTSOLVER_STATUS_UNBOUNDED`,
+`OPTSOLVER_STATUS_INFEASIBLE_OR_UNBOUNDED`, `OPTSOLVER_STATUS_STOPPED_AT_LIMIT`,
+`OPTSOLVER_STATUS_NUMERICAL_DIFFICULTY`, `OPTSOLVER_STATUS_INTERRUPTED`,
+`OPTSOLVER_STATUS_LOCALLY_OPTIMAL`, `OPTSOLVER_STATUS_LOCALLY_INFEASIBLE`,
+`OPTSOLVER_STATUS_NOT_SOLVED`, `OPTSOLVER_STATUS_UNKNOWN`; limit reasons `OPTSOLVER_LIMIT_NONE`,
+`OPTSOLVER_LIMIT_TIME`, `OPTSOLVER_LIMIT_ITERATIONS`, `OPTSOLVER_LIMIT_NODES`,
+`OPTSOLVER_LIMIT_SOLUTIONS`, `OPTSOLVER_LIMIT_OBJECTIVE_CUTOFF`, `OPTSOLVER_LIMIT_OBJECTIVE_TARGET`,
+`OPTSOLVER_LIMIT_WORK`, `OPTSOLVER_LIMIT_MEMORY`; solution returned `OPTSOLVER_RETURNED_NONE`,
+`OPTSOLVER_RETURNED_FEASIBLE`, `OPTSOLVER_RETURNED_OPTIMAL`; cone kinds (COBRA's `coneType` codes)
+`OPTSOLVER_CONE_QUADRATIC`, `OPTSOLVER_CONE_ROTATED_QUADRATIC`, `OPTSOLVER_CONE_PRIMAL_EXPONENTIAL`,
+`OPTSOLVER_CONE_DUAL_EXPONENTIAL`, `OPTSOLVER_CONE_PRIMAL_POWER`, `OPTSOLVER_CONE_DUAL_POWER`,
+`OPTSOLVER_CONE_NONNEGATIVE`, `OPTSOLVER_CONE_ZERO`, `OPTSOLVER_CONE_POSITIVE_SEMIDEFINITE`;
+problem-class bits `OPTSOLVER_CLASS_LP`, `OPTSOLVER_CLASS_MILP`, `OPTSOLVER_CLASS_QP`,
+`OPTSOLVER_CLASS_CONIC`; methods `OPTSOLVER_METHOD_AUTO`, `OPTSOLVER_METHOD_PRIMAL_SIMPLEX`,
+`OPTSOLVER_METHOD_DUAL_SIMPLEX`, `OPTSOLVER_METHOD_BARRIER`, `OPTSOLVER_METHOD_CONCURRENT`; presolve
+`OPTSOLVER_PRESOLVE_AUTO`, `OPTSOLVER_PRESOLVE_OFF`, `OPTSOLVER_PRESOLVE_CONSERVATIVE`,
+`OPTSOLVER_PRESOLVE_AGGRESSIVE`; basis `OPTSOLVER_BASIS_BASIC`, `OPTSOLVER_BASIS_AT_LOWER`,
+`OPTSOLVER_BASIS_AT_UPPER`, `OPTSOLVER_BASIS_SUPERBASIC`, `OPTSOLVER_BASIS_FIXED`; verification
+`OPTSOLVER_VERIFICATION_NOT_RUN`, `OPTSOLVER_VERIFICATION_VERIFIED`, `OPTSOLVER_VERIFICATION_FAILED`,
+`OPTSOLVER_VERIFICATION_PARTIALLY_VERIFIED`; measure verdicts `OPTSOLVER_VERDICT_PASS`,
+`OPTSOLVER_VERDICT_FAIL`, `OPTSOLVER_VERDICT_NOT_EVALUATED`; result arrays `OPTSOLVER_ARRAY_X`,
+`OPTSOLVER_ARRAY_Y`, `OPTSOLVER_ARRAY_Z`, `OPTSOLVER_ARRAY_Z_L`, `OPTSOLVER_ARRAY_Z_U`,
+`OPTSOLVER_ARRAY_S`, `OPTSOLVER_ARRAY_ROW_ACTIVITY`; certificates `OPTSOLVER_CERTIFICATE_NONE`,
+`OPTSOLVER_CERTIFICATE_FARKAS`, `OPTSOLVER_CERTIFICATE_UNBOUNDED_RAY`, arrays `OPTSOLVER_CERT_Y`,
+`OPTSOLVER_CERT_Z`, `OPTSOLVER_CERT_S`, `OPTSOLVER_CERT_RAY`; parameter types `OPTSOLVER_PARAM_INT`,
+`OPTSOLVER_PARAM_DOUBLE`, `OPTSOLVER_PARAM_STRING`. Names: `optsolver_status_name`,
+`optsolver_limit_reason_name`, `optsolver_returned_name`, `optsolver_verification_name`,
+`optsolver_cone_name`.
+
+Problem: `optsolver_problem` (fields `struct_size`, `A`, `A_row_indices_i32`, `c`, `sense`,
+`gamma`, `l`, `u`, `row_sense`, `b`, `b_l`, `b_u`, `Q`, `F`, `g`, `cones`, `num_cones`), matrices
+`optsolver_csc` (`rows`, `cols`, `col_ptrs`, `row_indices`, `values`), cones `optsolver_cone`
+(`kind`, `dim`, `exponents`, `exponents_len`). Every array is borrowed in place; `size_t` row
+indices, or `int32_t` through `A_row_indices_i32`. Options: `optsolver_options` (the Rust fields of
+the same names, NaN or `OPTSOLVER_UNSET` meaning unset, `memory_limit_gb`, and `raw` /
+`num_raw` of `optsolver_param`), filled unset by `optsolver_options_init`.
+
+Environments: `optsolver_env`, `optsolver_env_create`, `optsolver_env_free`,
+`optsolver_backend_compiled`. Solving: `optsolver_solve` (with a handle), `optsolver_solve_once`
+(creates and frees an environment), `optsolver_solve_into` (into caller arrays:
+`optsolver_buffers` of `optsolver_array`, NaN-filled first). Results: `optsolver_result`, freed
+with `optsolver_result_free`; `optsolver_result_status`, `optsolver_result_limit_reason`,
+`optsolver_result_returned`, `optsolver_result_array`, `optsolver_result_objective`,
+`optsolver_result_bound`, `optsolver_result_simplex_iterations`,
+`optsolver_result_barrier_iterations`, `optsolver_result_timings` (`optsolver_timings`),
+`optsolver_result_has_basis`, `optsolver_result_basis_variable`, `optsolver_result_basis_row`,
+`optsolver_result_certificate`, `optsolver_result_certificate_array`,
+`optsolver_result_raw_status_count`, `optsolver_result_raw_status`,
+`optsolver_result_solver_name`, `optsolver_result_solver_version`,
+`optsolver_result_attribute_count`, `optsolver_result_attribute`,
+`optsolver_result_parameter_count`, `optsolver_result_parameter` (`optsolver_value`),
+`optsolver_result_verification`, `optsolver_result_measure_count`, `optsolver_result_measure`
+(`optsolver_measure`). Capabilities: `optsolver_capabilities` (a temporary environment; a
+compiled-in backend that cannot be used reports not usable with the reason),
+`optsolver_env_capabilities`, `optsolver_caps`, `optsolver_caps_usable`, `optsolver_caps_reason`,
+`optsolver_caps_problem_classes`, `optsolver_caps_cones` (bit `1u << kind`),
+`optsolver_caps_certificates`, `optsolver_caps_basis`, `optsolver_caps_option_count`,
+`optsolver_caps_option`, `optsolver_caps_solver_name`, `optsolver_caps_solver_version`,
+`optsolver_caps_free`. Test support: `optsolver_test_panic`, `optsolver_environments_created`.
+
+Threads, ownership and panics: as the Threading section above for handles; every library-allocated
+object has one free function, freeing NULL is a no-op; every entry point contains panics silently
+(a hook installed on first use passes other panics to the previous hook).
 
 ## Low-level public items
 

@@ -14,7 +14,7 @@ adr_required:
 naming:  # constitution XIII-F, decided by the feature agent, checked at Gate 2A
   - name: capi
     denotes: the module that exports optSolver's solver-independent API as C functions (src/capi/) and the Cargo feature that compiles it
-    why: "C API" is the established term for a library's C-callable interface, and the same abbreviation the vendors use (Gurobi C API, MOSEK C API); it names what the module is, not a caller
+    why: '"C API" is the established term for a library''s C-callable interface, and the same abbreviation the vendors use (Gurobi C API, MOSEK C API); it names what the module is, not a caller'
   - name: "C interface"
     denotes: the header src/capi/optsolver.h together with the exported functions; the term used in prose
     why: descriptive (XII-A); avoids "ABI" except for the version number, which is what the version protects
@@ -58,7 +58,7 @@ components_modified:
   - id: docs.repo_folder_organisation  # Tier 1 placement document, not a component id; listed for completeness
     change: roles public C header (src/capi/), C test sources (tests/c/), incoming cross-repository requests (specs/<feature>/requests/); no project.yml change
   - id: manifest  # not a component id in components.yaml; listed for completeness
-    change: Cargo.toml crate-type lib + staticlib + cdylib; feature capi; [[test]] c_interface (harness = false, required-features = ["capi"]); no new bench target: the C-path scenarios in benches/load_solve.rs are compiled under #[cfg(feature = "capi")] and its [[bench]] entry (required-features = ["gurobi"]) is unchanged
+    change: 'Cargo.toml crate-type lib + staticlib + cdylib; feature capi; [[test]] c_interface (harness = false, required-features = ["capi"]); no new bench target: the C-path scenarios in benches/load_solve.rs are compiled under #[cfg(feature = "capi")] and its [[bench]] entry (required-features = ["gurobi"]) is unchanged'
   - id: test.standards  # not a component id in components.yaml (tests/standards.rs); listed for completeness
     change: src/capi/ admitted as an FFI module for unsafe and extern "C" definitions; drift test covers the header's names; the three Gurobi environment lifecycle functions named only in src/gurobi/env.rs (with a negative test)
 

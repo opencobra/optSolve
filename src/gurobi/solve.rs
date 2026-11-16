@@ -81,6 +81,17 @@ impl Backend for Env {
                 return Err(bad("out.row_activity", r.len(), m));
             }
         }
+        // Conic-dual buffer length k (feature 005: closes a gap; a wrong length used to panic
+        // at extraction, MOSEK already checked it).
+        let k = match problem {
+            ProblemRef::Usize(p) => p.k(),
+            ProblemRef::I32(p) => p.k(),
+        };
+        if let Some(s) = &out.s {
+            if s.len() != k {
+                return Err(bad("out.s", s.len(), k));
+            }
+        }
         for (what, buf) in [
             ("out.z_l", out.z_l.as_deref()),
             ("out.z_u", out.z_u.as_deref()),

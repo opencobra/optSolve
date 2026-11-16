@@ -1,0 +1,5 @@
+# LeakSanitizer suppressions for the licensed leak check (feature 005, task T016): allocations
+# made inside the vendor libraries, which optSolver does not own. Each line names a vendor frame.
+leak:libgurobi130.so
+leak:libmosek64.so
+leak:libtbb.so

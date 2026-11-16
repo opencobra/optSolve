@@ -340,3 +340,247 @@ pub fn self_tests() -> Vec<Trial> {
         }),
     ]
 }
+
+// ---------------------------------------------------------------------------------------------
+// Feature 005 (task T003): agreement between the C interface and the Rust API on the same
+// backend, instance and options — the rule of specs/005-c-abi/spec.md, Clarifications.
+
+/// What one path returned, in a form both paths can be reduced to.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct Observed {
+    pub status: i32,
+    pub limit_reason: i32,
+    pub returned: i32,
+    pub verification: i32,
+    /// Names of the measures whose verdict is Fail.
+    pub failed_measures: Vec<String>,
+    pub objective: Option<f64>,
+    pub bound: Option<f64>,
+    /// Arrays by name (`x`, `y`, `z`, `z_l`, `z_u`, `s`, `row_activity`, certificate arrays);
+    /// `None` when absent.
+    pub arrays: Vec<(String, Option<Vec<f64>>)>,
+    /// Effective tolerance of the row-bound measure (primal quantities).
+    pub primal_tolerance: Option<f64>,
+    /// Effective tolerance of the reduced-cost consistency measure (dual quantities).
+    pub dual_tolerance: Option<f64>,
+}
+
+/// Arrays judged against the primal tolerance; every other array against the dual one.
+const PRIMAL_ARRAYS: [&str; 3] = ["x", "row_activity", "cert_ray"];
+
+/// The fallback tolerance (Gurobi 13.0's default `FeasibilityTol` and `OptimalityTol`).
+pub const FALLBACK_TOLERANCE: f64 = 1e-6;
+
+fn within(a: f64, b: f64, tol: f64) -> bool {
+    if a == b || (a.is_nan() && b.is_nan()) {
+        return true;
+    }
+    (a - b).abs() <= 10.0 * tol * 1f64.max(b.abs())
+}
+
+/// Judges the C result `c` against the Rust result `r`: `Ok(true)` when everything agrees
+/// bit for bit, `Ok(false)` when it agrees within the bound but not bit for bit, `Err` naming
+/// the first disagreement. An "everything failed" pair (both without status) is
+/// uninterpretable, never agreement.
+pub fn agree_c_rust(c: &Observed, r: &Observed) -> Result<bool, String> {
+    if c.status == 0 || r.status == 0 {
+        return Err("uninterpretable: a path returned no status".into());
+    }
+    let same = |what: &str, a: &dyn std::fmt::Debug, b: &dyn std::fmt::Debug| {
+        let (a, b) = (format!("{a:?}"), format!("{b:?}"));
+        if a == b {
+            Ok(())
+        } else {
+            Err(format!("{what}: C {a}, Rust {b}"))
+        }
+    };
+    same("status", &c.status, &r.status)?;
+    same("limit reason", &c.limit_reason, &r.limit_reason)?;
+    same("solution returned", &c.returned, &r.returned)?;
+    same("verification", &c.verification, &r.verification)?;
+    same("failed measures", &c.failed_measures, &r.failed_measures)?;
+    let p = r.primal_tolerance.unwrap_or(FALLBACK_TOLERANCE);
+    let d = r.dual_tolerance.unwrap_or(FALLBACK_TOLERANCE);
+    let mut exact = true;
+    for (what, a, b, tol) in [
+        ("objective", c.objective, r.objective, p),
+        ("bound", c.bound, r.bound, d),
+    ] {
+        match (a, b) {
+            (None, None) => {}
+            (Some(a), Some(b)) => {
+                if !within(a, b, tol) {
+                    return Err(format!("{what}: C {a:e}, Rust {b:e} (tolerance {tol:e})"));
+                }
+                exact &= a.to_bits() == b.to_bits();
+            }
+            _ => {
+                return Err(format!(
+                    "{what}: present in one path only (C {a:?}, Rust {b:?})"
+                ));
+            }
+        }
+    }
+    for (name, rv) in &r.arrays {
+        let cv = c
+            .arrays
+            .iter()
+            .find(|(n, _)| n == name)
+            .map(|(_, v)| v.clone())
+            .ok_or_else(|| format!("array {name}: missing from the C result"))?;
+        match (&cv, rv) {
+            (None, None) => {}
+            (Some(a), Some(b)) => {
+                if a.len() != b.len() {
+                    return Err(format!(
+                        "array {name}: length C {}, Rust {}",
+                        a.len(),
+                        b.len()
+                    ));
+                }
+                let tol = if PRIMAL_ARRAYS.contains(&name.as_str()) {
+                    p
+                } else {
+                    d
+                };
+                for (i, (x, y)) in a.iter().zip(b).enumerate() {
+                    if !within(*x, *y, tol) {
+                        return Err(format!(
+                            "array {name}[{i}]: C {x:e}, Rust {y:e} (tolerance {tol:e})"
+                        ));
+                    }
+                    exact &= x.to_bits() == y.to_bits();
+                }
+            }
+            _ => {
+                return Err(format!(
+                    "array {name}: present in one path only (C {}, Rust {})",
+                    cv.is_some(),
+                    rv.is_some()
+                ));
+            }
+        }
+    }
+    Ok(exact)
+}
+
+/// Observed form of a Rust solution (arrays absent when empty, as the C interface reports).
+#[cfg(feature = "capi")]
+pub fn observe_rust(s: &Solution) -> Observed {
+    let arr = |v: &[f64]| (!v.is_empty()).then(|| v.to_vec());
+    let tol = |name: &str| {
+        s.verification.as_ref().and_then(|r| {
+            r.measures
+                .iter()
+                .find(|m| m.name == name)
+                .map(|m| m.tolerance)
+        })
+    };
+    let (cy, cz, cs, cr) = match &s.certificate {
+        Some(optsolver::Certificate::Farkas { y, z, s, .. }) => (arr(y), arr(z), arr(s), None),
+        Some(optsolver::Certificate::UnboundedRay { r }) => (None, None, None, arr(r)),
+        _ => (None, None, None, None),
+    };
+    Observed {
+        status: optsolver::capi::status_code(s.status),
+        limit_reason: optsolver::capi::limit_code(s.limit_reason),
+        returned: optsolver::capi::returned_code(s.returned),
+        verification: optsolver::capi::overall_code(s.verification.as_ref().map(|r| r.overall)),
+        failed_measures: s
+            .verification
+            .as_ref()
+            .map(|r| {
+                r.measures
+                    .iter()
+                    .filter(|m| m.verdict == optsolver::Verdict::Fail)
+                    .map(|m| m.name.to_string())
+                    .collect()
+            })
+            .unwrap_or_default(),
+        objective: s.objective,
+        bound: s.bound,
+        arrays: vec![
+            ("x".into(), arr(&s.x)),
+            ("y".into(), arr(&s.y)),
+            ("z".into(), arr(&s.z)),
+            ("z_l".into(), arr(&s.z_l)),
+            ("z_u".into(), arr(&s.z_u)),
+            ("s".into(), arr(&s.s)),
+            ("row_activity".into(), arr(&s.row_activity)),
+            ("cert_y".into(), cy),
+            ("cert_z".into(), cz),
+            ("cert_s".into(), cs),
+            ("cert_ray".into(), cr),
+        ],
+        primal_tolerance: tol(optsolver::verify::names::ROW_BOUND),
+        dual_tolerance: tol(optsolver::verify::names::REDUCED_COST),
+    }
+}
+
+/// Licence-free tests of [`agree_c_rust`] against the failures it guards (XV-C).
+pub fn agreement_self_tests() -> Vec<Trial> {
+    fn base() -> Observed {
+        Observed {
+            status: 1,
+            returned: 2,
+            verification: 1,
+            objective: Some(2.0),
+            arrays: vec![("x".into(), Some(vec![1.0, 2.0])), ("y".into(), None)],
+            primal_tolerance: Some(1e-6),
+            dual_tolerance: Some(1e-6),
+            ..Observed::default()
+        }
+    }
+    let t = |name: &'static str, f: fn() -> Result<(), Failed>| Trial::test(name, f);
+    vec![
+        t("t003::agreement_identical_is_exact", || {
+            ensure(
+                agree_c_rust(&base(), &base()) == Ok(true),
+                "identical results",
+            )
+        }),
+        t("t003::agreement_within_bound_accepted_not_exact", || {
+            let mut c = base();
+            c.arrays[0].1 = Some(vec![1.0 + 5e-6, 2.0]);
+            ensure(
+                agree_c_rust(&c, &base()) == Ok(false),
+                "within 10 tolerances",
+            )
+        }),
+        t("t003::agreement_beyond_bound_rejected", || {
+            let mut c = base();
+            c.arrays[0].1 = Some(vec![1.0 + 2e-5, 2.0]);
+            ensure(agree_c_rust(&c, &base()).is_err(), "beyond 10 tolerances")
+        }),
+        t(
+            "t003::agreement_status_limit_names_presence_rejected",
+            || {
+                for change in 0..5 {
+                    let mut c = base();
+                    match change {
+                        0 => c.status = 2,
+                        1 => c.limit_reason = 8,
+                        2 => c.failed_measures = vec!["primal-dual gap".into()],
+                        3 => c.arrays[1].1 = Some(vec![0.0]),
+                        _ => c.objective = None,
+                    }
+                    ensure(
+                        agree_c_rust(&c, &base()).is_err(),
+                        format!("change {change} accepted"),
+                    )?;
+                }
+                Ok(())
+            },
+        ),
+        t(
+            "t003::agreement_everything_failed_is_uninterpretable",
+            || {
+                let none = Observed::default();
+                ensure(
+                    agree_c_rust(&none, &none).is_err_and(|e| e.contains("uninterpretable")),
+                    "everything failed must not be agreement",
+                )
+            },
+        ),
+    ]
+}

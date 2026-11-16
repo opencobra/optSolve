@@ -2,6 +2,8 @@
 //! harness self-test (T010a). Custom harness (research R14).
 
 mod common;
+#[path = "contract/f005.rs"]
+mod f005;
 #[path = "contract/qp_conic.rs"]
 mod qp_conic;
 
@@ -86,6 +88,7 @@ fn main() {
     trials.extend(us2_trials(&_registry));
     // Feature 002: QP and conic contract (T003, T004).
     trials.extend(qp_conic::trials());
+    trials.extend(f005::trials(&_registry));
     libtest_mimic::run(&args, trials).exit();
 }
 

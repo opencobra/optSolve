@@ -26,6 +26,12 @@ pub mod gurobi;
 #[cfg(feature = "mosek")]
 pub mod mosek;
 
+// The Rust side of the C interface (feature 005, ADR-0004). Hidden: the stable interface is the C
+// header `src/capi/optsolver.h`; this path exists for tests and benchmarks and may change.
+#[cfg(feature = "capi")]
+#[doc(hidden)]
+pub mod capi;
+
 pub use backend::{Backend, Capabilities, OptionMapping, ProblemClass, ProblemRef};
 pub use conic::{Cone, ConeKind, ConicRef};
 pub use error::Error;

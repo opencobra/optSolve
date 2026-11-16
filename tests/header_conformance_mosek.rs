@@ -18,22 +18,11 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::{env, fs};
 
+#[path = "common/ccompiler.rs"]
+mod ccompiler;
+
 fn manifest_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-}
-
-fn host_triple() -> &'static str {
-    if cfg!(all(target_arch = "x86_64", target_os = "linux")) {
-        "x86_64-unknown-linux-gnu"
-    } else if cfg!(all(target_arch = "aarch64", target_os = "linux")) {
-        "aarch64-unknown-linux-gnu"
-    } else if cfg!(all(target_arch = "aarch64", target_os = "macos")) {
-        "aarch64-apple-darwin"
-    } else if cfg!(all(target_arch = "x86_64", target_os = "macos")) {
-        "x86_64-apple-darwin"
-    } else {
-        panic!("header conformance test: unsupported host target")
-    }
 }
 
 #[test]
@@ -52,28 +41,7 @@ fn ffi_declarations_match_installed_header() {
     let source = manifest_dir().join("tests/header_conformance_mosek.c");
     let out_dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("header_conformance_mosek");
     fs::create_dir_all(&out_dir).expect("create temporary directory under target/");
-    let triple = host_triple();
-    let compiler = cc::Build::new()
-        .cargo_metadata(false)
-        .cargo_output(false)
-        .cargo_warnings(false)
-        .emit_rerun_if_env_changed(false)
-        .target(triple)
-        .host(triple)
-        .opt_level(0)
-        .debug(false)
-        .out_dir(&out_dir)
-        .try_get_compiler()
-        .expect("a C compiler found by the cc crate");
-    let mut cmd = compiler.to_command();
-    cmd.arg("-fsyntax-only")
-        .arg("-std=c11")
-        .arg("-Werror=incompatible-pointer-types")
-        .arg("-Werror")
-        .arg("-I")
-        .arg(&include)
-        .arg(&source)
-        .current_dir(&out_dir);
+    let mut cmd = ccompiler::syntax_only(&out_dir, &include, &source);
     let output = cmd.output().expect("run the C compiler");
     assert!(
         output.status.success(),

@@ -92,7 +92,8 @@ NaN writes on the caller-buffer path only; no printing (III)
   (VII-F). Exported symbols use `#[unsafe(no_mangle)]` (edition 2024).
 - **Independence and additive features** (VIII): no RunMat dependency (the consumer links us);
   `capi` is additive and changes no Rust behaviour; the core builds and tests with no vendor
-  software; feature combinations `capi`, `capi,gurobi`, `capi,mosek`, `capi,gurobi,mosek` checked.
+  software; all eight feature combinations (`""`, `gurobi`, `mosek`, `gurobi,mosek`, and each with
+  `capi`) checked (tasks, T021; corrected at closeout).
 - **Testing and behavioural evidence** (II): the C toy comparison is one trial per toy instance ×
   backend, generated from the shared harness (`tests/common/toy.rs`, `compare.rs`) and run
   unchanged on every backend supporting the instance; fixtures are the feature-003 toy instances
@@ -139,7 +140,8 @@ NaN writes on the caller-buffer path only; no printing (III)
   (earlier decision searched: the BACKENDS list in `tests/standards.rs`, constitution VII-A
   "confined to FFI modules" — admitted, not reversed).
 - **Notation** (XII-C): C field names use the inventory symbols (`A`, `c`, `l`, `u`, `b`, `b_l`,
-  `b_u`, `Q`, `F`, `g`, `x`, `y`, `z`, `z_l`, `z_u`, `s`, `gamma`, `m`, `n`, `k`) or descriptive
+  `b_u`, `Q`, `F`, `g`, `x`, `y`, `z`, `z_l`, `z_u`, `s`, `gamma`; matrix dimensions are the
+  descriptive fields `rows`, `cols` — corrected at closeout) or descriptive
   names; no new symbol. Two objects the Rust API already names by letters outside the inventory —
   the power-cone exponents (`alpha`, features 002–003) and the unbounded ray (`r`, feature 001) —
   are named descriptively in C (`exponents`, `OPTSOLVER_CERT_RAY`), so the C interface freezes no
@@ -288,6 +290,8 @@ tests/common/cdata.rs         # new: toy-instance writer, C-result reader (share
 tests/common/compare.rs       # C-versus-Rust agreement rule (new function)
 tests/common/ccompiler.rs     # new: compiler discovery, extracted
 tests/header_conformance.rs, tests/header_conformance_mosek.rs  # use ccompiler.rs
+tests/contract.rs, tests/contract/f005.rs  # licensed Rust-API trials (added to this list at closeout)
+tests/common/mod.rs           # registers the new shared modules (added at closeout)
 tests/standards.rs            # src/capi/ admitted as FFI module; header names in drift test;
                               # Gurobi lifecycle calls only in src/gurobi/env.rs (with negative test)
 benches/load_solve.rs         # C-path scenarios: heap and wall-time criteria (SC-002, SC-003)

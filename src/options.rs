@@ -116,6 +116,11 @@ pub struct Options<'cb> {
     pub array_outputs: Option<bool>,
     /// Run independent verification (default [`defaults::VERIFICATION`]).
     pub verification: Option<bool>,
+    /// Memory limit in gigabytes (10⁹ bytes). Gurobi: `SoftMemLimit` (the solve stops with
+    /// [`crate::Status::StoppedAtLimit`] and [`crate::LimitReason::Memory`]; the limit is checked
+    /// only where Gurobi can stop gracefully, so use may exceed it between checks). MOSEK: not
+    /// supported (MOSEK 11.2 has no memory limit), so setting it is [`crate::Error::Unsupported`].
+    pub memory_limit_gb: Option<f64>,
     /// Raw vendor parameters: (vendor name, value).
     pub raw: Vec<(String, ParamValue)>,
     /// Setting this flag interrupts the solve.
@@ -145,6 +150,7 @@ impl std::fmt::Debug for Options<'_> {
             .field("certificates", &self.certificates)
             .field("array_outputs", &self.array_outputs)
             .field("verification", &self.verification)
+            .field("memory_limit_gb", &self.memory_limit_gb)
             .field("raw", &self.raw)
             .field("cancel", &self.cancel.is_some())
             .field("progress", &self.progress.is_some())
@@ -198,6 +204,9 @@ impl Options<'_> {
         }
         if self.certificates {
             v.push("certificates");
+        }
+        if self.memory_limit_gb.is_some() {
+            v.push("memory_limit_gb");
         }
         if self.cancel.is_some() {
             v.push("cancel");

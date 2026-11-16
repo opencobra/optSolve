@@ -9,9 +9,17 @@
 //!   peak resident memory (`VmHWM`) and Gurobi's `MaxMemUsed` (cross-check, research R8).
 //!
 //! Every scenario runs for each compiled backend (feature 002, task T036: MOSEK with
-//! `--features gurobi,mosek`). Records go to `results/002-mosek-lp-qp-clp/runs/<UTC>-bench/` as
+//! `--features gurobi,mosek`). Records go to the active feature's run directory (the generated
+//! output home declared in `project.yml` plus the feature named in `.specify/feature.json`) as
 //! JSON lines, and a summary evaluating SC-004 and SC-005 per solver is printed. Run:
 //! `cargo bench --features gurobi,mosek`.
+//!
+//! Feature 005 (task T017): with `--features capi` and `OPTSOLVER_BENCH_SUITE=capi`, the C-path
+//! suite instead compares a solve through the C interface (`optsolver::capi`, in process, so
+//! `dhat` measures it) with the same solve through the Rust API on `iDopaNeuroC_problem_LP`: the
+//! heap criterion (SC-002) in a process per scenario, N = 3, with the allocation-count difference
+//! as positive control, and the wall-time criterion (SC-003), N = 5 warm runs after one cold run,
+//! environment creation timed separately.
 
 #![allow(missing_docs, non_snake_case, unused_imports)]
 
@@ -227,6 +235,34 @@ impl Record {
             profile: field("profile"),
         }
     }
+}
+
+/// The run bundle directory: `structure.generated` of `project.yml`, the active feature (from
+/// `.specify/feature.json`), `runs/<stamp>-bench` (constitution IX-C, IX-E, IX-F).
+fn run_dir(stamp: &str) -> std::path::PathBuf {
+    let root = common::fixtures::repo_root();
+    let yml = std::fs::read_to_string(common::fixtures::project_yml()).expect("project.yml");
+    let generated = yml
+        .lines()
+        .find_map(|l| {
+            l.trim()
+                .strip_prefix("generated:")
+                .map(|v| v.trim().to_string())
+        })
+        .expect("structure.generated in project.yml");
+    let feature_json =
+        std::fs::read_to_string(root.join(".specify/feature.json")).expect("feature.json");
+    let feature = feature_json
+        .split('"')
+        .skip_while(|s| *s != "feature_directory")
+        .nth(2)
+        .and_then(|d| d.rsplit('/').next())
+        .expect("feature_directory in .specify/feature.json")
+        .to_string();
+    root.join(generated)
+        .join(feature)
+        .join("runs")
+        .join(format!("{stamp}-bench"))
 }
 
 fn median_and_spread(v: &[f64]) -> (f64, f64, f64) {
@@ -603,7 +639,296 @@ fn record_writer_self_test() {
     );
 }
 
+#[cfg(feature = "capi")]
+mod capi_suite {
+    //! Feature 005, task T017: C path versus Rust path (see the crate documentation above).
+    use super::*;
+    use optsolver::capi::{
+        CEnv, CPathLp, OPTSOLVER_BACKEND_GUROBI, OPTSOLVER_BACKEND_MOSEK,
+        OPTSOLVER_METHOD_DUAL_SIMPLEX, solve_lp_through_c,
+    };
+
+    pub const ENV: &str = "OPTSOLVER_BENCH_CAPI_CHILD";
+    const INSTANCE: &str = "iDopaNeuroC_problem_LP";
+
+    fn code(solver: &str) -> i32 {
+        if solver == "mosek" {
+            OPTSOLVER_BACKEND_MOSEK
+        } else {
+            OPTSOLVER_BACKEND_GUROBI
+        }
+    }
+
+    /// One child: "<solver>|<path>|<kind>" with path rust, c (owned) or cbuf (caller buffers) and
+    /// kind mem or time. Prints one line "key=value;...".
+    pub fn child(spec: &str) -> Result<String, String> {
+        let mut it = spec.split('|');
+        let (solver, path, kind) = (
+            it.next().unwrap_or(""),
+            it.next().unwrap_or(""),
+            it.next().unwrap_or(""),
+        );
+        let f = common::fixtures::load_corpus_fixture(INSTANCE)?;
+        let mp = &f.problem;
+        let c = common::objectives::seeded_objective(f.provenance.seeds()?[0], mp.n);
+        let (b_l, b_u) = mp.row_ranges();
+        let rust_env = Solver::new(solver)?;
+        let c_env = CEnv::new(code(solver))?;
+        let lp = CPathLp {
+            m: mp.m,
+            n: mp.n,
+            A_col_ptrs: &mp.col_ptrs,
+            A_row_indices: &mp.row_indices,
+            A_values: &mp.values,
+            c: &c,
+            l: &mp.l,
+            u: &mp.u,
+            b_l: &b_l,
+            b_u: &b_u,
+            sense: mp.objective_sense,
+        };
+        let (mut x, mut y, mut z, mut act) = (
+            vec![0.0; mp.n],
+            vec![0.0; mp.m],
+            vec![0.0; mp.n],
+            vec![0.0; mp.m],
+        );
+        // One solve on the chosen path; returns (status ok, [load, solve, extraction]).
+        let mut once = |path: &str| -> Result<[f64; 3], String> {
+            match path {
+                "rust" => {
+                    let A = CscRef::new(mp.m, mp.n, &mp.col_ptrs, &mp.row_indices, &mp.values)
+                        .map_err(|e| e.to_string())?;
+                    let rows = RowBounds::Ranges {
+                        b_l: &b_l,
+                        b_u: &b_u,
+                    };
+                    let p = Problem::new(A, &c, mp.objective_sense, rows, &mp.l, &mp.u)
+                        .map_err(|e| e.to_string())?;
+                    let mut o = Options::default();
+                    o.threads = Some(1);
+                    o.method = Some(Method::DualSimplex);
+                    let s = rust_env
+                        .backend()
+                        .solve((&p).into(), &mut o)
+                        .map_err(|e| e.to_string())?;
+                    // Read every array, as the C path's accessors do.
+                    let n = s.x.len()
+                        + s.y.len()
+                        + s.z.len()
+                        + s.z_l.len()
+                        + s.z_u.len()
+                        + s.s.len()
+                        + s.row_activity.len();
+                    std::hint::black_box(n);
+                    if s.status != optsolver::Status::Optimal {
+                        return Err(format!("status {:?}", s.status));
+                    }
+                    Ok([s.timings.load, s.timings.solve, s.timings.extraction])
+                }
+                "c" | "cbuf" => {
+                    let bufs = (path == "cbuf").then_some((
+                        &mut x[..],
+                        &mut y[..],
+                        &mut z[..],
+                        &mut act[..],
+                    ));
+                    let o =
+                        solve_lp_through_c(&c_env, &lp, 1, OPTSOLVER_METHOD_DUAL_SIMPLEX, bufs)?;
+                    if o.status != 1 {
+                        return Err(format!("status code {}", o.status));
+                    }
+                    Ok([o.timings.load, o.timings.solve, o.timings.extraction])
+                }
+                other => Err(format!("unknown path {other}")),
+            }
+        };
+        match kind {
+            "mem" => {
+                let _profiler = dhat::Profiler::builder().testing().build();
+                let before = dhat::HeapStats::get();
+                once(path)?;
+                let after = dhat::HeapStats::get();
+                Ok(format!(
+                    "peak_bytes={};blocks={}",
+                    after.max_bytes.saturating_sub(before.curr_bytes),
+                    after.total_blocks - before.total_blocks
+                ))
+            }
+            "time" => {
+                // The Rust and C paths alternate in this one process (path "both"), so drift of
+                // the machine between processes does not enter the comparison.
+                let t = Instant::now();
+                let _e = Solver::new(solver)?;
+                let env_s = t.elapsed().as_secs_f64();
+                let mut walls: [Vec<f64>; 2] = [Vec::new(), Vec::new()];
+                let mut phases: [Vec<[f64; 3]>; 2] = [Vec::new(), Vec::new()];
+                for _ in 0..=N_REPETITIONS {
+                    for (k, p) in ["rust", "c"].iter().enumerate() {
+                        let t = Instant::now();
+                        let ph = once(p)?;
+                        walls[k].push(t.elapsed().as_secs_f64());
+                        phases[k].push(ph);
+                    }
+                }
+                let fmt = |v: &[f64]| {
+                    v.iter()
+                        .map(|x| format!("{x:e}"))
+                        .collect::<Vec<_>>()
+                        .join(",")
+                };
+                let mut out = format!("env_creation={env_s:e}");
+                for (k, p) in ["rust", "c"].iter().enumerate() {
+                    out += &format!(
+                        ";{p}_cold={:e};{p}_warm={};{p}_load={};{p}_solve={};{p}_extraction={}",
+                        walls[k][0],
+                        fmt(&walls[k][1..]),
+                        fmt(&phases[k][1..].iter().map(|x| x[0]).collect::<Vec<_>>()),
+                        fmt(&phases[k][1..].iter().map(|x| x[1]).collect::<Vec<_>>()),
+                        fmt(&phases[k][1..].iter().map(|x| x[2]).collect::<Vec<_>>())
+                    );
+                }
+                Ok(out)
+            }
+            other => Err(format!("unknown kind {other}")),
+        }
+    }
+
+    fn field(line: &str, key: &str) -> Vec<f64> {
+        let data = line.rsplit('|').next().unwrap_or("");
+        data.split(';')
+            .find_map(|kv| kv.strip_prefix(&format!("{key}=")))
+            .map(|v| v.split(',').filter_map(|x| x.parse().ok()).collect())
+            .unwrap_or_default()
+    }
+
+    pub fn main() {
+        let exe = std::env::current_exe().expect("benchmark executable");
+        let stamp = {
+            let out = Command::new("date")
+                .args(["-u", "+%Y%m%dT%H%M%SZ"])
+                .output()
+                .expect("date");
+            String::from_utf8_lossy(&out.stdout).trim().to_string()
+        };
+        let dir = run_dir(&format!("{stamp}-capi"));
+        std::fs::create_dir_all(&dir).expect("run bundle directory");
+        let run = |spec: String| -> String {
+            let out = Command::new(&exe)
+                .env(ENV, &spec)
+                .output()
+                .expect("child process");
+            assert!(
+                out.status.success(),
+                "child {spec} failed: {}",
+                String::from_utf8_lossy(&out.stderr)
+            );
+            let line = String::from_utf8_lossy(&out.stdout)
+                .lines()
+                .last()
+                .unwrap_or("")
+                .to_string();
+            format!("{spec}|{line}")
+        };
+        let mut lines = Vec::new();
+        let mut summary = format!(
+            "# C path versus Rust path (feature 005, SC-002, SC-003)\n\nInstance {INSTANCE} (seeded objective, seed 1, ranges form, one thread, dual simplex); commit {}; machine {}; profile {}\n\n",
+            commit(),
+            machine(),
+            profile()
+        );
+        for solver in solvers() {
+            let mut peak = std::collections::BTreeMap::new();
+            let mut blocks = std::collections::BTreeMap::new();
+            for path in ["rust", "c", "cbuf"] {
+                for _ in 0..3 {
+                    let l = run(format!("{solver}|{path}|mem"));
+                    peak.entry(path)
+                        .or_insert_with(Vec::new)
+                        .extend(field(&l, "peak_bytes"));
+                    blocks
+                        .entry(path)
+                        .or_insert_with(Vec::new)
+                        .extend(field(&l, "blocks"));
+                    lines.push(l);
+                }
+            }
+            let l = run(format!("{solver}|both|time"));
+            let mut wall = std::collections::BTreeMap::new();
+            for path in ["rust", "c"] {
+                wall.insert(
+                    path,
+                    (
+                        field(&l, &format!("{path}_warm")),
+                        field(&l, &format!("{path}_cold")),
+                        field(&l, "env_creation"),
+                        field(&l, &format!("{path}_load")),
+                        field(&l, &format!("{path}_solve")),
+                        field(&l, &format!("{path}_extraction")),
+                    ),
+                );
+            }
+            lines.push(l);
+            let (rp, _, _) = median_and_spread(&peak["rust"]);
+            let mut s = format!("## {solver}\n\n");
+            for path in ["c", "cbuf"] {
+                let (cp, clo, chi) = median_and_spread(&peak[path]);
+                let (rb, cb) = (
+                    median_and_spread(&blocks["rust"]).0,
+                    median_and_spread(&blocks[path]).0,
+                );
+                s += &format!(
+                    "- SC-002 heap peak ({path}): C {cp:.0} B (min {clo:.0}, max {chi:.0}, N = 3) vs Rust {rp:.0} B (N = 3): difference {:.0} B, limit 4096 B → {}; allocation count C {cb:.0} vs Rust {rb:.0} (positive control: the C path ran)\n",
+                    cp - rp,
+                    if cp - rp <= 4096.0 { "PASS" } else { "FAIL" }
+                );
+            }
+            let (rw, rlo, rhi) = median_and_spread(&wall["rust"].0);
+            let (cw, clo, chi) = median_and_spread(&wall["c"].0);
+            let limit = (0.01 * rw).max(1e-3);
+            s += &format!(
+                "- SC-003 warm wall time per solve call: C {cw:.4e} s (min {clo:.4e}, max {chi:.4e}) vs Rust {rw:.4e} s (min {rlo:.4e}, max {rhi:.4e}), N = 5 each, alternating in one process; difference {:.3e} s, limit max(1 %, 1 ms) = {limit:.3e} s → {}\n",
+                cw - rw,
+                if cw - rw <= limit { "PASS" } else { "FAIL" }
+            );
+            for path in ["rust", "c"] {
+                let w = &wall[path];
+                s += &format!(
+                    "- {path}: environment creation {:.4e} s (N = 1), cold call {:.4e} s (N = 1); warm per-phase medians load {:.4e} s, solve {:.4e} s, extraction {:.4e} s (N = 5)\n",
+                    w.2.first().copied().unwrap_or(f64::NAN),
+                    w.1.first().copied().unwrap_or(f64::NAN),
+                    median_and_spread(&w.3).0,
+                    median_and_spread(&w.4).0,
+                    median_and_spread(&w.5).0
+                );
+            }
+            summary += &s;
+            summary += "\n";
+        }
+        std::fs::write(dir.join("records.txt"), lines.join("\n") + "\n").expect("records");
+        std::fs::write(dir.join("summary.md"), &summary).expect("summary");
+        println!("{summary}");
+    }
+}
+
 fn main() {
+    #[cfg(feature = "capi")]
+    {
+        if let Ok(spec) = std::env::var(capi_suite::ENV) {
+            match capi_suite::child(&spec) {
+                Ok(line) => println!("{line}"),
+                Err(e) => {
+                    eprintln!("benchmark child {spec} failed: {e}");
+                    std::process::exit(1);
+                }
+            }
+            return;
+        }
+        if std::env::var("OPTSOLVER_BENCH_SUITE").is_ok_and(|v| v == "capi") {
+            capi_suite::main();
+            return;
+        }
+    }
     if let Ok(spec) = std::env::var(CHILD_ENV) {
         match child(&spec) {
             Ok(r) => println!("{}", r.to_json()),
@@ -626,9 +951,7 @@ fn main() {
             .expect("date");
         String::from_utf8_lossy(&out.stdout).trim().to_string()
     };
-    let dir = common::fixtures::repo_root()
-        .join("results/003-llm-interface-toy-instances/runs")
-        .join(format!("{stamp}-bench"));
+    let dir = run_dir(&stamp);
     std::fs::create_dir_all(&dir).expect("run bundle directory");
     let exe = std::env::current_exe().expect("benchmark executable");
     let mut lines = Vec::new();

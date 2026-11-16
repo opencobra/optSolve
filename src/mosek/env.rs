@@ -3,7 +3,8 @@
 //!
 //! [`Env`] owns one `MSKenv_t`, checks a licence out at creation (`MSK_checkoutlicense`, so a
 //! missing licence is reported by [`Env::new`] rather than at the first optimisation) and
-//! deletes the environment in `Drop`. It is neither `Send` nor `Sync` (constitution VII-B).
+//! deletes the environment in `Drop`. It is `Send` but not `Sync` (feature 005 research R3;
+//! history at the end of the file).
 //! A [`Task`] is created and deleted inside each solve and borrows the environment, so it
 //! cannot outlive it. No solver parameter is set here (constitution VII-G).
 
@@ -16,12 +17,22 @@ use crate::error::{Error, Result};
 
 /// An owned MOSEK environment with a licence checked out.
 ///
-/// Holding a raw pointer makes `Env` `!Send` and `!Sync`; no `unsafe impl` of either exists.
+/// `Send`, not `Sync` (see the `unsafe impl Send` below).
 #[derive(Debug)]
 pub struct Env {
     raw: NonNull<ffi::MSKenv>,
     version: (i32, i32, i32),
 }
+
+// SAFETY: (constitution VII-B, feature 005 research R3) MOSEK 11.2 C API manual §10.3: "Sharing a
+// task between threads is safe, as long as it is not accessed from more than one thread at a time.
+// Multiple tasks can be created and used in parallel without any problems"; §10.6: "Calling
+// MSK_optimize from different threads using the same MOSEK environment only consumes one license
+// token". The environment may therefore be used from a thread other than its creator. Not `Sync`:
+// the crate's solves take `&Env` without further synchronisation, and concurrent use of one
+// environment is not needed. Concurrent creation and deletion of different environments is not
+// documented either way (unverified).
+unsafe impl Send for Env {}
 
 /// Version of the MOSEK library loaded at run time (`MSK_getversion`; constitution VII-E).
 pub(crate) fn library_version() -> (i32, i32, i32) {
@@ -208,6 +219,12 @@ mod tests {
     use super::*;
 
     #[test]
+    fn env_is_send() {
+        fn assert_send<T: Send>() {}
+        assert_send::<Env>();
+    }
+
+    #[test]
     fn library_version_matches_declared_major_minor() {
         let (major, minor, _) = library_version();
         let declared = env!("OPTSOLVER_MOSEK_DECLARED_VERSION");
@@ -238,3 +255,8 @@ mod tests {
         }
     }
 }
+
+// History
+//
+// Feature 002 research R2 kept `Env` neither `Send` nor `Sync`, as for Gurobi, pending a vendor
+// check; feature 005 (research R3) made that check and made `Env` `Send`.

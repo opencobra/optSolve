@@ -18,11 +18,11 @@ harness). Each story phase then carries its own independent test and needs only 
 
 ## Phase 1: Setup
 
-- [ ] T001 `Cargo.toml`: `[lib] crate-type = ["lib", "staticlib", "cdylib"]`; feature `capi = []`;
+- [x] T001 `Cargo.toml`: `[lib] crate-type = ["lib", "staticlib", "cdylib"]`; feature `capi = []`;
   `[[test]] name = "c_interface", harness = false, required-features = ["capi"]`; no new bench
   target (research R4, R7). Check: `cargo test --features capi --no-run` produces
   `liboptsolver.a` and `liboptsolver.so` (recorded in the run log) before any C test relies on them.
-- [ ] T002 `src/lib.rs`: `#[cfg(feature = "capi")] #[doc(hidden)] pub mod capi;` with an initial
+- [x] T002 `src/lib.rs`: `#[cfg(feature = "capi")] #[doc(hidden)] pub mod capi;` with an initial
   `src/capi/mod.rs` (research R6).
   `tests/standards.rs`: admit `src/capi/` as an FFI module (definitions only, no extern blocks) and
   extend the interface-document drift test to the header's `optsolver_`/`OPTSOLVER_` names; both
@@ -35,7 +35,7 @@ harness). Each story phase then carries its own independent test and needs only 
 
 ## Phase 2: Foundational (blocks every story; each task with its tests)
 
-- [ ] T003 Shared C test harness (owner: test harness). `tests/common/ccompiler.rs` extracted
+- [x] T003 Shared C test harness (owner: test harness). `tests/common/ccompiler.rs` extracted
   from tests/header_conformance.rs:20-75 and tests/header_conformance_mosek.rs:21-66; both header
   tests migrate and still pass. `tests/common/cdata.rs`: problem-file writer for toy instances and
   the iDopaNeuroC LP, result-file reader, compile-and-run of a `tests/c/` program against the
@@ -51,7 +51,7 @@ harness). Each story phase then carries its own independent test and needs only 
   case is reported as uninterpretable (XV-C, A Guard Is Tested Against The Failure It Guards). The driver runner asserts empty standard output and
   error on every run, and a runner self-test with a C program writing to both streams shows the
   assertion rejects it (XV-C, A Guard Is Tested Against The Failure It Guards).
-- [ ] T004 Header `src/capi/optsolver.h` per contracts/c-interface.md (types with `rows`/`cols`,
+- [x] T004 Header `src/capi/optsolver.h` per contracts/c-interface.md (types with `rows`/`cols`,
   constants, prototypes, ownership, thread and aliasing rules, version rule, panic-profile and
   panic-hook notes, MOSEK creation and freeing unverified, link-flag pointer) together with its
   agreement test in `tests/c_interface.rs`: `tests/c/layout.c` prints `sizeof`/`offsetof` of every
@@ -59,7 +59,7 @@ harness). Each story phase then carries its own independent test and needs only 
   the header's names added to `docs/llm-interface.md` (reference list);
   prototypes parsed from the header compared with the `src/capi/` definitions through one type
   table; the test shown to fail on an altered copy of the header (FR-013).
-- [ ] T011 (foundational; placed here so that every licensed trial runs with the lock) `src/gurobi/env.rs`: private token `Lifecycle` created only by
+- [x] T011 (foundational; placed here so that every licensed trial runs with the lock) `src/gurobi/env.rs`: private token `Lifecycle` created only by
   `pub(crate) fn lifecycle<T>(f: impl FnOnce(&Lifecycle) -> T) -> T` (one process-wide
   `static Mutex<()>`, poison recovered with `into_inner`); `empty`, `start`, new `free` take
   `&Lifecycle`; `Env::new` one `lifecycle` call (free on failure with the same token); `Drop` one
@@ -72,7 +72,7 @@ harness). Each story phase then carries its own independent test and needs only 
   freeing Gurobi environments twenty times concurrently, each solve's verification verdict
   checked; environments created on one thread, used
   and freed on another) (FR-008; VII-B, Every Native Handle Is Owned; evidence for that run only).
-- [ ] T005 `src/capi/mod.rs` with its tests: constants (`pub const`), error codes, per-thread last
+- [x] T005 `src/capi/mod.rs` with its tests: constants (`pub const`), error codes, per-thread last
   error, `guard` (catch_unwind, thread-local in-entry flag, `Error` → code), the silent wrapping
   panic hook (research R4), `optsolver_abi_version`, `optsolver_last_error_message`
   (caller-owned copy) and `optsolver_string_free`, `optsolver_last_error_solver_code`, the name
@@ -86,7 +86,7 @@ harness). Each story phase then carries its own independent test and needs only 
   installed hook; `optsolver_test_panic` returns INTERNAL with a message and writes nothing; two
   threads failing with different errors (one a solver error from a fake backend error value) each
   read back their own message and vendor code (FR-010).
-- [ ] T006 `src/options.rs`: `memory_limit_gb: Option<f64>` (in `set_shared_fields`, `Debug`,
+- [x] T006 `src/options.rs`: `memory_limit_gb: Option<f64>` (in `set_shared_fields`, `Debug`,
   per-backend documentation, named in `docs/llm-interface.md`; unit test), needed by the C options mapping. `src/capi/problem.rs`
   with its tests: `optsolver_options_init`; C problem →
   `Problem` (both index widths, both row forms, Q, F/g/cones with `exponents`), C options →
@@ -100,7 +100,7 @@ harness). Each story phase then carries its own independent test and needs only 
   cone-kind, method, presolve and parameter-type codes, `struct_size` too small, truncated
   options accepted with the rest unset (FR-020), `cols + 1` and nnz overflow, `threads` above
   `u32::MAX`, `random_seed` outside `int32_t`, exponential-cone `dim` not 3 or 0, non-UTF-8 parameter name, non-UTF-8 string value.
-- [ ] T007 `src/capi/env.rs` with its tests: `optsolver_env_create`, `optsolver_env_free`,
+- [x] T007 `src/capi/env.rs` with its tests: `optsolver_env_create`, `optsolver_env_free`,
   `optsolver_backend_compiled`, `optsolver_capabilities`, `optsolver_env_capabilities`,
   `optsolver_caps_*`, `optsolver_caps_free`; usability from `Env::new`. Tests: not-compiled backend
   → UNSUPPORTED (unlicensed); licensed: capabilities from C equal the Rust `Capabilities`
@@ -109,7 +109,7 @@ harness). Each story phase then carries its own independent test and needs only 
   pointing at a nonexistent file reports not usable with the vendor's message as the reason and
   `optsolver_env_create` fails with OPTSOLVER_ERR_SOLVER (if the vendor library does not honour
   the variable reliably, the behaviour is recorded as unverified).
-- [ ] T008 `src/capi/result.rs` with its tests: `optsolver_solve`, `optsolver_solve_once`,
+- [x] T008 `src/capi/result.rs` with its tests: `optsolver_solve`, `optsolver_solve_once`,
   `optsolver_solve_into` (NaN fill, lengths to `SolutionBuffers`), every `optsolver_result_*`
   accessor (names converted lazily), `optsolver_result_free`; and a `#[doc(hidden)]` safe helper
   in `src/capi/` that builds the C structures from Rust slices and calls the entry points, so the
@@ -128,13 +128,13 @@ harness). Each story phase then carries its own independent test and needs only 
   (FR-010); one trial setting every option field through C (except `memory_limit_gb`, whose C path is
   covered by T013 and T014) with the effective parameters equal to the Rust API's for the same
   options, and one solve with verification switched off reporting OPTSOLVER_VERIFICATION_NOT_RUN.
-- [ ] T009 `src/gurobi/solve.rs`: `solve_into` checks the conic-dual buffer length against k, as
+- [x] T009 `src/gurobi/solve.rs`: `solve_into` checks the conic-dual buffer length against k, as
   MOSEK does; licensed test in `tests/contract.rs` (written once, every backend): a wrong-length `s`
   is `Error::Invalid` naming `out.s`, no panic.
 
 ## Phase 3: User Story 1 — LP and QP from C (P1)
 
-- [ ] T010 [US1] Toy comparison trials in `tests/c_interface.rs`, written once over the shared
+- [x] T010 [US1] Toy comparison trials in `tests/c_interface.rs`, written once over the shared
   registry: every LP and QP toy instance × backend supporting it × {owned, buffers} × {sense and
   right-hand side, ranges} × {`size_t`, `int32` row indices}, through `tests/c/driver.c` linked to
   the static and to the shared library, compared with the Rust API by the comparison rule under the
@@ -150,7 +150,7 @@ harness). Each story phase then carries its own independent test and needs only 
 
 The lock and `Send` change this story relies on is T011 (foundational).
 
-- [ ] T012 [US2] Reuse and thread trials in `tests/c_interface.rs`: the driver solves twenty
+- [x] T012 [US2] Reuse and thread trials in `tests/c_interface.rs`: the driver solves twenty
   problems through one handle (every toy instance the backend supports, repeated in order until
   twenty; the count per backend recorded) and the same problems one-shot; `optsolver_environments_created`
   increases by one for the handle sequence; results agree by the comparison rule; wall time of the
@@ -160,14 +160,14 @@ The lock and `Send` change this story relies on is T011 (foundational).
 
 ## Phase 5: User Story 3 — memory limit (P2)
 
-- [ ] T013 [US3] `src/gurobi/params.rs`: `MAPPINGS` entry and `apply` → `SoftMemLimit` (the
+- [x] T013 [US3] `src/gurobi/params.rs`: `MAPPINGS` entry and `apply` → `SoftMemLimit` (the
   option itself is added in T006). Tests: unit — mapping; licensed, in `tests/contract.rs`: value read
   back from the model, raw `SoftMemLimit` with the option → `ParameterConflict`, raw `MemLimit`
   with it accepted; MOSEK → `Unsupported { field: "memory_limit_gb", backend: "mosek" }` before
   any solver call (meaning: no vendor optimisation or model call; the option check runs before
   the model is loaded, whether or not an environment already exists); each licensed solve asserts
   its verification verdict.
-- [ ] T014 [US3] Memory-limit trials (SC-005): Gurobi, `iDopaNeuroC_problem_LP`, one thread,
+- [x] T014 [US3] Memory-limit trials (SC-005): Gurobi, `iDopaNeuroC_problem_LP`, one thread,
   `memory_limit_gb` = 1e-6, N = 3, through the Rust API (`tests/contract.rs`) and the C driver
   (`tests/c_interface.rs`) → `StoppedAtLimit`/`Memory` with `SoftMemLimit` in the effective
   parameters; without the limit → Optimal with verdict Verified; MOSEK through C → UNSUPPORTED naming the field. If
@@ -175,14 +175,14 @@ The lock and `Send` change this story relies on is T011 (foundational).
 
 ## Phase 6: User Story 4 — conic from C (P2)
 
-- [ ] T015 [US4] Conic toy comparison trials in `tests/c_interface.rs`: every conic toy instance ×
+- [x] T015 [US4] Conic toy comparison trials in `tests/c_interface.rs`: every conic toy instance ×
   backend supporting its cone kinds × {owned, buffers}, conic duals included, by the comparison
   rule; an unsupported cone kind → UNSUPPORTED naming it before any solver call (SC-001,
   acceptance scenarios 1 and 2).
 
 ## Phase 7: User Story 5 — errors, ownership, versioning (P1)
 
-- [ ] T016 [US5] `tests/c/errors.c` and its trials (unlicensed): version equals header macros;
+- [x] T016 [US5] `tests/c/errors.c` and its trials (unlicensed): version equals header macros;
   every C-layer failing input of T006 from C; every Rust-API invalid input a C caller can express —
   each `expect_invalid` case of `tests/contract.rs` mapped to a C call, or recorded as not
   expressible from C with the reason — returns INVALID (or TOO_LARGE) with a message naming the
@@ -209,7 +209,7 @@ The lock and `Send` change this story relies on is T011 (foundational).
 
 ## Phase 8: Benchmarks and link demonstration
 
-- [ ] T017 `benches/load_solve.rs`: C-path scenarios under `#[cfg(feature = "capi")]` through
+- [x] T017 `benches/load_solve.rs`: C-path scenarios under `#[cfg(feature = "capi")]` through
   the safe helper of T008 (no `unsafe` in the bench), measuring the owned path with every
   accessor read, and the buffer path (the zero-copy claim and the NaN-fill cost); heap criterion (SC-002: dhat, process per scenario, N = 3, plus the
   allocation-count comparison as positive control) and wall-time criterion (SC-003: N = 5 warm with
@@ -217,22 +217,22 @@ The lock and `Send` change this story relies on is T011 (foundational).
   backends, `iDopaNeuroC_problem_LP`; output location resolved through `project.yml`
   (`structure.generated` plus the feature name) instead of the hard-coded feature-003 path; record
   effective parameters, versions, tree state, machine, profile.
-- [ ] T018 Link demonstration (SC-007): first write the building-and-linking part of
+- [x] T018 Link demonstration (SC-007): first write the building-and-linking part of
   `docs/llm-interface.md` (compile, link and run-time flags; vendor libraries needed at load time
   and never shipped); then `tests/c/minimal.c`, release build, compile and run with exactly those
   documented flags, static and shared; commands and output in the run bundle.
 
 ## Phase 9: Polish and closeout
 
-- [ ] T019 `docs/llm-interface.md`: the rest of the C interface section (every function, type and
+- [x] T019 `docs/llm-interface.md`: the rest of the C interface section (every function, type and
   constant; ownership; threads; versioning; panic hook), `memory_limit_gb`, Threading (`Send`).
-- [ ] T020 `docs/architecture/components.yaml` reconciled with the delta; `boundaries.yaml` gains
+- [x] T020 `docs/architecture/components.yaml` reconciled with the delta; `boundaries.yaml` gains
   the delta's forbidden edges; ADR-0004 checked against what was built.
-- [ ] T021 In-gate checks: `cargo fmt --check`; clippy `-D warnings` and `cargo test` for every
+- [x] T021 In-gate checks: `cargo fmt --check`; clippy `-D warnings` and `cargo test` for every
   feature combination — `""`, `gurobi`, `mosek`, `gurobi,mosek`, `capi`, `capi,gurobi`,
   `capi,mosek`, `capi,gurobi,mosek` (additivity: VIII, Independence And Additive Backends); doc tests; Rust 1.85 build; extra build
   time of the new crate types measured; all logged to the run bundle.
-- [ ] T022 Implementation receipt; `human-loop.md`; closeout items (conic-dual check reported as a
+- [x] T022 Implementation receipt; `human-loop.md`; closeout items (conic-dual check reported as a
   repaired defect; consumer adoption routed; User Story 3 wording); hand-back facts for the
   consumer.
 

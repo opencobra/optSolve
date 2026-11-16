@@ -6,6 +6,9 @@
 
 #![allow(dead_code, missing_docs)]
 
+pub mod ccompiler;
+#[cfg(feature = "capi")]
+pub mod cdata;
 pub mod compare;
 pub mod f002;
 pub mod fake_backend;

@@ -43,10 +43,15 @@ fn code_lines(text: &str) -> impl Iterator<Item = &str> {
 /// Backend module directories, each with its own `ffi.rs` and `params.rs`.
 const BACKENDS: [&str; 2] = ["src/gurobi/", "src/mosek/"];
 
+/// FFI modules where `unsafe` and `extern "C"` definitions may appear (constitution VII-A): the
+/// backends, and the C interface (feature 005, ADR-0004 decision 7), which defines exported
+/// functions but declares no extern block.
+const FFI_MODULES: [&str; 3] = ["src/gurobi/", "src/mosek/", "src/capi/"];
+
 #[test]
 fn unsafe_and_extern_only_in_backend_modules() {
     for (path, text) in sources() {
-        if BACKENDS.iter().any(|b| path.starts_with(b)) {
+        if FFI_MODULES.iter().any(|b| path.starts_with(b)) {
             continue;
         }
         for line in code_lines(&text) {
@@ -281,4 +286,144 @@ fn interface_document_check_catches_omissions() {
     assert_eq!(missing_from_document(doc, &ids), ["T"]);
     let doc = format!("{doc} The trait `T`.");
     assert!(missing_from_document(&doc, &ids).is_empty());
+}
+
+// ---------------------------------------------------------------------------------------------
+// Feature 005 (tasks T002, T011): the C interface's entry points contain panics; Gurobi's
+// environment lifecycle calls stay behind the lock; the interface document names the header.
+
+/// Exported C functions in `text` whose body does not begin with `guard(` or `contain(`.
+fn unguarded_entry_points(text: &str) -> Vec<String> {
+    let mut bad = Vec::new();
+    let mut rest = text;
+    while let Some(i) = rest.find("extern \"C\" fn ") {
+        let d = &rest[i + "extern \"C\" fn ".len()..];
+        let name: String = d
+            .chars()
+            .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')
+            .collect();
+        let Some(open) = d.find('{') else { break };
+        let body = d[open + 1..].trim_start();
+        if !(body.starts_with("guard(") || body.starts_with("contain(")) {
+            bad.push(name);
+        }
+        rest = &d[open..];
+    }
+    bad
+}
+
+#[test]
+fn every_c_entry_point_contains_panics() {
+    let mut bad = Vec::new();
+    for (path, text) in sources() {
+        if path.starts_with("src/capi/") {
+            bad.extend(
+                unguarded_entry_points(&text)
+                    .into_iter()
+                    .map(|n| format!("{path}: {n}")),
+            );
+        }
+    }
+    assert!(
+        bad.is_empty(),
+        "entry points not inside guard/contain: {bad:?}"
+    );
+}
+
+#[test]
+fn entry_point_check_catches_an_unguarded_function() {
+    let src = "pub extern \"C\" fn a() -> i32 {\n    guard(|| Ok(()))\n}\n\
+               pub unsafe extern \"C\" fn b(x: i32) -> i32 {\n    x + 1\n}\n";
+    assert_eq!(unguarded_entry_points(src), ["b"]);
+}
+
+/// Gurobi's environment lifecycle functions (feature 005 research R3).
+const LIFECYCLE: [&str; 3] = ["GRBemptyenvinternal", "GRBstartenv", "GRBfreeenv"];
+
+/// Files other than `src/gurobi/env.rs` and `src/gurobi/ffi.rs` naming a lifecycle function in
+/// code.
+fn lifecycle_outside_env(files: &[(String, String)]) -> Vec<String> {
+    let mut bad = Vec::new();
+    for (path, text) in files {
+        if path == "src/gurobi/env.rs" || path == "src/gurobi/ffi.rs" {
+            continue;
+        }
+        for line in code_lines(text) {
+            for f in LIFECYCLE {
+                let hit = line.match_indices(f).any(|(i, _)| {
+                    !line[i + f.len()..]
+                        .starts_with(|c: char| c.is_ascii_alphanumeric() || c == '_')
+                        && !line[..i].ends_with('`')
+                });
+                if hit {
+                    bad.push(format!("{path}: {line}"));
+                }
+            }
+        }
+    }
+    bad
+}
+
+#[test]
+fn gurobi_lifecycle_calls_only_in_env_module() {
+    let bad = lifecycle_outside_env(&sources());
+    assert!(
+        bad.is_empty(),
+        "Gurobi environment lifecycle calls outside src/gurobi/env.rs: {bad:?}"
+    );
+}
+
+#[test]
+fn lifecycle_check_catches_a_stray_call() {
+    let files = vec![
+        (
+            "src/gurobi/env.rs".to_string(),
+            "unsafe { ffi::GRBfreeenv(p) };".to_string(),
+        ),
+        (
+            "src/gurobi/load.rs".to_string(),
+            "unsafe { ffi::GRBfreeenv(p) };".to_string(),
+        ),
+    ];
+    assert_eq!(lifecycle_outside_env(&files).len(), 1);
+}
+
+/// `optsolver_` and `OPTSOLVER_` names the header declares.
+fn header_names(h: &str) -> Vec<String> {
+    let mut names: Vec<String> = h
+        .split(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
+        .filter(|w| {
+            (w.starts_with("optsolver_") || w.starts_with("OPTSOLVER_"))
+                && *w != "OPTSOLVER_H"
+                && !w.ends_with('_')
+        })
+        .map(str::to_string)
+        .collect();
+    names.sort();
+    names.dedup();
+    names
+}
+
+#[test]
+fn interface_document_names_every_header_item() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let doc = fs::read_to_string(root.join("docs/llm-interface.md")).expect("interface document");
+    let h = fs::read_to_string(root.join("src/capi/optsolver.h")).expect("header");
+    let names = header_names(&h);
+    assert!(names.len() > 120, "found only {} header names", names.len());
+    let missing = missing_from_document(&doc, &names);
+    assert!(
+        missing.is_empty(),
+        "header names not in docs/llm-interface.md (in backticks): {missing:?}"
+    );
+}
+
+#[test]
+fn header_name_check_catches_omissions() {
+    let names = header_names("int32_t optsolver_a(void);\n#define OPTSOLVER_B 1\n");
+    assert_eq!(names, ["OPTSOLVER_B", "optsolver_a"]);
+    assert_eq!(
+        missing_from_document("`optsolver_a`", &names),
+        ["OPTSOLVER_B"]
+    );
 }

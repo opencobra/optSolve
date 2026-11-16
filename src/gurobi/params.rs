@@ -57,6 +57,10 @@ pub(crate) const MAPPINGS: &[OptionMapping] = &[
         vendor_parameters: &["InfUnbdInfo", "DualReductions"],
     },
     OptionMapping {
+        field: "memory_limit_gb",
+        vendor_parameters: &["SoftMemLimit"],
+    },
+    OptionMapping {
         field: "cancel",
         vendor_parameters: &[],
     },
@@ -235,6 +239,11 @@ pub(crate) fn apply(
     if let Some(v) = options.random_seed {
         r.int(c"Seed", v)?;
     }
+    if let Some(v) = options.memory_limit_gb {
+        // SoftMemLimit only (feature 005 research R2): a status, not an error; MemLimit stays
+        // reachable through the raw route.
+        r.dbl(c"SoftMemLimit", v)?;
+    }
     if options.certificates {
         r.int(c"InfUnbdInfo", 1)?;
         r.int(c"DualReductions", 0)?;
@@ -372,6 +381,7 @@ mod tests {
             random_seed: Some(0),
             solver_log: Some(false),
             certificates: true,
+            memory_limit_gb: Some(1.0),
             cancel: Some(&flag),
             progress: Some(&mut f),
             ..Options::default()
@@ -388,11 +398,13 @@ mod tests {
 
     #[test]
     fn configure_new_environment_sets_output_flag_zero_before_start() {
-        let raw = env::empty().expect("GRBemptyenv needs no licence");
-        configure_new_environment(raw.as_ptr()).expect("OutputFlag settable");
-        assert_eq!(get_int(raw.as_ptr(), c"OutputFlag"), 0);
-        // SAFETY: `raw` comes from `env::empty`, is owned here and freed exactly once.
-        unsafe { ffi::GRBfreeenv(raw.as_ptr()) };
+        env::lifecycle(|t| {
+            let raw = env::empty(t).expect("GRBemptyenv needs no licence");
+            configure_new_environment(raw.as_ptr()).expect("OutputFlag settable");
+            assert_eq!(get_int(raw.as_ptr(), c"OutputFlag"), 0);
+            // SAFETY: `raw` comes from `env::empty`, is owned here and freed exactly once.
+            unsafe { env::free(t, raw) };
+        });
     }
 
     #[test]

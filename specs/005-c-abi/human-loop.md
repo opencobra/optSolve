@@ -1,10 +1,10 @@
 # Human Loop State
 
 ## Current State
-- Status: Gate 1 PASS (review 4); Gate 2A PASS (review 8, APPROVE_WITH_ADR); tasks and analysis written; Gate 2 PASS (review 7); implementation in progress.
+- Status: Gate 1 PASS (review 4); Gate 2A PASS (review 8, APPROVE_WITH_ADR); tasks and analysis written; Gate 2 PASS (review 7); implementation T001–T022 complete and validated; Gate 3 review requested.
 - Active feature directory: specs/005-c-abi (worktree `../optSolver-005-c-abi`, branch `005-c-abi`)
 - Last completed bundle: Bundle 2 (up to Gate 2)
-- Source code modified by this workflow: no
+- Source code modified by this workflow: yes (approved scope T001–T022)
 - Committed: yes, on branch 005-c-abi before each gate review (a first attempt was refused by the
   session's tool permissions; a later attempt succeeded).
 
@@ -17,7 +17,7 @@
 - plan:           2026-11-15 — plan, research, data model, contract, quickstart, architecture delta, ADR-0004 (proposed)
 - tasks:          2026-11-16, after the Gate 2A PASS
 - analyze:        2026-11-16 (feature agent, speckit-analyze checks; summary in implementation-review.md)
-- implement:
+- implement:      2026-11-16, T001–T022 (agent-runs/20261116T022035Z-implement/implementation-receipt.md)
 
 ## Gate Reviews And Decisions
 | Date (UTC) | Gate | Decision or verdict (with rationale) | Review file | Consequence |
@@ -44,6 +44,21 @@
 | 2026-11-16 | Gate 2 review 5 | FAIL, two findings: too-large dimension case not covered through C; link demonstration ordered before its flags were documented | gate-reviews/gate-2-20261116T012147Z.md | Repairs: T016 and T006 validation order; T018 documents flags first; contract states the validation order (A first). Observations folded in (UTF-8 string value, verification off, verdicts, leak-run stderr exception, MOSEK "before any solver call" defined) |
 | 2026-11-16 | Gate 2 review 6 | FAIL, two findings: too-large column case untested; principle numerals without names in tasks and analysis | gate-reviews/gate-2-20261116T012618Z.md | Repairs: column case in T016 with dimensions-first order; names beside numerals; contract `cols + 1`; verdict assertions added to T012 and T016 |
 | 2026-11-16 | Gate 2 review 7 | PASS; scope all tasks T001–T022 | gate-reviews/gate-2-20261116T013252Z.md | Implementation authorised for the approved scope. Observations routed to implementation (NULL top-level pointers, minimal.c prints the verdict, feature-003 benchmark comparison, scoped lint allowances, history section in env.rs, suppression-list home) and closeout (stale plan text) |
+| 2026-11-16 | Implementation | T001–T022 done; in-gate checks pass for all eight feature combinations; benchmark defect found and fixed (C path minimised a maximisation instance); wall-time comparison switched to alternating runs in one process | — | Gate 3 review requested |
+
+**Architecture reconciliation (constitution XIII-D)**: approved and implemented — capi,
+capi.header, test.c_interface; modified core.options, gurobi.env, mosek.env, gurobi.params,
+gurobi.solve, test.harness, bench.load_solve, docs.llm_interface, placement document, manifest,
+test.standards, test.header_conformance. Approved but not implemented — none. Implemented but not
+approved — none (the safe in-process helper `solve_lp_through_c` and `CEnv` live inside `capi`,
+as planned for T008/T017). Existing violations worsened — none. components.yaml and
+boundaries.yaml reconciled (T020).
+
+**Knowledge promotion (Gate 3 question)**: (1) "A benchmark comparing two call paths must build
+both from one problem description" — the sense defect; feature-specific to this bench, recorded
+in the receipt, no promotion. (2) The C-compiler discovery helper is now shared (tests/common).
+(3) The `#[doc(hidden)] pub mod` pattern for a second interface is recorded in ADR-0004. Nothing
+generalises into a rule.
 
 **Recorded deviation (Governance, "Commits Carry In-Flight Manual Work")**: commit 710ae9a
 (feature artefacts) did not include or list the eleven tracked governance changes then in the
@@ -73,7 +88,7 @@ rather than rewritten.
 ## Pointers
 - Exploration: none (direct request; see spec Exploration field)
 - Gate reviews: specs/005-c-abi/gate-reviews/
-- Implementation receipt(s):
+- Implementation receipt(s): specs/005-c-abi/agent-runs/20261116T022035Z-implement/implementation-receipt.md
 - Implementation review: specs/005-c-abi/implementation-review.md
 
 ## Open Risks and Ambiguities

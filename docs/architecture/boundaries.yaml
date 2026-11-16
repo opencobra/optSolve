@@ -14,3 +14,9 @@ forbidden_dependencies:
   - from: any module other than a backend's single parameter-applying function
     to: vendor parameter-setting functions
     principle: VII-G
+  - from: solver-neutral core or any solver backend
+    to: capi (the C interface)
+    principle: VIII; ADR-0004 (the C layer is above both and depended on by neither)
+  - from: capi (the C interface)
+    to: vendor declarations (ffi) or parameter-setting functions of any backend
+    principle: VII-G; ADR-0004 (the C layer reaches backends only through Backend and Env::new)

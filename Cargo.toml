@@ -8,10 +8,17 @@ description = "Zero-copy loading of large matrix-form optimisation problems into
 links = "gurobi"
 build = "build.rs"
 
+[lib]
+# The rlib is the Rust API; the static and shared libraries carry the C interface when the `capi`
+# feature is enabled (feature 005, ADR-0004). Cargo cannot select crate types by feature.
+crate-type = ["lib", "staticlib", "cdylib"]
+
 [features]
 default = []
 gurobi = []
 mosek = []
+# The C interface (src/capi/, header src/capi/optsolver.h); additive (constitution VIII).
+capi = []
 
 [dependencies]
 log = "0.4"
@@ -28,6 +35,11 @@ harness = false
 [[test]]
 name = "corpus"
 harness = false
+
+[[test]]
+name = "c_interface"
+harness = false
+required-features = ["capi"]
 
 [[bench]]
 name = "load_solve"

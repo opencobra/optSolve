@@ -2,7 +2,8 @@
 # Reconciled at feature 001 closeout against specs/001-core-gurobi-lp/architecture-delta.yaml
 # (ADR-0001), and in feature 002 (task T038) against specs/002-mosek-lp-qp-clp/
 # architecture-delta.yaml (ADR-0002), and in feature 003 (task T023) against
-# specs/003-llm-interface-toy-instances/architecture-delta.yaml (ADR-0003). Boundaries:
+# specs/003-llm-interface-toy-instances/architecture-delta.yaml (ADR-0003), and in feature 005
+# (task T020) against specs/005-c-abi/architecture-delta.yaml (ADR-0004). Boundaries:
 # boundaries.yaml.
 schema: 1
 components:
@@ -14,7 +15,7 @@ components:
     responsibility: cone types and kinds (ConeKind), validated conic data (F, g, cones), cone and dual-cone membership measures
   - id: core.options
     location: src/options.rs, src/options/check.rs
-    responsibility: options structure, the single declaration of optSolver defaults (VII-G), option, problem-class and cone-kind checks
+    responsibility: options structure (incl. the memory limit memory_limit_gb), the single declaration of optSolver defaults (VII-G), option, problem-class and cone-kind checks
   - id: core.result
     location: src/result.rs
     responsibility: solution (incl. split bound multipliers z_l, z_u and conic duals s), status vocabulary, limit reasons, basis, certificates
@@ -32,7 +33,7 @@ components:
     responsibility: the only Gurobi C declarations and constants
   - id: gurobi.env
     location: src/gurobi/env.rs
-    responsibility: owned Gurobi environment
+    responsibility: owned Gurobi environment (Send, not Sync); the environment-lifecycle lock serialising creation and freeing
   - id: gurobi.load
     location: src/gurobi/load.rs
     responsibility: bulk loading, ranged-row auxiliary columns, infinity mapping
@@ -41,7 +42,7 @@ components:
     responsibility: quadratic objective and second-order cones (auxiliary columns, quadratic constraints, F through a fixed buffer)
   - id: gurobi.params
     location: src/gurobi/params.rs
-    responsibility: the single function applying Gurobi parameters (VII-G)
+    responsibility: the single function applying Gurobi parameters (VII-G), incl. SoftMemLimit for the memory limit
   - id: gurobi.status
     location: src/gurobi/status.rs
     responsibility: total status translation
@@ -56,7 +57,7 @@ components:
     responsibility: the only MOSEK C declarations and constants (header-checked)
   - id: mosek.env
     location: src/mosek/env.rs
-    responsibility: owned MOSEK environment (licence checked out at creation), per-solve task
+    responsibility: owned MOSEK environment (Send, not Sync; licence checked out at creation), per-solve task
   - id: mosek.load
     location: src/mosek/load.rs
     responsibility: bulk loading of LP, QP and conic data into a task
@@ -75,9 +76,18 @@ components:
   - id: mosek.probes
     location: src/mosek/probes.rs
     responsibility: licensed probes of MOSEK behaviour the backend relies on (test only)
+  - id: capi
+    location: src/capi/mod.rs, src/capi/problem.rs, src/capi/env.rs, src/capi/result.rs
+    responsibility: the C interface — C entry points over the solver-independent API (problem, options, environments, solve, result, capabilities), panic containment with a silent wrapping panic hook, per-thread error messages; translation only (ADR-0004)
+  - id: capi.header
+    location: src/capi/optsolver.h
+    responsibility: the public C header, interface version 1.0 (types, constants, prototypes, ownership, thread and aliasing rules)
+  - id: test.c_interface
+    location: tests/c_interface.rs, tests/c/
+    responsibility: header agreement, C programs compiled against the header and run against the static and shared libraries, comparison with the Rust API, error paths, leak checks
   - id: test.harness
     location: tests/common/
-    responsibility: the shared test module (harness with heavy tier and backend pairs, MPS and JTASK readers, seeded objectives, fixtures, toy trials, cross-solver comparison with report, contract-level per-backend tests)
+    responsibility: the shared test module (harness with heavy tier and backend pairs, MPS and JTASK readers, seeded objectives, fixtures, toy trials, cross-solver comparison with report, contract-level per-backend tests, C compiler discovery, C-interface data exchange and the C-versus-Rust agreement rule)
   - id: test.corpus
     location: tests/fixtures/
     responsibility: frozen LP fixture iDopaNeuroC_problem_LP, derived QP record, variational kinetics CLP fixtures (JTASK), and small toy instances for every class and cone kind (MPS, JTASK), with provenance
@@ -101,4 +111,4 @@ components:
     responsibility: description of every corpus fixture (Tier 3)
   - id: bench.load_solve
     location: benches/load_solve.rs
-    responsibility: per-phase timing and dedicated-process memory measurement, per backend
+    responsibility: per-phase timing and dedicated-process memory measurement, per backend; C-path versus Rust-path suite (feature 005)
